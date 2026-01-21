@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Layout } from './components/Layout';
 import { Dashboard } from './pages/Dashboard';
@@ -12,28 +12,51 @@ import { SupplierForm } from './pages/Suppliers/SupplierForm';
 import { POS } from './pages/Sales/POS';
 import { CashFlow } from './pages/Finance/CashFlow';
 import { Chat } from './pages/Chat';
+import { Login } from './pages/Login';
 
 const PlaceholderPage = ({ title }: { title: string }) => (
   <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
     <div className="mb-8">
-      <h1 className="text-4xl font-black text-slate-950 tracking-tight">{title}</h1>
-      <p className="text-gray-500 font-medium mt-1">Módulo em desenvolvimento para a nova versão.</p>
+      <h1 className="text-3xl font-bold text-slate-950 tracking-tight">{title}</h1>
+      <p className="text-slate-500 font-medium mt-1">Módulo em desenvolvimento para a nova versão.</p>
     </div>
-    <div className="bg-white p-24 rounded-[2.5rem] border border-gray-100 shadow-sm flex flex-col items-center justify-center text-gray-300">
-       <div className="w-24 h-24 bg-gray-50 rounded-full flex items-center justify-center mb-6">
-          <svg width="40" height="40" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg>
+    <div className="bg-white p-24 rounded-[2rem] border border-gray-100 shadow-sm flex flex-col items-center justify-center text-gray-300">
+       <div className="w-20 h-20 bg-gray-50 rounded-2xl flex items-center justify-center mb-6">
+          <svg width="32" height="32" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg>
        </div>
-       <p className="text-lg font-bold italic tracking-tight">Módulo em Atualização</p>
+       <p className="text-base font-semibold italic tracking-tight text-slate-400">Módulo em Atualização</p>
     </div>
   </div>
 );
 
 const App: React.FC = () => {
+  // Estado de autenticação simples persistido no localStorage
+  const [isLoggedIn, setIsLoggedIn] = useState<boolean>(() => {
+    return localStorage.getItem('isLoggedIn') === 'true';
+  });
+
+  const handleLogin = () => {
+    setIsLoggedIn(true);
+    localStorage.setItem('isLoggedIn', 'true');
+  };
+
+  const handleLogout = () => {
+    setIsLoggedIn(false);
+    localStorage.removeItem('isLoggedIn');
+  };
+
+  // Se não estiver logado, renderiza apenas a tela de Login
+  if (!isLoggedIn) {
+    return <Login onLogin={handleLogin} />;
+  }
+
   return (
     <HashRouter>
-      <Layout onLogout={() => {}}>
+      <Layout onLogout={handleLogout}>
         <Routes>
+          {/* Rota Raiz garantida como Dashboard */}
           <Route path="/" element={<Dashboard />} />
+          
           <Route path="/pdv" element={<POS />} />
           <Route path="/chat" element={<Chat />} />
           <Route path="/clientes" element={<ClientList />} />
@@ -45,6 +68,8 @@ const App: React.FC = () => {
           <Route path="/pedidos" element={<PlaceholderPage title="Ordens de Serviço" />} />
           <Route path="/pedidos/novo" element={<OrderForm />} />
           <Route path="/lixeira" element={<PlaceholderPage title="Lixeira" />} />
+          
+          {/* Fallback para evitar telas em branco */}
           <Route path="*" element={<Navigate to="/" />} />
         </Routes>
       </Layout>
