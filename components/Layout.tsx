@@ -20,7 +20,10 @@ import {
   Store,
   Truck,
   ShoppingCart,
-  MessageSquare
+  MessageSquare,
+  Building2,
+  ShieldCheck,
+  FlaskConical
 } from 'lucide-react';
 import { useLocation, Link } from 'react-router-dom';
 
@@ -39,6 +42,11 @@ const menuItems: MenuItem[] = [
     icon: <ShoppingCart size={20} />, 
     path: '/pdv',
     highlight: true 
+  },
+  { 
+    title: 'Lojas / Unidades', 
+    icon: <Store size={20} />, 
+    path: '/lojas'
   },
   { 
     title: 'Chat Unidades', 
@@ -80,11 +88,12 @@ const menuItems: MenuItem[] = [
     icon: <ClipboardList size={20} />, 
     path: '/pedidos',
     submenu: [
-      { title: 'Listagem de OS', path: '/pedidos' },
-      { title: 'Abrir Nova OS', path: '/pedidos/novo' },
-      { title: 'Status Laboratório', path: '/pedidos/status' }
+      { title: 'Listagem Geral (Faturamento)', path: '/pedidos' },
+      { title: 'Laboratório / Produção', path: '/pedidos/laboratorio' },
+      { title: 'Abrir Nova OS', path: '/pedidos/novo' }
     ]
   },
+  { title: 'Auditoria', icon: <ShieldCheck size={20} />, path: '/auditoria' },
   { title: 'Lixeira', icon: <Trash2 size={20} />, path: '/lixeira' },
 ];
 
@@ -100,7 +109,7 @@ export const Layout: React.FC<{ children: React.ReactNode; onLogout: () => void 
     );
   };
 
-  const isActive = (path: string) => location.pathname === path;
+  const isActive = (path: string) => location.pathname === path || (path !== '/' && location.pathname.startsWith(path));
 
   useEffect(() => {
     setIsMobileMenuOpen(false);

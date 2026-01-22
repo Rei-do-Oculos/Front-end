@@ -3,14 +3,44 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
 
-const rootElement = document.getElementById('root');
-if (!rootElement) {
-  throw new Error("Could not find root element to mount to");
-}
+console.log("🚀 Sistema Rei do Óculos: Iniciando bootstrap...");
 
-const root = ReactDOM.createRoot(rootElement);
-root.render(
-  <React.StrictMode>
-    <App />
-  </React.StrictMode>
-);
+const mountApp = () => {
+  const rootElement = document.getElementById('root');
+  
+  if (!rootElement) {
+    console.error("❌ Erro crítico: Elemento #root não encontrado no DOM.");
+    return;
+  }
+
+  try {
+    const root = ReactDOM.createRoot(rootElement);
+    root.render(
+      <React.StrictMode>
+        <App />
+      </React.StrictMode>
+    );
+    console.log("✅ Sistema renderizado com sucesso.");
+  } catch (error) {
+    console.error("❌ Erro ao renderizar o React:", error);
+    rootElement.innerHTML = `
+      <div style="padding: 40px; text-align: center; font-family: sans-serif;">
+        <h1 style="color: #ef4444;">Erro ao Carregar</h1>
+        <p>Houve um problema técnico ao iniciar o sistema.</p>
+        <code style="background: #f1f1f1; padding: 10px; border-radius: 5px; display: block; margin-top: 20px;">
+          ${error instanceof Error ? error.message : String(error)}
+        </code>
+        <button onclick="window.location.reload()" style="margin-top: 20px; padding: 10px 20px; background: #ef4444; color: white; border: none; border-radius: 8px; cursor: pointer;">
+          Tentar Novamente
+        </button>
+      </div>
+    `;
+  }
+};
+
+// Garante que o DOM está pronto
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', mountApp);
+} else {
+  mountApp();
+}

@@ -7,8 +7,14 @@ import { ClientList } from './pages/Clients/ClientList';
 import { ClientForm } from './pages/Clients/ClientForm';
 import { StockList } from './pages/Stock/StockList';
 import { OrderForm } from './pages/Orders/OrderForm';
+import { OrderList } from './pages/Orders/OrderList';
+import { LabOrders } from './pages/Orders/LabOrders';
 import { SupplierList } from './pages/Suppliers/SupplierList';
 import { SupplierForm } from './pages/Suppliers/SupplierForm';
+import { StoreList } from './pages/Stores/StoreList';
+import { StoreForm } from './pages/Stores/StoreForm';
+import { StoreDetail } from './pages/Stores/StoreDetail';
+import { AuditList } from './pages/Audit/AuditList';
 import { POS } from './pages/Sales/POS';
 import { CashFlow } from './pages/Finance/CashFlow';
 import { Chat } from './pages/Chat';
@@ -30,7 +36,6 @@ const PlaceholderPage = ({ title }: { title: string }) => (
 );
 
 const App: React.FC = () => {
-  // Estado de autenticação simples persistido no localStorage
   const [isLoggedIn, setIsLoggedIn] = useState<boolean>(() => {
     return localStorage.getItem('isLoggedIn') === 'true';
   });
@@ -45,7 +50,6 @@ const App: React.FC = () => {
     localStorage.removeItem('isLoggedIn');
   };
 
-  // Se não estiver logado, renderiza apenas a tela de Login
   if (!isLoggedIn) {
     return <Login onLogin={handleLogin} />;
   }
@@ -54,10 +58,11 @@ const App: React.FC = () => {
     <HashRouter>
       <Layout onLogout={handleLogout}>
         <Routes>
-          {/* Rota Raiz garantida como Dashboard */}
           <Route path="/" element={<Dashboard />} />
-          
           <Route path="/pdv" element={<POS />} />
+          <Route path="/lojas" element={<StoreList />} />
+          <Route path="/lojas/novo" element={<StoreForm />} />
+          <Route path="/lojas/:id" element={<StoreDetail />} />
           <Route path="/chat" element={<Chat />} />
           <Route path="/clientes" element={<ClientList />} />
           <Route path="/clientes/novo" element={<ClientForm />} />
@@ -65,11 +70,11 @@ const App: React.FC = () => {
           <Route path="/fornecedores" element={<SupplierList />} />
           <Route path="/fornecedores/novo" element={<SupplierForm />} />
           <Route path="/financeiro" element={<CashFlow />} />
-          <Route path="/pedidos" element={<PlaceholderPage title="Ordens de Serviço" />} />
+          <Route path="/pedidos" element={<OrderList />} />
+          <Route path="/pedidos/laboratorio" element={<LabOrders />} />
           <Route path="/pedidos/novo" element={<OrderForm />} />
+          <Route path="/auditoria" element={<AuditList />} />
           <Route path="/lixeira" element={<PlaceholderPage title="Lixeira" />} />
-          
-          {/* Fallback para evitar telas em branco */}
           <Route path="*" element={<Navigate to="/" />} />
         </Routes>
       </Layout>
