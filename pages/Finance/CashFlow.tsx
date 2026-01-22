@@ -20,19 +20,27 @@ import {
   Plus
 } from 'lucide-react';
 import { StatCard, Card, Button, Badge, Input, Select } from '../../components/Common';
-import { 
-  BarChart, 
-  Bar, 
-  XAxis, 
-  YAxis, 
-  CartesianGrid, 
-  Tooltip, 
-  ResponsiveContainer,
+import { Bar, Doughnut } from 'react-chartjs-2';
+import {
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  BarElement,
+  ArcElement,
+  Title,
+  Tooltip,
   Legend,
-  PieChart,
-  Pie,
-  Cell
-} from 'recharts';
+} from 'chart.js';
+
+ChartJS.register(
+  CategoryScale,
+  LinearScale,
+  BarElement,
+  ArcElement,
+  Title,
+  Tooltip,
+  Legend
+);
 
 const weeklyData = [
   { name: 'Seg', entradas: 4200, saidas: 2100 },
@@ -133,49 +141,107 @@ export const CashFlow: React.FC = () => {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <Card title="Volume de Vendas Semanal" subtitle="Entradas vs Saídas consolidadas" className="lg:col-span-2">
           <div className="h-[350px] w-full mt-6">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={weeklyData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
-                <defs>
-                  <linearGradient id="colorEntrada" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#ef4444" stopOpacity={1}/>
-                    <stop offset="95%" stopColor="#b91c1c" stopOpacity={1}/>
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fontSize: 10, fontWeight: 500, fill: '#64748b'}} />
-                <YAxis axisLine={false} tickLine={false} tick={{fontSize: 10, fontWeight: 500, fill: '#94a3b8'}} />
-                <Tooltip 
-                  cursor={{fill: '#f8fafc'}}
-                  contentStyle={{ borderRadius: '15px', border: 'none', boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.1)' }} 
-                />
-                <Legend iconType="circle" wrapperStyle={{ fontSize: '10px', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '1px' }} />
-                <Bar dataKey="entradas" name="Receitas" fill="url(#colorEntrada)" radius={[4, 4, 0, 0]} barSize={20} />
-                <Bar dataKey="saidas" name="Despesas" fill="#334155" radius={[4, 4, 0, 0]} barSize={20} />
-              </BarChart>
-            </ResponsiveContainer>
+            <Bar
+              data={{
+                labels: weeklyData.map(d => d.name),
+                datasets: [
+                  {
+                    label: 'Receitas',
+                    data: weeklyData.map(d => d.entradas),
+                    backgroundColor: '#ef4444',
+                    borderRadius: 4,
+                  },
+                  {
+                    label: 'Despesas',
+                    data: weeklyData.map(d => d.saidas),
+                    backgroundColor: '#334155',
+                    borderRadius: 4,
+                  },
+                ],
+              }}
+              options={{
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                  legend: {
+                    position: 'top' as const,
+                    labels: {
+                      font: { size: 10, weight: 'bold' },
+                      textTransform: 'uppercase',
+                      letterSpacing: '1px',
+                      color: '#64748b',
+                    },
+                  },
+                  tooltip: {
+                    backgroundColor: 'white',
+                    borderColor: '#e2e8f0',
+                    borderWidth: 1,
+                    titleColor: '#1e293b',
+                    bodyColor: '#475569',
+                    padding: 12,
+                    cornerRadius: 15,
+                    boxPadding: 6,
+                  },
+                },
+                scales: {
+                  x: {
+                    grid: {
+                      display: false,
+                    },
+                    ticks: {
+                      font: { size: 10, weight: '500' },
+                      color: '#64748b',
+                    },
+                  },
+                  y: {
+                    grid: {
+                      color: '#f1f5f9',
+                    },
+                    ticks: {
+                      font: { size: 10, weight: '500' },
+                      color: '#94a3b8',
+                    },
+                  },
+                },
+              }}
+            />
           </div>
         </Card>
 
         <Card title="Share por Unidade" subtitle="Participação no faturamento">
            <div className="h-[280px] w-full mt-4">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={storePerformance}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={70}
-                    outerRadius={90}
-                    paddingAngle={6}
-                    dataKey="value"
-                  >
-                    {storePerformance.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.color} stroke="none" />
-                    ))}
-                  </Pie>
-                  <Tooltip />
-                </PieChart>
-              </ResponsiveContainer>
+              <Doughnut
+                data={{
+                  labels: storePerformance.map(s => s.name),
+                  datasets: [
+                    {
+                      data: storePerformance.map(s => s.value),
+                      backgroundColor: storePerformance.map(s => s.color),
+                      borderWidth: 0,
+                    },
+                  ],
+                }}
+                options={{
+                  responsive: true,
+                  maintainAspectRatio: false,
+                  cutout: '70%',
+                  plugins: {
+                    legend: {
+                      display: false,
+                    },
+                    tooltip: {
+                      backgroundColor: 'white',
+                      borderColor: '#e2e8f0',
+                      borderWidth: 1,
+                      titleColor: '#1e293b',
+                      bodyColor: '#475569',
+                      padding: 12,
+                      cornerRadius: 15,
+                      boxPadding: 6,
+                    },
+                  },
+                }}
+              />
            </div>
            <div className="space-y-3 mt-6">
               {storePerformance.map((store) => (
