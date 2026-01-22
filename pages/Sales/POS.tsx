@@ -142,7 +142,7 @@ export const POS: React.FC = () => {
                     <span className="text-xs font-black w-4 text-center">{item.quantity}</span>
                     <button onClick={() => updateQuantity(item.id, 1)} className="p-1 hover:text-red-600 transition-colors"><Plus size={12} /></button>
                   </div>
-                  <button onClick={() => removeFromCart(item.id)} className="p-2 text-slate-300 hover:text-red-600 transition-colors">
+                  <button title="Remover do carrinho" onClick={() => removeFromCart(item.id)} className="p-2 text-slate-300 hover:text-red-600 transition-colors">
                     <Trash2 size={16} />
                   </button>
                 </div>

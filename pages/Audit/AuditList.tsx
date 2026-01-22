@@ -135,6 +135,7 @@ export const AuditList: React.FC = () => {
           <table className="w-full border-separate border-spacing-0">
             <thead>
               <tr className="bg-slate-50/50">
+                <th className="px-8 py-5 text-left text-[10px] font-black uppercase text-slate-400 tracking-widest border-b border-slate-100">ID</th>
                 <th className="px-8 py-5 text-left text-[10px] font-black uppercase text-slate-400 tracking-widest border-b border-slate-100">Colaborador</th>
                 <th className="px-8 py-5 text-left text-[10px] font-black uppercase text-slate-400 tracking-widest border-b border-slate-100">Ação</th>
                 <th className="px-8 py-5 text-left text-[10px] font-black uppercase text-slate-400 tracking-widest border-b border-slate-100">Registro Afetado</th>
@@ -147,6 +148,9 @@ export const AuditList: React.FC = () => {
               {auditLogs.map((log) => (
                 <React.Fragment key={log.id}>
                   <tr className={`group transition-all duration-300 ${expandedRows.includes(log.id) ? 'bg-red-50/20' : 'hover:bg-slate-50/50'}`}>
+                    <td className="px-8 py-6">
+                      <p className="text-xs font-bold text-slate-400">#{log.id}</p>
+                    </td>
                     <td className="px-8 py-6">
                       <div className="flex items-center gap-4">
                         <img src={log.avatar} className="w-10 h-10 rounded-xl bg-white p-0.5 border border-slate-100 shadow-sm" alt={log.user} />
@@ -196,7 +200,7 @@ export const AuditList: React.FC = () => {
                   {/* Linha Expandida - Detalhes do Log */}
                   {expandedRows.includes(log.id) && (
                     <tr className="bg-red-50/10">
-                      <td colSpan={6} className="px-8 py-0">
+                      <td colSpan={7} className="px-8 py-0">
                         <div className="py-6 border-t border-red-100/30 animate-in slide-in-from-top-2 duration-300">
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                             <div className="space-y-4">

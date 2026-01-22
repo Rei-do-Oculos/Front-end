@@ -44,6 +44,7 @@ export const StockList: React.FC = () => {
           <table className="w-full">
             <thead>
               <tr className="border-b border-slate-100">
+                <th className="px-6 py-4 text-left text-[10px] font-black uppercase text-slate-400 tracking-widest">ID</th>
                 <th className="px-6 py-4 text-left text-[10px] font-black uppercase text-slate-400 tracking-widest">Código</th>
                 <th className="px-6 py-4 text-left text-[10px] font-black uppercase text-slate-400 tracking-widest">Descrição da Armação</th>
                 <th className="px-6 py-4 text-left text-[10px] font-black uppercase text-slate-400 tracking-widest">Tipo / Gênero</th>
@@ -54,6 +55,9 @@ export const StockList: React.FC = () => {
             <tbody className="divide-y divide-slate-50">
               {stockItems.map((item) => (
                 <tr key={item.id} className="group hover:bg-slate-50/50 transition-colors">
+                  <td className="px-6 py-5">
+                    <p className="text-xs font-bold text-slate-400">#{item.id}</p>
+                  </td>
                   <td className="px-6 py-5">
                     <p className="text-sm font-black text-slate-900">#{item.id}</p>
                   </td>
@@ -78,11 +82,11 @@ export const StockList: React.FC = () => {
                     <p className="text-xs font-black text-red-600 uppercase tracking-widest">{item.loc}</p>
                   </td>
                   <td className="px-6 py-5">
-                    <div className="flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <button className="p-2.5 text-slate-400 hover:text-red-600 hover:bg-white rounded-xl shadow-sm border border-transparent hover:border-slate-100 transition-all">
+                    <div className="flex items-center justify-center gap-2">
+                      <button title="Editar armação" className="p-2.5 text-slate-400 hover:text-red-600 hover:bg-white rounded-xl shadow-sm border border-transparent hover:border-slate-100 transition-all">
                         <Edit size={16} />
                       </button>
-                      <button className="p-2.5 text-slate-400 hover:text-amber-600 hover:bg-white rounded-xl shadow-sm border border-transparent hover:border-slate-100 transition-all">
+                      <button title="Transferir entre unidades" className="p-2.5 text-slate-400 hover:text-amber-600 hover:bg-white rounded-xl shadow-sm border border-transparent hover:border-slate-100 transition-all">
                         <ArrowRightLeft size={16} />
                       </button>
                     </div>

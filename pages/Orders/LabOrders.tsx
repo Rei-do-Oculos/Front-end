@@ -134,6 +134,7 @@ export const LabOrders: React.FC = () => {
           <table className="w-full">
             <thead>
               <tr className="bg-slate-50/50 border-b border-slate-100">
+                <th className="px-8 py-5 text-left text-[10px] font-black uppercase text-slate-400 tracking-widest">ID</th>
                 <th className="px-8 py-5 text-left text-[10px] font-black uppercase text-slate-400 tracking-widest">Protocolo / Cliente</th>
                 <th className="px-8 py-5 text-left text-[10px] font-black uppercase text-slate-400 tracking-widest">Lente / Lab</th>
                 <th className="px-8 py-5 text-left text-[10px] font-black uppercase text-slate-400 tracking-widest">Status Produção</th>
@@ -144,6 +145,9 @@ export const LabOrders: React.FC = () => {
             <tbody className="divide-y divide-slate-50">
               {orders.map((order) => (
                 <tr key={order.id} className="group hover:bg-slate-50/50 transition-all duration-300">
+                  <td className="px-8 py-6">
+                    <p className="text-xs font-bold text-slate-400">#{order.id}</p>
+                  </td>
                   <td className="px-8 py-6">
                     <div className="flex flex-col">
                       <div className="flex items-center gap-2 mb-1.5">
@@ -205,7 +209,7 @@ export const LabOrders: React.FC = () => {
                         </Button>
                       )}
                       
-                      <button className="p-2 text-slate-300 hover:text-slate-900 transition-colors">
+                      <button title="Ver detalhes completos" className="p-2 text-slate-300 hover:text-slate-900 transition-colors">
                         <ChevronRight size={18} />
                       </button>
                     </div>

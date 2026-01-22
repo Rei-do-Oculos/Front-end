@@ -72,6 +72,7 @@ export const StoreList: React.FC = () => {
           <table className="w-full border-collapse">
             <thead>
               <tr className="bg-slate-50/50 border-b border-slate-100">
+                <th className="px-8 py-5 text-left text-[10px] font-black uppercase text-slate-400 tracking-widest">ID</th>
                 <th className="px-8 py-5 text-left text-[10px] font-black uppercase text-slate-400 tracking-widest">Unidade</th>
                 <th className="px-8 py-5 text-left text-[10px] font-black uppercase text-slate-400 tracking-widest">Localização</th>
                 <th className="px-8 py-5 text-left text-[10px] font-black uppercase text-slate-400 tracking-widest">Equipe</th>
@@ -82,6 +83,9 @@ export const StoreList: React.FC = () => {
             <tbody className="divide-y divide-slate-50">
               {stores.map((store) => (
                 <tr key={store.id} className="group hover:bg-red-50/30 transition-all duration-300">
+                  <td className="px-8 py-6">
+                    <p className="text-xs font-bold text-slate-400">#{store.id}</p>
+                  </td>
                   <td className="px-8 py-6">
                     <div className="flex items-center gap-4">
                       <div 
@@ -123,7 +127,11 @@ export const StoreList: React.FC = () => {
                       >
                         Ver Unidade <ChevronRight size={14} />
                       </Link>
-                      <button className="p-2 text-slate-300 hover:text-slate-900 transition-colors">
+                      <button 
+                        title="Editar unidade"
+                        onClick={() => window.location.hash = `#/lojas/${store.id}/editar`}
+                        className="p-2 text-slate-300 hover:text-slate-900 transition-colors"
+                      >
                         <Edit size={18} />
                       </button>
                     </div>

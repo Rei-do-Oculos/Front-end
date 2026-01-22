@@ -43,6 +43,7 @@ export const SupplierList: React.FC = () => {
           <table className="w-full">
             <thead>
               <tr className="border-b border-slate-100">
+                <th className="px-6 py-4 text-left text-[10px] font-black uppercase text-slate-400 tracking-widest">ID</th>
                 <th className="px-6 py-4 text-left text-[10px] font-black uppercase text-slate-400 tracking-widest">Parceiro</th>
                 <th className="px-6 py-4 text-left text-[10px] font-black uppercase text-slate-400 tracking-widest">Especialidade</th>
                 <th className="px-6 py-4 text-left text-[10px] font-black uppercase text-slate-400 tracking-widest">Consultor / Contato</th>
@@ -53,6 +54,9 @@ export const SupplierList: React.FC = () => {
             <tbody className="divide-y divide-slate-50">
               {suppliers.map((sup) => (
                 <tr key={sup.id} className="group hover:bg-slate-50/50 transition-colors">
+                  <td className="px-6 py-5">
+                    <p className="text-xs font-bold text-slate-400">#{sup.id}</p>
+                  </td>
                   <td className="px-6 py-5">
                     <div className="flex items-center gap-4">
                        <div className="w-12 h-12 rounded-2xl bg-slate-100 flex items-center justify-center text-slate-400 group-hover:bg-red-50 group-hover:text-red-600 transition-colors">
@@ -79,11 +83,15 @@ export const SupplierList: React.FC = () => {
                     <Badge variant={sup.status === 'Ativo' ? 'success' : 'danger'}>{sup.status}</Badge>
                   </td>
                   <td className="px-6 py-5">
-                    <div className="flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <button className="p-2.5 text-slate-400 hover:bg-white hover:text-red-600 rounded-xl shadow-sm border border-transparent hover:border-slate-100 transition-all">
+                    <div className="flex items-center justify-center gap-2">
+                      <button 
+                        title="Editar fornecedor"
+                        onClick={() => window.location.hash = `#/fornecedores/${sup.id}/editar`}
+                        className="p-2.5 text-slate-400 hover:bg-white hover:text-red-600 rounded-xl shadow-sm border border-transparent hover:border-slate-100 transition-all"
+                      >
                         <Edit size={16} />
                       </button>
-                      <button className="p-2.5 text-slate-400 hover:bg-white hover:text-slate-900 rounded-xl shadow-sm border border-transparent hover:border-slate-100 transition-all">
+                      <button title="Ver detalhes completos" className="p-2.5 text-slate-400 hover:bg-white hover:text-slate-900 rounded-xl shadow-sm border border-transparent hover:border-slate-100 transition-all">
                         <ExternalLink size={16} />
                       </button>
                     </div>

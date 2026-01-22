@@ -264,7 +264,7 @@ export const CashFlow: React.FC = () => {
                           <Badge variant={t.status === 'Pago' ? 'success' : 'warning'}>{t.status}</Badge>
                         </td>
                         <td className="px-6 py-5 text-center">
-                          <button className="p-2 text-slate-300 hover:text-red-600 transition-colors">
+                          <button title="Mais ações" className="p-2 text-slate-300 hover:text-red-600 transition-colors">
                              <MoreVertical size={16} />
                           </button>
                         </td>

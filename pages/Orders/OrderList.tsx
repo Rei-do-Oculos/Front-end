@@ -151,6 +151,7 @@ export const OrderList: React.FC = () => {
           <table className="w-full">
             <thead>
               <tr className="bg-slate-50/50 border-b border-slate-100">
+                <th className="px-8 py-5 text-left text-[10px] font-black uppercase text-slate-400 tracking-widest">ID</th>
                 <th className="px-8 py-5 text-left text-[10px] font-black uppercase text-slate-400 tracking-widest">OS / Data</th>
                 <th className="px-8 py-5 text-left text-[10px] font-black uppercase text-slate-400 tracking-widest">Paciente</th>
                 <th className="px-8 py-5 text-left text-[10px] font-black uppercase text-slate-400 tracking-widest">Unidade</th>
@@ -162,6 +163,9 @@ export const OrderList: React.FC = () => {
             <tbody className="divide-y divide-slate-50">
               {mockOS.map((os) => (
                 <tr key={os.id} className="group hover:bg-slate-50/50 transition-all duration-300">
+                  <td className="px-8 py-6">
+                    <p className="text-xs font-bold text-slate-400">#{os.id}</p>
+                  </td>
                   <td className="px-8 py-6">
                     <div className="flex flex-col">
                       <span className="text-sm font-black text-slate-900">#{os.osNumber}</span>
@@ -193,11 +197,15 @@ export const OrderList: React.FC = () => {
                     <Badge variant={getStatusVariant(os.status)}>{os.status}</Badge>
                   </td>
                   <td className="px-8 py-6">
-                    <div className="flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100 transition-all">
+                    <div className="flex items-center justify-center gap-2 opacity-100 transition-all">
                       <button title="Visualizar" className="p-2 text-slate-400 hover:text-slate-900 hover:bg-white rounded-xl shadow-sm border border-transparent hover:border-slate-100 transition-all">
                         <Eye size={16} />
                       </button>
-                      <button title="Editar" className="p-2 text-slate-400 hover:text-red-600 hover:bg-white rounded-xl shadow-sm border border-transparent hover:border-slate-100 transition-all">
+                      <button 
+                        title="Editar"
+                        onClick={() => window.location.hash = `#/pedidos/${os.id}/editar`}
+                        className="p-2 text-slate-400 hover:text-red-600 hover:bg-white rounded-xl shadow-sm border border-transparent hover:border-slate-100 transition-all"
+                      >
                         <Edit size={16} />
                       </button>
                       <button title="Imprimir OS" className="p-2 text-slate-400 hover:text-slate-900 hover:bg-white rounded-xl shadow-sm border border-transparent hover:border-slate-100 transition-all">

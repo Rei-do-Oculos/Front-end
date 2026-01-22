@@ -1,9 +1,10 @@
 
 import React, { useState } from 'react';
 import { LucideIcon, Filter, ChevronDown, X, Search } from 'lucide-react';
+import { styles } from '../config/styles';
 
 export const Card: React.FC<{ children: React.ReactNode; className?: string; title?: string; subtitle?: string }> = ({ children, className = "", title, subtitle }) => (
-  <div className={`bg-white rounded-[1.5rem] lg:rounded-[2rem] border border-gray-100 shadow-sm overflow-hidden ${className}`}>
+  <div className={`bg-white ${styles.card.default} border border-gray-100 shadow-sm overflow-hidden ${className}`}>
     {(title || subtitle) && (
       <div className="px-5 py-4 lg:px-8 lg:py-6 border-b border-gray-50/50">
         {title && <h3 className="text-lg lg:text-xl font-bold text-slate-900 tracking-tight">{title}</h3>}
@@ -27,7 +28,7 @@ export const Button: React.FC<React.ButtonHTMLAttributes<HTMLButtonElement> & { 
 
   return (
     <button 
-      className={`px-4 py-2 lg:px-6 lg:py-2.5 rounded-xl lg:rounded-2xl font-semibold text-xs lg:text-sm transition-all duration-300 disabled:opacity-50 flex items-center justify-center gap-2 ${variants[variant]} ${className}`}
+      className={`px-4 py-2 lg:px-6 lg:py-2.5 ${styles.button.default} font-semibold text-xs lg:text-sm transition-all duration-300 disabled:opacity-50 flex items-center justify-center gap-2 ${variants[variant]} ${className}`}
       {...props}
     >
       {children}
@@ -39,7 +40,7 @@ export const Input: React.FC<React.InputHTMLAttributes<HTMLInputElement> & { lab
   <div className="space-y-1.5 lg:space-y-2 w-full">
     {label && <label className="text-[10px] lg:text-[11px] font-semibold text-slate-500 uppercase tracking-[0.15em] ml-1">{label}</label>}
     <input 
-      className={`w-full px-4 py-3 lg:px-5 lg:py-3.5 rounded-xl lg:rounded-2xl bg-gray-50 border border-gray-100 text-sm font-medium focus:bg-white focus:border-red-500 focus:ring-4 focus:ring-red-500/5 transition-all outline-none placeholder:text-gray-400 ${error ? 'border-red-300' : ''} ${className}`}
+      className={`w-full px-4 py-3 lg:px-5 lg:py-3.5 ${styles.input.default} bg-gray-50 border border-gray-100 text-sm font-medium focus:bg-white focus:border-red-500 focus:ring-4 focus:ring-red-500/5 transition-all outline-none placeholder:text-gray-400 ${error ? 'border-red-300' : ''} ${className}`}
       {...props}
     />
     {error && <p className="text-[10px] text-red-500 font-medium ml-1">{error}</p>}
@@ -51,7 +52,7 @@ export const Select: React.FC<React.SelectHTMLAttributes<HTMLSelectElement> & { 
     {label && <label className="text-[10px] lg:text-[11px] font-semibold text-slate-500 uppercase tracking-[0.15em] ml-1">{label}</label>}
     <div className="relative">
       <select 
-        className={`w-full px-4 py-3 lg:px-5 lg:py-3.5 rounded-xl lg:rounded-2xl bg-gray-50 border border-gray-100 text-sm font-medium focus:bg-white focus:border-red-500 focus:ring-4 focus:ring-red-500/5 transition-all outline-none appearance-none ${className}`}
+        className={`w-full px-4 py-3 lg:px-5 lg:py-3.5 ${styles.input.default} bg-gray-50 border border-gray-100 text-sm font-medium focus:bg-white focus:border-red-500 focus:ring-4 focus:ring-red-500/5 transition-all outline-none appearance-none ${className}`}
         {...props}
       >
         {options.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
@@ -64,11 +65,11 @@ export const Select: React.FC<React.SelectHTMLAttributes<HTMLSelectElement> & { 
 );
 
 export const StatCard: React.FC<{ title: string; value: string | number; icon: LucideIcon; color?: string; trend?: string }> = ({ title, value, icon: Icon, color = "red", trend }) => (
-  <div className="bg-white p-5 lg:p-8 rounded-[1.5rem] lg:rounded-[2.5rem] border border-gray-100 shadow-sm flex flex-col justify-between hover:shadow-xl hover:shadow-gray-200/50 hover:-translate-y-1 transition-all duration-300 group overflow-hidden relative">
+  <div className={`bg-white p-5 lg:p-8 ${styles.card.default} border border-gray-100 shadow-sm flex flex-col justify-between hover:shadow-xl hover:shadow-gray-200/50 hover:-translate-y-1 transition-all duration-300 group overflow-hidden relative`}>
     <div className={`absolute top-0 right-0 w-32 h-32 bg-${color}-500/5 rounded-full -mr-16 -mt-16 group-hover:scale-150 transition-transform duration-700`}></div>
     
     <div className="flex items-center justify-between mb-4 lg:mb-8">
-      <div className={`p-3 lg:p-4 rounded-xl lg:rounded-2xl bg-${color}-600/10 text-${color}-600`}>
+      <div className={`p-3 lg:p-4 ${styles.button.small} bg-${color}-600/10 text-${color}-600`}>
         <Icon size={20} className="lg:w-6 lg:h-6" strokeWidth={2} />
       </div>
       {trend && (
@@ -95,7 +96,7 @@ export const Badge: React.FC<{ children: React.ReactNode; variant?: 'primary' | 
   };
 
   return (
-    <span className={`px-2.5 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider ${variants[variant]}`}>
+    <span className={`px-2.5 py-0.5 ${styles.badge.default} text-[9px] font-bold uppercase tracking-wider ${variants[variant]}`}>
       {children}
     </span>
   );
@@ -108,7 +109,7 @@ export const FilterSection: React.FC<{ children: React.ReactNode; onApply?: () =
     <div className="mb-6 space-y-4">
       <button 
         onClick={() => setIsOpen(!isOpen)}
-        className={`flex items-center gap-3 px-6 py-3 rounded-2xl font-bold text-[10px] uppercase tracking-widest transition-all border ${
+        className={`flex items-center gap-3 px-6 py-3 ${styles.button.default} font-bold text-[10px] uppercase tracking-widest transition-all border ${
           isOpen ? 'bg-red-600 border-red-600 text-white shadow-lg shadow-red-200' : 'bg-white border-slate-100 text-slate-500 hover:bg-slate-50'
         }`}
       >
@@ -118,7 +119,7 @@ export const FilterSection: React.FC<{ children: React.ReactNode; onApply?: () =
       </button>
 
       {isOpen && (
-        <div className="bg-slate-50/50 border border-slate-100 rounded-[2rem] p-6 lg:p-8 animate-in slide-in-from-top-4 duration-300">
+        <div className={`bg-slate-50/50 border border-slate-100 ${styles.card.large} p-6 lg:p-8 animate-in slide-in-from-top-4 duration-300`}>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             {children}
           </div>

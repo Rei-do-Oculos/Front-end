@@ -219,7 +219,7 @@ export const StoreDetail: React.FC = () => {
                                  </div>
                               </td>
                               <td className="px-6 py-4 text-center">
-                                 <button className="p-2 text-slate-300 hover:text-slate-900"><MoreVertical size={16}/></button>
+                                 <button title="Mais opções" className="p-2 text-slate-300 hover:text-slate-900"><MoreVertical size={16}/></button>
                               </td>
                            </tr>
                          ))}

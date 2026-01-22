@@ -5,6 +5,7 @@ import { Layout } from './components/Layout';
 import { Dashboard } from './pages/Dashboard';
 import { ClientList } from './pages/Clients/ClientList';
 import { ClientForm } from './pages/Clients/ClientForm';
+import { ClientHistory } from './pages/Clients/ClientHistory';
 import { StockList } from './pages/Stock/StockList';
 import { OrderForm } from './pages/Orders/OrderForm';
 import { OrderList } from './pages/Orders/OrderList';
@@ -14,9 +15,16 @@ import { SupplierForm } from './pages/Suppliers/SupplierForm';
 import { StoreList } from './pages/Stores/StoreList';
 import { StoreForm } from './pages/Stores/StoreForm';
 import { StoreDetail } from './pages/Stores/StoreDetail';
+import { SellerList } from './pages/Sellers/SellerList';
+import { SellerForm } from './pages/Sellers/SellerForm';
+import { SellerDetail } from './pages/Sellers/SellerDetail';
 import { AuditList } from './pages/Audit/AuditList';
 import { POS } from './pages/Sales/POS';
 import { CashFlow } from './pages/Finance/CashFlow';
+import { Inadimplencias } from './pages/Finance/Inadimplencias';
+import { Permissions } from './pages/Permissions/Permissions';
+import { BrandList } from './pages/Brands/BrandList';
+import { BrandForm } from './pages/Brands/BrandForm';
 import { Chat } from './pages/Chat';
 import { Login } from './pages/Login';
 
@@ -62,17 +70,31 @@ const App: React.FC = () => {
           <Route path="/pdv" element={<POS />} />
           <Route path="/lojas" element={<StoreList />} />
           <Route path="/lojas/novo" element={<StoreForm />} />
+          <Route path="/lojas/:id/editar" element={<StoreForm />} />
           <Route path="/lojas/:id" element={<StoreDetail />} />
           <Route path="/chat" element={<Chat />} />
           <Route path="/clientes" element={<ClientList />} />
           <Route path="/clientes/novo" element={<ClientForm />} />
+          <Route path="/clientes/:id/editar" element={<ClientForm />} />
+          <Route path="/clientes/:id" element={<ClientHistory />} />
+          <Route path="/vendedores" element={<SellerList />} />
+          <Route path="/vendedores/novo" element={<SellerForm />} />
+          <Route path="/vendedores/:id/editar" element={<SellerForm />} />
+          <Route path="/vendedores/:id" element={<SellerDetail />} />
           <Route path="/estoque" element={<StockList />} />
           <Route path="/fornecedores" element={<SupplierList />} />
           <Route path="/fornecedores/novo" element={<SupplierForm />} />
+          <Route path="/fornecedores/:id/editar" element={<SupplierForm />} />
+          <Route path="/lentes" element={<BrandList />} />
+          <Route path="/lentes/novo" element={<BrandForm />} />
+          <Route path="/lentes/:id/editar" element={<BrandForm />} />
           <Route path="/financeiro" element={<CashFlow />} />
+          <Route path="/financeiro/inadimplencias" element={<Inadimplencias />} />
           <Route path="/pedidos" element={<OrderList />} />
           <Route path="/pedidos/laboratorio" element={<LabOrders />} />
           <Route path="/pedidos/novo" element={<OrderForm />} />
+          <Route path="/pedidos/:id/editar" element={<OrderForm />} />
+          <Route path="/permissoes" element={<Permissions />} />
           <Route path="/auditoria" element={<AuditList />} />
           <Route path="/lixeira" element={<PlaceholderPage title="Lixeira" />} />
           <Route path="*" element={<Navigate to="/" />} />

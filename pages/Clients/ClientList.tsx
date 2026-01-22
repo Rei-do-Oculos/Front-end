@@ -39,7 +39,7 @@ export const ClientList: React.FC = () => {
             <thead>
               <tr className="border-b border-slate-100">
                 <th className="px-6 py-4 text-left text-[10px] font-black uppercase text-slate-400 tracking-widest">ID</th>
-                <th className="px-6 py-4 text-left text-[10px] font-black uppercase text-slate-400 tracking-widest">Nome do Paciente</th>
+                <th className="px-6 py-4 text-left text-[10px] font-black uppercase text-slate-400 tracking-widest">Nome do Cliente</th>
                 <th className="px-6 py-4 text-left text-[10px] font-black uppercase text-slate-400 tracking-widest">CPF</th>
                 <th className="px-6 py-4 text-left text-[10px] font-black uppercase text-slate-400 tracking-widest">Contato</th>
                 <th className="px-6 py-4 text-left text-[10px] font-black uppercase text-slate-400 tracking-widest">Cadastro</th>
@@ -65,17 +65,35 @@ export const ClientList: React.FC = () => {
                   </td>
                   <td className="px-6 py-4 text-[10px] font-medium text-slate-400">{client.date}</td>
                   <td className="px-6 py-4">
-                    <div className="flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <button className="p-2 text-slate-400 hover:text-red-600 hover:bg-white rounded-xl shadow-sm border border-transparent hover:border-slate-100 transition-all">
+                    <div className="flex items-center justify-center gap-2">
+                      <button 
+                        title="Editar cliente"
+                        onClick={() => window.location.hash = `#/clientes/${client.id}/editar`}
+                        className="p-2 text-slate-400 hover:text-red-600 hover:bg-white rounded-xl shadow-sm border border-transparent hover:border-slate-100 transition-all"
+                      >
                         <Edit size={16} />
                       </button>
-                      <button className="p-2 text-slate-400 hover:text-sky-600 hover:bg-white rounded-xl shadow-sm border border-transparent hover:border-slate-100 transition-all">
+                      <button title="Ver histórico" className="p-2 text-slate-400 hover:text-sky-600 hover:bg-white rounded-xl shadow-sm border border-transparent hover:border-slate-100 transition-all">
                         <FileText size={16} />
                       </button>
-                      <button className="p-2 text-slate-400 hover:text-slate-900 hover:bg-white rounded-xl shadow-sm border border-transparent hover:border-slate-100 transition-all">
+                      <button 
+                        title="Ver histórico"
+                        onClick={() => window.location.hash = `#/clientes/${client.id}`}
+                        className="p-2 text-slate-400 hover:text-slate-900 hover:bg-white rounded-xl shadow-sm border border-transparent hover:border-slate-100 transition-all"
+                      >
                         <Eye size={16} />
                       </button>
-                      <button className="p-2 text-slate-400 hover:text-red-600 hover:bg-white rounded-xl shadow-sm border border-transparent hover:border-slate-100 transition-all">
+                      <button 
+                        title="Excluir cliente"
+                        onClick={() => {
+                          if (window.confirm(`Tem certeza que deseja excluir o cliente "${client.name}"?`)) {
+                            // Aqui seria a chamada da API para deletar
+                            console.log('Deletando cliente:', client.id);
+                            alert('Cliente excluído com sucesso!');
+                          }
+                        }}
+                        className="p-2 text-slate-400 hover:text-red-600 hover:bg-white rounded-xl shadow-sm border border-transparent hover:border-slate-100 transition-all"
+                      >
                         <Trash2 size={16} />
                       </button>
                     </div>

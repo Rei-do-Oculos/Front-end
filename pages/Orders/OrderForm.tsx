@@ -1,11 +1,50 @@
 
-import React, { useState } from 'react';
-// Added DollarSign to the imports from lucide-react
-import { Save, ArrowLeft, Upload, FileText, Smartphone, Beaker, Truck, CheckCircle2, DollarSign } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Save, ArrowLeft, Upload, FileText, Smartphone, Beaker, Truck, CheckCircle2, DollarSign, Trash2 } from 'lucide-react';
 import { Card, Button, Input, Select, Badge } from '../../components/Common';
+import { useParams } from 'react-router-dom';
+
+// Mock de dados - substituir por chamada de API
+const mockOrders = [
+  { id: '39832', client: 'Maria das Graças', doctor: 'Dr. João Silva', crm: '12345-PR', status: 'pendente' },
+];
 
 export const OrderForm: React.FC = () => {
+  const { id } = useParams();
+  const isEditMode = !!id;
   const [status, setStatus] = useState('pendente');
+  const [formData, setFormData] = useState({
+    client: '',
+    doctor: '',
+    crm: '',
+  });
+
+  useEffect(() => {
+    if (isEditMode) {
+      const order = mockOrders.find(o => o.id === id);
+      if (order) {
+        setStatus(order.status);
+        setFormData({
+          client: order.client,
+          doctor: order.doctor,
+          crm: order.crm,
+        });
+      }
+    }
+  }, [id, isEditMode]);
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    console.log(isEditMode ? 'Atualizando pedido:' : 'Criando pedido:', { ...formData, status });
+    window.history.back();
+  };
+
+  const handleDelete = () => {
+    if (window.confirm('Tem certeza que deseja excluir esta ordem de serviço?')) {
+      console.log('Deletando pedido:', id);
+      window.location.hash = '#/pedidos';
+    }
+  };
 
   const RxField = ({ label, side }: { label: string; side: string }) => (
     <div className="space-y-3 p-4 rounded-2xl bg-slate-50/50 border border-slate-100">
@@ -19,18 +58,27 @@ export const OrderForm: React.FC = () => {
   );
 
   return (
-    <div className="space-y-8 animate-in fade-in duration-500 pb-32">
+    <div className="max-w-7xl mx-auto space-y-8 animate-in fade-in duration-500 pb-32 px-4 lg:px-6">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div>
-          <h1 className="text-3xl font-black text-slate-950 tracking-tight">Nova Ordem de Serviço</h1>
-          <p className="text-gray-500 font-medium mt-1">Configure as lentes, armação e status da produção.</p>
+          <h1 className="text-3xl font-black text-slate-950 tracking-tight">
+            {isEditMode ? 'Editar Ordem de Serviço' : 'Nova Ordem de Serviço'}
+          </h1>
+          <p className="text-gray-500 font-medium mt-1">
+            {isEditMode ? 'Atualize os dados da ordem de serviço' : 'Configure as lentes, armação e status da produção.'}
+          </p>
         </div>
         <div className="flex gap-3">
+          {isEditMode && (
+            <Button variant="outline" onClick={handleDelete} className="text-red-600 hover:text-red-700 hover:bg-red-50">
+              <Trash2 size={18} /> Excluir
+            </Button>
+          )}
           <Button variant="outline" onClick={() => window.history.back()}>
             <ArrowLeft size={18} /> Cancelar
           </Button>
-          <Button className="shadow-red-600/20">
-            <Save size={18} /> Salvar Pedido
+          <Button onClick={handleSubmit} className="shadow-red-600/20">
+            <Save size={18} /> {isEditMode ? 'Atualizar' : 'Salvar'} Pedido
           </Button>
         </div>
       </div>
@@ -40,10 +88,25 @@ export const OrderForm: React.FC = () => {
           <Card title="Dados do Paciente">
              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="md:col-span-2">
-                  <Input label="Cliente (Busca automática)" placeholder="Digite nome, CPF ou Celular..." />
+                  <Input 
+                    label="Cliente (Busca automática)" 
+                    placeholder="Digite nome, CPF ou Celular..."
+                    value={formData.client}
+                    onChange={(e) => setFormData({ ...formData, client: e.target.value })}
+                  />
                 </div>
-                <Input label="Médico / Oftalmologista" placeholder="Dr. Nome do Médico" />
-                <Input label="CRM Médico" placeholder="000000-UF" />
+                <Input 
+                  label="Médico / Oftalmologista" 
+                  placeholder="Dr. Nome do Médico"
+                  value={formData.doctor}
+                  onChange={(e) => setFormData({ ...formData, doctor: e.target.value })}
+                />
+                <Input 
+                  label="CRM Médico" 
+                  placeholder="000000-UF"
+                  value={formData.crm}
+                  onChange={(e) => setFormData({ ...formData, crm: e.target.value })}
+                />
              </div>
           </Card>
 
