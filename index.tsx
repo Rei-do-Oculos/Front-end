@@ -5,6 +5,8 @@ import App from './App';
 
 console.log("🚀 Sistema Rei do Óculos: Iniciando bootstrap...");
 
+// O Service Worker será registrado automaticamente pelo vite-plugin-pwa
+
 const mountApp = () => {
   const rootElement = document.getElementById('root');
   

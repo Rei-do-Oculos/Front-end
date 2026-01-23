@@ -90,7 +90,8 @@ const menuItems: MenuItem[] = [
     path: '/financeiro',
     submenu: [
       { title: 'Fluxo de Caixa', path: '/financeiro' },
-      { title: 'Inadimplências', path: '/financeiro/inadimplencias' }
+      { title: 'Inadimplências', path: '/financeiro/inadimplencias' },
+      { title: 'Notas Fiscais', path: '/notas-fiscais' }
     ]
   },
   { 
@@ -146,6 +147,7 @@ export const Layout: React.FC<{ children: React.ReactNode; onLogout: () => void 
       '/lentes/novo': 'Nova Marca',
       '/financeiro': 'Financeiro',
       '/financeiro/inadimplencias': 'Inadimplências',
+      '/notas-fiscais': 'Notas Fiscais',
       '/pedidos': 'Ordens de Serviço',
       '/pedidos/laboratorio': 'Laboratório',
       '/pedidos/novo': 'Nova OS',
@@ -160,12 +162,16 @@ export const Layout: React.FC<{ children: React.ReactNode; onLogout: () => void 
       const baseLabel = routeMap[basePath] || basePath.replace('/', '');
       crumbs.push({ label: baseLabel, path: basePath });
       crumbs.push({ label: 'Editar', path: path });
-    } else if (path.match(/\/[^/]+\/[^/]+$/) && !path.includes('/novo') && !path.includes('/laboratorio') && !path.includes('/inadimplencias')) {
+    } else if (path.match(/\/[^/]+\/[^/]+$/) && !path.includes('/novo') && !path.includes('/laboratorio') && !path.includes('/inadimplencias') && !path.includes('/notas-fiscais')) {
       // Detectar detalhes (ex: /clientes/:id)
       const basePath = '/' + path.split('/')[1];
       const baseLabel = routeMap[basePath] || basePath.replace('/', '');
       crumbs.push({ label: baseLabel, path: basePath });
       crumbs.push({ label: 'Detalhes', path: path });
+    } else if (path.includes('/notas-fiscais/') && path.split('/').length > 2) {
+      // Detectar detalhes da NF-e
+      crumbs.push({ label: 'Notas Fiscais', path: '/notas-fiscais' });
+      crumbs.push({ label: 'Detalhes da NF-e', path: path });
     } else {
       const label = routeMap[path] || path.split('/').pop()?.replace(/-/g, ' ') || path;
       crumbs.push({ label: label, path: path });
@@ -309,43 +315,82 @@ export const Layout: React.FC<{ children: React.ReactNode; onLogout: () => void 
     </div>
   );
 
+  const isPDVPage = location.pathname === '/pdv';
+
   return (
     <div className="flex h-screen bg-[#f8f9fc] overflow-hidden font-sans text-slate-900">
-      <aside 
-        className={`hidden lg:flex flex-col shadow-2xl transition-all duration-500 ease-in-out relative ${
-          isSidebarOpen ? 'w-72' : 'w-24'
-        }`}
-      >
-        <SidebarContent />
-        <button 
-          onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-          className="absolute -right-3 top-10 bg-red-600 text-white p-1.5 rounded-full shadow-lg hover:scale-110 transition-transform border-2 border-white z-50"
-        >
-          <ChevronRight size={14} className={`transition-transform duration-500 ${isSidebarOpen ? 'rotate-180' : ''}`} />
-        </button>
-      </aside>
+      {!isPDVPage && (
+        <>
+          {/* Sidebar Desktop */}
+          <aside 
+            className={`hidden lg:flex flex-col shadow-2xl transition-all duration-500 ease-in-out relative ${
+              isSidebarOpen ? 'w-72' : 'w-24'
+            }`}
+          >
+            <SidebarContent />
+            <button 
+              onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+              className="absolute -right-3 top-10 bg-red-600 text-white p-1.5 rounded-full shadow-lg hover:scale-110 transition-transform border-2 border-white z-50"
+            >
+              <ChevronRight size={14} className={`transition-transform duration-500 ${isSidebarOpen ? 'rotate-180' : ''}`} />
+            </button>
+          </aside>
 
-      <div className="flex-1 flex flex-col overflow-hidden">
-        <header className="bg-white border-b border-gray-100 shrink-0 z-40">
+          {/* Menu Mobile Overlay */}
+          {isMobileMenuOpen && (
+            <>
+              <div 
+                className="fixed inset-0 bg-black/50 z-40 lg:hidden"
+                onClick={() => setIsMobileMenuOpen(false)}
+              />
+              <aside className="fixed left-0 top-0 h-full w-72 shadow-2xl z-50 lg:hidden animate-in slide-in-from-left duration-300">
+                <div className="flex flex-col h-full bg-slate-950 text-white font-sans">
+                  <div className="p-6 flex items-center justify-between h-20 shrink-0 border-b border-white/10">
+                    <div className="flex items-center gap-3">
+                      <div className={`w-10 h-10 bg-red-600 ${styles.button.small} flex items-center justify-center shrink-0 shadow-lg shadow-red-600/20`}>
+                        <span className="font-bold text-white text-lg">RÓ</span>
+                      </div>
+                      <span className="font-semibold text-lg tracking-tight whitespace-nowrap">
+                        REI DO <span className="text-red-600 uppercase">Óculos</span>
+                      </span>
+                    </div>
+                    <button
+                      onClick={() => setIsMobileMenuOpen(false)}
+                      className="p-2 text-slate-400 hover:text-white transition-colors"
+                    >
+                      <X size={20} />
+                    </button>
+                  </div>
+                  <SidebarContent />
+                </div>
+              </aside>
+            </>
+          )}
+        </>
+      )}
+
+      <div className={`flex-1 flex flex-col overflow-hidden ${isPDVPage ? 'w-full' : ''}`}>
+        {!isPDVPage && (
+          <header className="bg-white border-b border-gray-100 shrink-0 z-40">
           {/* Breadcrumbs e Data/Hora */}
-          <div className="h-14 border-b border-gray-100 flex items-center justify-between px-6 lg:px-10">
-            <div className="flex items-center gap-3">
+          <div className="min-h-14 border-b border-gray-100 flex flex-col sm:flex-row items-start sm:items-center justify-between px-4 sm:px-6 lg:px-10 py-2 sm:py-0 gap-2 sm:gap-0">
+            <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
               {/* Breadcrumbs */}
-              <nav className="flex items-center gap-2 text-sm">
+              <nav className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm min-w-0">
                 {getBreadcrumbs().map((crumb, index, array) => (
                   <React.Fragment key={crumb.path}>
                     {index === 0 ? (
-                      <Link to={crumb.path} className="flex items-center gap-2 text-slate-400 hover:text-slate-900 transition-colors">
-                        <Home size={16} />
-                        <span>{crumb.label}</span>
+                      <Link to={crumb.path} className="flex items-center gap-1 sm:gap-2 text-slate-400 hover:text-slate-900 transition-colors">
+                        <Home size={14} className="sm:w-4 sm:h-4" />
+                        <span className="truncate">{crumb.label}</span>
                       </Link>
                     ) : (
                       <>
-                        <ChevronRight size={14} className="text-slate-300" />
+                        <ChevronRight size={12} className="sm:w-3.5 sm:h-3.5 text-slate-300 shrink-0" />
                         {index === array.length - 1 ? (
-                          <span className="text-slate-900 font-semibold">{crumb.label}</span>
+                          <span className="text-slate-900 font-semibold truncate">{crumb.label}</span>
                         ) : (
-                          <Link to={crumb.path} className="text-slate-400 hover:text-slate-900 transition-colors">
+                          <Link to={crumb.path} className="text-slate-400 hover:text-slate-900 transition-colors truncate">
                             {crumb.label}
                           </Link>
                         )}
@@ -357,57 +402,64 @@ export const Layout: React.FC<{ children: React.ReactNode; onLogout: () => void 
             </div>
 
             {/* Data e Hora */}
-            <div className="flex items-center gap-4 text-sm text-slate-600">
-              <div className="flex items-center gap-2">
-                <Calendar size={16} className="text-slate-400" />
+            <div className="hidden sm:flex items-center gap-3 md:gap-4 text-xs md:text-sm text-slate-600">
+              <div className="flex items-center gap-1.5 md:gap-2">
+                <Calendar size={14} className="md:w-4 md:h-4 text-slate-400" />
                 <span className="font-medium">{currentDate}</span>
               </div>
               <div className="w-px h-4 bg-slate-200"></div>
-              <div className="flex items-center gap-2">
-                <Clock size={16} className="text-slate-400" />
+              <div className="flex items-center gap-1.5 md:gap-2">
+                <Clock size={14} className="md:w-4 md:h-4 text-slate-400" />
                 <span className="font-medium">{currentTime}</span>
               </div>
             </div>
           </div>
 
           {/* Barra de Busca e Ações */}
-          <div className="h-16 flex items-center justify-between px-6 lg:px-10">
-            <div className="flex items-center gap-6">
+          <div className="min-h-16 flex flex-col sm:flex-row items-stretch sm:items-center justify-between px-4 sm:px-6 lg:px-10 py-2 sm:py-0 gap-2 sm:gap-0">
+            <div className="flex items-center gap-3 sm:gap-6 flex-1 min-w-0">
               <button 
-                className={`lg:hidden p-2.5 text-slate-600 bg-slate-50 hover:bg-red-50 hover:text-red-600 ${styles.button.default} transition-all`}
+                className={`lg:hidden p-2 sm:p-2.5 text-slate-600 bg-slate-50 hover:bg-red-50 hover:text-red-600 ${styles.button.default} transition-all shrink-0`}
                 onClick={() => setIsMobileMenuOpen(true)}
               >
-                <Menu size={20} />
+                <Menu size={18} className="sm:w-5 sm:h-5" />
               </button>
-              <div className="relative hidden md:block">
-                <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+              <div className="relative flex-1 sm:flex-none hidden sm:block">
+                <Search className="absolute left-3 sm:left-4 top-1/2 -translate-y-1/2 text-slate-400" size={14} className="sm:w-4 sm:h-4" />
                 <input 
                   type="text" 
                   placeholder="Pesquisar..." 
-                  className={`pl-12 pr-6 py-2.5 bg-slate-50 border-none ${styles.input.default} text-sm focus:ring-4 focus:ring-red-500/5 transition-all outline-none w-80 font-medium`}
+                  className={`pl-10 sm:pl-12 pr-4 sm:pr-6 py-2 sm:py-2.5 bg-slate-50 border-none ${styles.input.default} text-xs sm:text-sm focus:ring-4 focus:ring-red-500/5 transition-all outline-none w-full sm:w-80 font-medium`}
                 />
               </div>
             </div>
             
-            <div className="flex items-center gap-3">
-              <div className={`flex items-center bg-slate-50 p-1.5 ${styles.button.default} border border-slate-100`}>
-                <button className="p-2 text-slate-400 hover:text-red-600 transition-colors relative">
-                  <Bell size={18} />
-                  <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-600 rounded-full border-2 border-white"></span>
+            <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+              <div className={`flex items-center bg-slate-50 p-1 sm:p-1.5 ${styles.button.default} border border-slate-100`}>
+                <button className="p-1.5 sm:p-2 text-slate-400 hover:text-red-600 transition-colors relative">
+                  <Bell size={16} className="sm:w-[18px] sm:h-[18px]" />
+                  <span className="absolute top-1 right-1 sm:top-1.5 sm:right-1.5 w-1.5 h-1.5 sm:w-2 sm:h-2 bg-red-600 rounded-full border-2 border-white"></span>
                 </button>
-                <div className="w-px h-6 bg-slate-200 mx-1"></div>
-                <button className="p-2 text-slate-400 hover:text-slate-900 transition-colors">
-                  <Settings size={18} />
+                <div className="w-px h-5 sm:h-6 bg-slate-200 mx-0.5 sm:mx-1"></div>
+                <button className="p-1.5 sm:p-2 text-slate-400 hover:text-slate-900 transition-colors">
+                  <Settings size={16} className="sm:w-[18px] sm:h-[18px]" />
                 </button>
               </div>
             </div>
           </div>
         </header>
+        )}
 
-        <main className="flex-1 overflow-y-auto bg-slate-50/50">
-          <div className="max-w-[1920px] mx-auto p-4 lg:p-8 xl:p-12">
-            {children}
-          </div>
+        <main className={`flex-1 overflow-y-auto ${isPDVPage ? 'bg-white' : 'bg-slate-50/50'}`}>
+          {isPDVPage ? (
+            <div className="h-full">
+              {children}
+            </div>
+          ) : (
+            <div className="max-w-[1920px] mx-auto p-3 sm:p-4 md:p-6 lg:p-8 xl:p-12">
+              {children}
+            </div>
+          )}
         </main>
       </div>
     </div>

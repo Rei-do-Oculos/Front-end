@@ -14,7 +14,8 @@ import {
   Calendar,
   DollarSign,
   User,
-  ExternalLink
+  ExternalLink,
+  FileCheck
 } from 'lucide-react';
 import { Card, Button, Input, Select, Badge, FilterSection } from '../../components/Common';
 
@@ -27,6 +28,8 @@ interface OS {
   status: 'Pendente' | 'Laboratório' | 'Pronto' | 'Entregue' | 'Cancelado';
   store: string;
   payment: 'Pago' | 'Pendente';
+  invoiceId?: string; // ID da NF-e relacionada (se existir)
+  invoiceNumber?: string;
 }
 
 const mockOS: OS[] = [
@@ -38,7 +41,9 @@ const mockOS: OS[] = [
     value: 1450.00, 
     status: 'Laboratório', 
     store: 'Maringá Centro',
-    payment: 'Pago'
+    payment: 'Pago',
+    invoiceId: '1',
+    invoiceNumber: '000001'
   },
   { 
     id: '2', 
@@ -58,7 +63,9 @@ const mockOS: OS[] = [
     value: 2100.00, 
     status: 'Pronto', 
     store: 'Londrina Shopping',
-    payment: 'Pago'
+    payment: 'Pago',
+    invoiceId: '2',
+    invoiceNumber: '000002'
   },
   { 
     id: '4', 
@@ -208,6 +215,15 @@ export const OrderList: React.FC = () => {
                       >
                         <Edit size={16} />
                       </button>
+                      {os.invoiceId && (
+                        <button 
+                          title={`Ver NF-e #${os.invoiceNumber}`}
+                          onClick={() => window.location.hash = `#/notas-fiscais/${os.invoiceId}`}
+                          className="p-2 text-slate-400 hover:text-emerald-600 hover:bg-white rounded-xl shadow-sm border border-transparent hover:border-slate-100 transition-all"
+                        >
+                          <FileCheck size={16} />
+                        </button>
+                      )}
                       <button title="Imprimir OS" className="p-2 text-slate-400 hover:text-slate-900 hover:bg-white rounded-xl shadow-sm border border-transparent hover:border-slate-100 transition-all">
                         <Printer size={16} />
                       </button>

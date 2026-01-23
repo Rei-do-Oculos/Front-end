@@ -1,12 +1,20 @@
 
 import React, { useState, useEffect } from 'react';
-import { Save, ArrowLeft, Upload, FileText, Smartphone, Beaker, Truck, CheckCircle2, DollarSign, Trash2 } from 'lucide-react';
+import { Save, ArrowLeft, Upload, FileText, Smartphone, Beaker, Truck, CheckCircle2, DollarSign, Trash2, ExternalLink, FileCheck } from 'lucide-react';
 import { Card, Button, Input, Select, Badge } from '../../components/Common';
 import { useParams } from 'react-router-dom';
 
 // Mock de dados - substituir por chamada de API
 const mockOrders = [
-  { id: '39832', client: 'Maria das Graças', doctor: 'Dr. João Silva', crm: '12345-PR', status: 'pendente' },
+  { 
+    id: '39832', 
+    client: 'Maria das Graças', 
+    doctor: 'Dr. João Silva', 
+    crm: '12345-PR', 
+    status: 'pendente',
+    invoiceId: '1', // ID da NF-e relacionada (se existir)
+    invoiceNumber: '000001'
+  },
 ];
 
 export const OrderForm: React.FC = () => {
@@ -203,6 +211,45 @@ export const OrderForm: React.FC = () => {
                placeholder="Detalhes para o montador, urgências ou avisos..."
              ></textarea>
           </Card>
+
+          {/* Seção de Nota Fiscal */}
+          {(() => {
+            const currentOrder = mockOrders.find(o => o.id === id);
+            return isEditMode && formData.client && currentOrder?.invoiceId && (
+              <Card title="Nota Fiscal Eletrônica" className="border-l-4 border-l-emerald-500">
+                <div className="mt-4 p-6 rounded-xl bg-emerald-50/50 border border-emerald-100">
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-xl bg-emerald-100 flex items-center justify-center text-emerald-600">
+                        <FileCheck size={20} />
+                      </div>
+                      <div>
+                        <p className="text-sm font-black text-slate-900">NF-e #{currentOrder.invoiceNumber}</p>
+                        <p className="text-xs text-slate-600 mt-0.5">Status: Autorizada</p>
+                      </div>
+                    </div>
+                    <Badge variant="success">Autorizada</Badge>
+                  </div>
+                  <div className="flex gap-3">
+                    <Button 
+                      variant="outline"
+                      onClick={() => window.location.hash = `#/notas-fiscais/${currentOrder.invoiceId}`}
+                      className="flex-1 border-emerald-200 text-emerald-700 hover:bg-emerald-50"
+                    >
+                      <FileText size={16} /> Ver NF-e
+                    </Button>
+                    <Button 
+                      variant="outline"
+                      onClick={() => window.location.hash = `#/notas-fiscais/${currentOrder.invoiceId}`}
+                      className="flex-1 border-emerald-200 text-emerald-700 hover:bg-emerald-50"
+                    >
+                      <ExternalLink size={16} /> Detalhes
+                    </Button>
+                  </div>
+                </div>
+              </Card>
+            );
+          })()}
         </div>
       </div>
     </div>

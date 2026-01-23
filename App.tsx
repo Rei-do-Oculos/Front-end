@@ -22,11 +22,14 @@ import { AuditList } from './pages/Audit/AuditList';
 import { POS } from './pages/Sales/POS';
 import { CashFlow } from './pages/Finance/CashFlow';
 import { Inadimplencias } from './pages/Finance/Inadimplencias';
+import { InvoiceList } from './pages/Finance/InvoiceList';
+import { InvoiceDetail } from './pages/Finance/InvoiceDetail';
 import { Permissions } from './pages/Permissions/Permissions';
 import { BrandList } from './pages/Brands/BrandList';
 import { BrandForm } from './pages/Brands/BrandForm';
 import { Chat } from './pages/Chat';
 import { Login } from './pages/Login';
+import { PWAUpdatePrompt } from './components/PWAUpdatePrompt';
 
 const PlaceholderPage = ({ title }: { title: string }) => (
   <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -65,6 +68,7 @@ const App: React.FC = () => {
   return (
     <HashRouter>
       <Layout onLogout={handleLogout}>
+        <PWAUpdatePrompt />
         <Routes>
           <Route path="/" element={<Dashboard />} />
           <Route path="/pdv" element={<POS />} />
@@ -90,6 +94,8 @@ const App: React.FC = () => {
           <Route path="/lentes/:id/editar" element={<BrandForm />} />
           <Route path="/financeiro" element={<CashFlow />} />
           <Route path="/financeiro/inadimplencias" element={<Inadimplencias />} />
+          <Route path="/notas-fiscais" element={<InvoiceList />} />
+          <Route path="/notas-fiscais/:id" element={<InvoiceDetail />} />
           <Route path="/pedidos" element={<OrderList />} />
           <Route path="/pedidos/laboratorio" element={<LabOrders />} />
           <Route path="/pedidos/novo" element={<OrderForm />} />
