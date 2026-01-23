@@ -240,32 +240,50 @@ export const Layout: React.FC<{ children: React.ReactNode; onLogout: () => void 
           <p className="px-4 pb-2 text-[9px] font-bold text-slate-600 uppercase tracking-[0.25em]">Navegação</p>
           {menuItems.map((item) => (
             <div key={item.title} className="group">
-              <Link
-                to={item.path}
-                onClick={(e) => {
-                  if (item.submenu) {
-                    e.preventDefault();
-                    toggleSubmenu(item.title);
-                  }
-                }}
-                className={`w-full flex items-center justify-between p-3 ${styles.button.default} cursor-pointer transition-all duration-300 ${
-                  item.highlight ? 'bg-red-600/10 border border-red-600/20 text-red-500 hover:bg-red-600 hover:text-white mb-2' : ''
-                } ${
-                  isActive(item.path, item.submenu) && !item.highlight
-                    ? 'bg-red-600 text-white shadow-lg shadow-red-600/10' 
-                    : !item.highlight ? 'text-slate-400 hover:bg-white/5 hover:text-white' : ''
-                } ${item.highlight && isActive(item.path, item.submenu) ? 'bg-red-600 text-white border-transparent shadow-lg shadow-red-600/20' : ''}`}
-              >
-                <div className="flex items-center gap-3.5">
-                  <span className={`${isActive(item.path) ? 'text-white' : ''} group-hover:scale-110 transition-transform`}>
-                    {item.icon}
-                  </span>
-                  {(isSidebarOpen || isMobileMenuOpen) && <span className="text-sm font-medium tracking-wide">{item.title}</span>}
-                </div>
-                {(isSidebarOpen || isMobileMenuOpen) && item.submenu && (
-                  <ChevronDown size={14} className={`transition-transform duration-300 ${openSubmenus.includes(item.title) ? 'rotate-180' : ''}`} />
-                )}
-              </Link>
+              {item.path === '/pdv' ? (
+                <a
+                  href="#/pdv"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={`w-full flex items-center justify-between p-3 ${styles.button.default} cursor-pointer transition-all duration-300 ${
+                    item.highlight ? 'bg-red-600/10 border border-red-600/20 text-red-500 hover:bg-red-600 hover:text-white mb-2' : ''
+                  } ${item.highlight && isActive(item.path, item.submenu) ? 'bg-red-600 text-white border-transparent shadow-lg shadow-red-600/20' : ''}`}
+                >
+                  <div className="flex items-center gap-3.5">
+                    <span className={`${isActive(item.path) ? 'text-white' : ''} group-hover:scale-110 transition-transform`}>
+                      {item.icon}
+                    </span>
+                    {(isSidebarOpen || isMobileMenuOpen) && <span className="text-sm font-medium tracking-wide">{item.title}</span>}
+                  </div>
+                </a>
+              ) : (
+                <Link
+                  to={item.path}
+                  onClick={(e) => {
+                    if (item.submenu) {
+                      e.preventDefault();
+                      toggleSubmenu(item.title);
+                    }
+                  }}
+                  className={`w-full flex items-center justify-between p-3 ${styles.button.default} cursor-pointer transition-all duration-300 ${
+                    item.highlight ? 'bg-red-600/10 border border-red-600/20 text-red-500 hover:bg-red-600 hover:text-white mb-2' : ''
+                  } ${
+                    isActive(item.path, item.submenu) && !item.highlight
+                      ? 'bg-red-600 text-white shadow-lg shadow-red-600/10' 
+                      : !item.highlight ? 'text-slate-400 hover:bg-white/5 hover:text-white' : ''
+                  } ${item.highlight && isActive(item.path, item.submenu) ? 'bg-red-600 text-white border-transparent shadow-lg shadow-red-600/20' : ''}`}
+                >
+                  <div className="flex items-center gap-3.5">
+                    <span className={`${isActive(item.path) ? 'text-white' : ''} group-hover:scale-110 transition-transform`}>
+                      {item.icon}
+                    </span>
+                    {(isSidebarOpen || isMobileMenuOpen) && <span className="text-sm font-medium tracking-wide">{item.title}</span>}
+                  </div>
+                  {(isSidebarOpen || isMobileMenuOpen) && item.submenu && (
+                    <ChevronDown size={14} className={`transition-transform duration-300 ${openSubmenus.includes(item.title) ? 'rotate-180' : ''}`} />
+                  )}
+                </Link>
+              )}
               {(isSidebarOpen || isMobileMenuOpen) && item.submenu && openSubmenus.includes(item.title) && (
                 <div className="mt-1 ml-6 pl-4 border-l border-white/10 space-y-1 animate-in slide-in-from-top-2">
                   {item.submenu.map((sub) => (
