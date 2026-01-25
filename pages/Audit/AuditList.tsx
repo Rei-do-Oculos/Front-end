@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   ShieldCheck, 
   Search, 
@@ -9,79 +9,212 @@ import {
   ChevronUp, 
   Clock, 
   Database,
-  ArrowRight
+  ArrowRight,
+  X
 } from 'lucide-react';
-import { Card, Button, Input, Select, Badge, FilterSection } from '../../components/Common';
-
-interface AuditDetail {
-  field: string;
-  old: string | null;
-  new: string | null;
-}
-
-interface AuditLog {
-  id: string;
-  user: string;
-  avatar: string;
-  action: 'CRIOU' | 'ATUALIZOU' | 'EXCLUIU';
-  target: string;
-  model: string;
-  store: string;
-  date: string;
-  type: 'create' | 'update' | 'delete';
-  details: AuditDetail[];
-}
-
-const auditLogs: AuditLog[] = [
-  { 
-    id: '10245', 
-    user: 'Rodrigo Paduin', 
-    avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Rodrigo',
-    action: 'CRIOU', 
-    target: 'Ordem de Serviço #39832', 
-    model: 'Order',
-    store: 'Maringá Centro', 
-    date: 'Hoje, às 14:22',
-    type: 'create',
-    details: [
-      { field: 'cliente_id', old: null, new: 'Maria Santos (398)' },
-      { field: 'valor_total', old: null, new: 'R$ 1.450,00' },
-      { field: 'status', old: null, new: 'Pendente' }
-    ]
-  },
-  { 
-    id: '10244', 
-    user: 'Ana Beatriz', 
-    avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Ana',
-    action: 'ATUALIZOU', 
-    target: 'Estoque Armação Rayban Ref 3447', 
-    model: 'Stock',
-    store: 'Londrina Shopping', 
-    date: 'Hoje, às 13:45',
-    type: 'update',
-    details: [
-      { field: 'quantidade', old: '5', new: '4' },
-      { field: 'ultima_venda', old: '20/01/2026', new: '21/01/2026' }
-    ]
-  },
-  { 
-    id: '10243', 
-    user: 'Ricardo Silva', 
-    avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Ricardo',
-    action: 'EXCLUIU', 
-    target: 'Cliente Sem Nome (Rascunho)', 
-    model: 'Client',
-    store: 'Curitiba Batel', 
-    date: 'Ontem, às 18:10',
-    type: 'delete',
-    details: [
-      { field: 'deleted_at', old: null, new: '20/01/2026 18:10' }
-    ]
-  },
-];
+import { Card, Button, Input, Select, Badge, FilterSection, MultiSelect, ActiveFiltersBadge, SortableHeader, SortDirection, Pagination } from '../../components/Common';
+import { useAudits } from '../../services/hooks/useAudits';
+import { Audit } from '../../services/api/audits';
+import { usePlucks } from '../../services/hooks/usePlucks';
+import { usersService } from '../../services/api/users';
+import { storesService } from '../../services/api/stores';
+import { useActiveFilters } from '../../hooks/useActiveFilters';
 
 export const AuditList: React.FC = () => {
   const [expandedRows, setExpandedRows] = useState<string[]>([]);
+  const [eventFilter, setEventFilter] = useState<string[]>([]);
+  const [auditableTypeFilter, setAuditableTypeFilter] = useState<string[]>([]);
+  const [userFilter, setUserFilter] = useState<string[]>([]);
+  const [storeFilter, setStoreFilter] = useState<string[]>([]);
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
+  
+  const { audits, loading, error, pagination, fetchAudits } = useAudits({
+    autoFetch: false,
+  });
+
+  // Calcular quantidade de filtros ativos usando hook padronizado
+  const activeFilters = useActiveFilters({
+    eventFilter: eventFilter.filter(f => f !== 'all'),
+    auditableTypeFilter: auditableTypeFilter.filter(f => f !== 'all'),
+    userFilter: userFilter.filter(f => f !== 'all'),
+    storeFilter: storeFilter.filter(f => f !== 'all'),
+    dateFrom,
+    dateTo,
+  });
+
+  const { plucks: usersPlucks, loading: usersPlucksLoading } = usePlucks({
+    service: usersService,
+    autoFetch: true,
+  });
+
+  const { plucks: storesPlucks, loading: storesPlucksLoading } = usePlucks({
+    service: storesService,
+    autoFetch: true,
+  });
+
+  // Log para debug
+  useEffect(() => {
+    console.log('[AuditList] usersPlucks:', usersPlucks);
+    console.log('[AuditList] usersPlucksLoading:', usersPlucksLoading);
+    console.log('[AuditList] usersPlucks é array?', Array.isArray(usersPlucks));
+    console.log('[AuditList] usersPlucks count:', Array.isArray(usersPlucks) ? usersPlucks.length : 'N/A');
+    
+    console.log('[AuditList] storesPlucks:', storesPlucks);
+    console.log('[AuditList] storesPlucksLoading:', storesPlucksLoading);
+    console.log('[AuditList] storesPlucks é array?', Array.isArray(storesPlucks));
+    console.log('[AuditList] storesPlucks count:', Array.isArray(storesPlucks) ? storesPlucks.length : 'N/A');
+  }, [usersPlucks, usersPlucksLoading, storesPlucks, storesPlucksLoading]);
+
+  // Garantir que sejam sempre arrays
+  const safeUsersPlucks = Array.isArray(usersPlucks) ? usersPlucks : [];
+  const safeStoresPlucks = Array.isArray(storesPlucks) ? storesPlucks : [];
+
+  useEffect(() => {
+    const loadAudits = async () => {
+      try {
+        await fetchAudits(1, {
+          order_by: sortBy || 'created_at',
+          order_dir: sortDirection || 'desc',
+        });
+      } catch (err) {
+        console.error('Erro ao carregar auditorias:', err);
+      }
+    };
+    loadAudits();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const handleSort = (key: string, direction: SortDirection) => {
+    const newDirection = direction || 'asc';
+    setSortBy(key);
+    setSortDirection(newDirection);
+    
+    const params: any = {};
+    if (eventFilter.length > 0) params.event = eventFilter.join(',');
+    if (auditableTypeFilter.length > 0) params.auditable_type = auditableTypeFilter.join(',');
+    if (userFilter.length > 0) params.user_id = userFilter.join(',');
+    if (storeFilter.length > 0 && !storeFilter.includes('all')) {
+      params.store_id = storeFilter
+        .filter(id => id !== 'all' && !isNaN(parseInt(id)))
+        .join(',');
+    }
+    if (dateFrom) params.date_from = dateFrom;
+    if (dateTo) params.date_to = dateTo;
+    
+    params.order_by = key;
+    params.order_dir = newDirection;
+    
+    fetchAudits(pagination?.currentPage || 1, params);
+  };
+
+  const handleApplyFilters = async () => {
+    try {
+      const params: any = {};
+      if (eventFilter.length > 0) params.event = eventFilter.join(',');
+      if (auditableTypeFilter.length > 0) params.auditable_type = auditableTypeFilter.join(',');
+      if (userFilter.length > 0) params.user_id = userFilter.join(',');
+      if (storeFilter.length > 0 && !storeFilter.includes('all')) {
+        params.store_id = storeFilter
+          .filter(id => id !== 'all' && !isNaN(parseInt(id)))
+          .join(',');
+      }
+      if (dateFrom) params.date_from = dateFrom;
+      if (dateTo) params.date_to = dateTo;
+      
+      if (sortBy) {
+        params.order_by = sortBy;
+        params.order_dir = sortDirection || 'desc';
+      }
+      
+      await fetchAudits(1, params);
+    } catch (err) {
+      console.error('Erro ao aplicar filtros:', err);
+    }
+  };
+
+  const handleClearFilters = async () => {
+    setEventFilter([]);
+    setAuditableTypeFilter([]);
+    setUserFilter([]);
+    setStoreFilter([]);
+    setDateFrom('');
+    setDateTo('');
+    
+    try {
+      await fetchAudits(1, {
+        order_by: sortBy || 'created_at',
+        order_dir: sortDirection || 'desc',
+      });
+    } catch (err) {
+      console.error('Erro ao limpar filtros:', err);
+    }
+  };
+
+  const formatDate = (dateString: string) => {
+    return dateString;
+  };
+
+  const parseAuditDetails = (audit: Audit) => {
+    try {
+      const oldValues = JSON.parse(audit.old_values || '{}');
+      const newValues = JSON.parse(audit.new_values || '{}');
+      const details: Array<{ field: string; old: string | null; new: string | null }> = [];
+      
+      const allFields = new Set([...Object.keys(oldValues), ...Object.keys(newValues)]);
+      allFields.forEach(field => {
+        details.push({
+          field,
+          old: oldValues[field] !== undefined ? String(oldValues[field]) : null,
+          new: newValues[field] !== undefined ? String(newValues[field]) : null,
+        });
+      });
+      
+      return details;
+    } catch {
+      return [];
+    }
+  };
+
+  const getActionLabel = (event: string) => {
+    switch (event) {
+      case 'created': return 'CRIOU';
+      case 'updated': return 'ATUALIZOU';
+      case 'deleted': return 'EXCLUIU';
+      default: return event.toUpperCase();
+    }
+  };
+
+  const getActionType = (event: string): 'create' | 'update' | 'delete' => {
+    switch (event) {
+      case 'created': return 'create';
+      case 'updated': return 'update';
+      case 'deleted': return 'delete';
+      default: return 'update';
+    }
+  };
+
+  const translateModelName = (modelType: string): string => {
+    const modelMap: Record<string, string> = {
+      'App\\Models\\Lens': 'Lentes',
+      'App\\Models\\User': 'Usuários',
+      'App\\Models\\Client': 'Clientes',
+      'App\\Models\\Role': 'Perfis',
+      'Spatie\\Permission\\Models\\Role': 'Perfis',
+      'Spatie\\Permission\\Models\\Permission': 'Permissões',
+      'App\\Models\\Order': 'Ordens de Serviço',
+      'App\\Models\\Stock': 'Estoque',
+      'App\\Models\\Store': 'Lojas',
+      'App\\Models\\Seller': 'Vendedores',
+      'App\\Models\\Supplier': 'Fornecedores',
+      'App\\Models\\Brand': 'Marcas',
+      'App\\Models\\Invoice': 'Notas Fiscais',
+    };
+    
+    const modelName = modelType.split('\\').pop() || modelType;
+    
+    return modelMap[modelType] || modelName;
+  };
 
   const toggleRow = (id: string) => {
     setExpandedRows(prev => 
@@ -98,12 +231,18 @@ export const AuditList: React.FC = () => {
     }
   };
 
+  // Garantir que audits seja sempre um array
+  const auditsList = Array.isArray(audits) ? audits : [];
+
   return (
     <div className="space-y-8 animate-in fade-in duration-700">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-        <div>
-          <h1 className="text-3xl font-black text-slate-950 tracking-tight">Auditoria do Sistema</h1>
-          <p className="text-gray-500 font-medium mt-1 uppercase text-[9px] tracking-[0.25em]">Histórico de Alterações • Logs de Dados</p>
+        <div className="flex items-center gap-4">
+          <div>
+            <h1 className="text-3xl font-black text-slate-950 tracking-tight">Auditoria do Sistema</h1>
+            <p className="text-gray-500 font-medium mt-1 uppercase text-[9px] tracking-[0.25em]">Histórico de Alterações • Logs de Dados</p>
+          </div>
+          <ActiveFiltersBadge count={activeFilters} />
         </div>
         <div className="flex gap-3">
            <div className="px-4 py-2 bg-red-50 text-red-600 rounded-xl border border-red-100 flex items-center gap-2">
@@ -113,21 +252,70 @@ export const AuditList: React.FC = () => {
         </div>
       </div>
 
-      <FilterSection>
-        <Input label="Pesquisar Log" placeholder="Usuário, ID ou Entidade..." />
-        <Select label="Tipo de Ação" options={[
-          {label: 'TODAS', value: ''},
-          {label: 'Criação', value: 'create'},
-          {label: 'Edição', value: 'update'},
-          {label: 'Exclusão', value: 'delete'},
-        ]} />
-        <Select label="Entidade (Model)" options={[
-          {label: 'TODAS', value: ''},
-          {label: 'Ordens de Serviço', value: 'Order'},
-          {label: 'Clientes', value: 'Client'},
-          {label: 'Estoque', value: 'Stock'},
-        ]} />
-        <Input label="Data" type="date" />
+      <FilterSection onClear={handleClearFilters} onApply={handleApplyFilters}>
+        <MultiSelect
+          label="Tipo de Ação"
+          value={eventFilter}
+          onChange={setEventFilter}
+          placeholder="Selecione os tipos de ação..."
+          options={[
+            {label: 'Criação', value: 'created'},
+            {label: 'Edição', value: 'updated'},
+            {label: 'Exclusão', value: 'deleted'},
+          ]}
+        />
+        <MultiSelect
+          label="Entidade (Model)"
+          value={auditableTypeFilter}
+          onChange={setAuditableTypeFilter}
+          placeholder="Selecione as entidades..."
+          options={[
+            {label: 'Lentes', value: 'App\\Models\\Lens'},
+            {label: 'Ordens de Serviço', value: 'App\\Models\\Order'},
+            {label: 'Clientes', value: 'App\\Models\\Client'},
+            {label: 'Estoque', value: 'App\\Models\\Stock'},
+            {label: 'Usuários', value: 'App\\Models\\User'},
+            {label: 'Perfis', value: 'Spatie\\Permission\\Models\\Role'},
+            {label: 'Permissões', value: 'Spatie\\Permission\\Models\\Permission'},
+            {label: 'Lojas', value: 'App\\Models\\Store'},
+            {label: 'Vendedores', value: 'App\\Models\\Seller'},
+            {label: 'Fornecedores', value: 'App\\Models\\Supplier'},
+            {label: 'Marcas', value: 'App\\Models\\Brand'},
+            {label: 'Notas Fiscais', value: 'App\\Models\\Invoice'},
+          ]}
+        />
+        <MultiSelect
+          label="Usuário"
+          value={userFilter}
+          onChange={setUserFilter}
+          placeholder={usersPlucksLoading ? "Carregando usuários..." : "Selecione os usuários..."}
+          options={safeUsersPlucks.length > 0 ? safeUsersPlucks.map((user: any) => ({
+            label: user.name || `Usuário ${user.id}`,
+            value: String(user.id),
+          })) : []}
+        />
+        <MultiSelect
+          label="Loja"
+          value={storeFilter}
+          onChange={setStoreFilter}
+          placeholder={storesPlucksLoading ? "Carregando lojas..." : "Selecione as lojas..."}
+          options={safeStoresPlucks.length > 0 ? safeStoresPlucks.map((store: any) => ({
+            label: store.name || store.fancy_name || `Loja ${store.id}`,
+            value: String(store.id),
+          })) : []}
+        />
+        <Input
+          label="Criado em"
+          type="date"
+          value={dateFrom}
+          onChange={(e) => setDateFrom(e.target.value)}
+        />
+        <Input
+          label="Criado até"
+          type="date"
+          value={dateTo}
+          onChange={(e) => setDateTo(e.target.value)}
+        />
       </FilterSection>
 
       <Card className="p-0 overflow-hidden border-none shadow-xl shadow-slate-200/40">
@@ -135,155 +323,239 @@ export const AuditList: React.FC = () => {
           <table className="w-full border-separate border-spacing-0">
             <thead>
               <tr className="bg-slate-50/50">
-                <th className="px-8 py-5 text-left text-[10px] font-black uppercase text-slate-400 tracking-widest border-b border-slate-100">ID</th>
-                <th className="px-8 py-5 text-left text-[10px] font-black uppercase text-slate-400 tracking-widest border-b border-slate-100">Colaborador</th>
+                <SortableHeader
+                  label="ID"
+                  sortKey="id"
+                  currentSort={sortBy}
+                  currentDirection={sortDirection}
+                  onSort={handleSort}
+                  className="px-8 py-5 text-[10px] border-b border-slate-100"
+                />
+                <th className="px-8 py-5 text-left text-[10px] font-black uppercase text-slate-400 tracking-widest border-b border-slate-100">Usuário</th>
                 <th className="px-8 py-5 text-left text-[10px] font-black uppercase text-slate-400 tracking-widest border-b border-slate-100">Ação</th>
                 <th className="px-8 py-5 text-left text-[10px] font-black uppercase text-slate-400 tracking-widest border-b border-slate-100">Registro Afetado</th>
                 <th className="px-8 py-5 text-left text-[10px] font-black uppercase text-slate-400 tracking-widest border-b border-slate-100">Loja</th>
-                <th className="px-8 py-5 text-left text-[10px] font-black uppercase text-slate-400 tracking-widest border-b border-slate-100">Data</th>
+                <SortableHeader
+                  label="Data"
+                  sortKey="created_at"
+                  currentSort={sortBy}
+                  currentDirection={sortDirection}
+                  onSort={handleSort}
+                  className="px-8 py-5 text-[10px] border-b border-slate-100"
+                />
                 <th className="px-8 py-5 text-center text-[10px] font-black uppercase text-slate-400 tracking-widest border-b border-slate-100">Detalhes</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-50">
-              {auditLogs.map((log) => (
-                <React.Fragment key={log.id}>
-                  <tr className={`group transition-all duration-300 ${expandedRows.includes(log.id) ? 'bg-red-50/20' : 'hover:bg-slate-50/50'}`}>
-                    <td className="px-8 py-6">
-                      <p className="text-xs font-bold text-slate-400">#{log.id}</p>
-                    </td>
-                    <td className="px-8 py-6">
-                      <div className="flex items-center gap-4">
-                        <img src={log.avatar} className="w-10 h-10 rounded-xl bg-white p-0.5 border border-slate-100 shadow-sm" alt={log.user} />
-                        <div>
-                          <p className="text-sm font-black text-slate-900 leading-none">{log.user}</p>
-                          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tight mt-1.5">ID Log: {log.id}</p>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-8 py-6">
-                      {getActionBadge(log.type, log.action)}
-                    </td>
-                    <td className="px-8 py-6">
-                      <div className="flex flex-col">
-                        <p className="text-xs font-black text-slate-700">{log.target}</p>
-                        <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-1">Model: {log.model}</p>
-                      </div>
-                    </td>
-                    <td className="px-8 py-6">
-                      <div className="flex items-center gap-2">
-                         <Store size={14} className="text-red-600" />
-                         <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">{log.store}</span>
-                      </div>
-                    </td>
-                    <td className="px-8 py-6 text-xs font-bold text-slate-400">
-                      <div className="flex items-center gap-2">
-                        <Clock size={12} /> {log.date}
-                      </div>
-                    </td>
-                    <td className="px-8 py-6">
-                      <div className="flex items-center justify-center">
-                         <button 
-                            onClick={() => toggleRow(log.id)}
-                            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
-                              expandedRows.includes(log.id) 
-                              ? 'bg-red-600 text-white shadow-lg shadow-red-200' 
-                              : 'bg-white text-slate-400 border border-slate-100 hover:border-red-200 hover:text-red-600'
-                            }`}
-                         >
-                            {expandedRows.includes(log.id) ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-                            {expandedRows.includes(log.id) ? 'Ocultar' : 'Detalhes'}
-                         </button>
-                      </div>
-                    </td>
-                  </tr>
+              {loading ? (
+                <tr>
+                  <td colSpan={7} className="px-8 py-12 text-center">
+                    <div className="flex items-center justify-center gap-3">
+                      <div className="w-6 h-6 border-2 border-t-transparent rounded-full animate-spin" style={{ borderColor: 'var(--store-color)' }}></div>
+                      <span className="text-sm text-slate-500">Carregando logs...</span>
+                    </div>
+                  </td>
+                </tr>
+              ) : error ? (
+                <tr>
+                  <td colSpan={7} className="px-8 py-12 text-center">
+                    <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                      <p className="text-red-600 text-sm font-bold mb-1">Erro ao carregar logs</p>
+                      <p className="text-red-500 text-xs">{error.message || 'Erro desconhecido'}</p>
+                    </div>
+                  </td>
+                </tr>
+              ) : auditsList.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="px-8 py-12 text-center">
+                    <span className="text-sm text-slate-500">Nenhum log encontrado</span>
+                  </td>
+                </tr>
+              ) : (
+                auditsList.map((audit) => {
+                  const logId = String(audit.id);
+                  const details = parseAuditDetails(audit);
+                  const userName = audit.user?.name || 'Usuário Desconhecido';
                   
-                  {/* Linha Expandida - Detalhes do Log */}
-                  {expandedRows.includes(log.id) && (
-                    <tr className="bg-red-50/10">
-                      <td colSpan={7} className="px-8 py-0">
-                        <div className="py-6 border-t border-red-100/30 animate-in slide-in-from-top-2 duration-300">
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                            <div className="space-y-4">
-                              <div className="flex items-center gap-2 mb-4">
-                                <Database size={16} className="text-red-600" />
-                                <h4 className="text-[11px] font-black text-slate-900 uppercase tracking-widest">Alterações de Dados</h4>
-                              </div>
-                              
-                              <div className="bg-white rounded-2xl border border-red-100/50 shadow-sm overflow-hidden">
-                                <table className="w-full text-left">
-                                  <thead>
-                                    <tr className="bg-slate-50">
-                                      <th className="px-4 py-2 text-[9px] font-black text-slate-400 uppercase tracking-widest">Campo</th>
-                                      <th className="px-4 py-2 text-[9px] font-black text-slate-400 uppercase tracking-widest">Valor Anterior</th>
-                                      <th className="px-4 py-2 text-center text-[9px] font-black text-slate-400 uppercase tracking-widest">
-                                        <ArrowRight size={10} className="mx-auto" />
-                                      </th>
-                                      <th className="px-4 py-2 text-[9px] font-black text-slate-400 uppercase tracking-widest">Novo Valor</th>
-                                    </tr>
-                                  </thead>
-                                  <tbody className="divide-y divide-slate-50">
-                                    {log.details.map((detail, idx) => (
-                                      <tr key={idx}>
-                                        <td className="px-4 py-3 text-[10px] font-bold text-slate-600 uppercase tracking-tight">{detail.field}</td>
-                                        <td className="px-4 py-3">
-                                          <span className={`text-[11px] font-medium ${detail.old ? 'text-red-500 line-through' : 'text-slate-300 italic'}`}>
-                                            {detail.old || 'Nulo'}
-                                          </span>
-                                        </td>
-                                        <td className="px-4 py-3 text-center text-slate-300">
-                                          <ArrowRight size={12} className="mx-auto" />
-                                        </td>
-                                        <td className="px-4 py-3">
-                                          <span className="text-[11px] font-bold text-emerald-600">
-                                            {detail.new || 'Nulo'}
-                                          </span>
-                                        </td>
-                                      </tr>
-                                    ))}
-                                  </tbody>
-                                </table>
-                              </div>
-                            </div>
-
-                            <div className="space-y-4">
-                              <div className="flex items-center gap-2 mb-4">
-                                <Info size={16} className="text-red-600" />
-                                <h4 className="text-[11px] font-black text-slate-900 uppercase tracking-widest">Informações Adicionais</h4>
-                              </div>
-                              <div className="grid grid-cols-2 gap-4">
-                                <div className="p-4 bg-white rounded-2xl border border-slate-100 shadow-sm">
-                                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Endereço IP</p>
-                                  <p className="text-xs font-bold text-slate-900 tracking-tight">192.168.1.142</p>
-                                </div>
-                                <div className="p-4 bg-white rounded-2xl border border-slate-100 shadow-sm">
-                                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Navegador</p>
-                                  <p className="text-xs font-bold text-slate-900 tracking-tight">Chrome (Windows)</p>
-                                </div>
-                                <div className="col-span-2 p-4 bg-white rounded-2xl border border-slate-100 shadow-sm">
-                                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">URL de Origem</p>
-                                  <p className="text-xs font-bold text-slate-900 tracking-tight truncate">/api/v1/orders/store</p>
-                                </div>
-                              </div>
-                            </div>
+                  return (
+                    <React.Fragment key={logId}>
+                      <tr className={`group transition-all duration-300 ${expandedRows.includes(logId) ? '' : 'hover:bg-slate-50/50'}`} style={expandedRows.includes(logId) ? { backgroundColor: 'var(--store-color-opacity-5)' } : undefined}>
+                        <td className="px-8 py-6">
+                          <p className="text-xs font-bold text-slate-400">#{audit.id}</p>
+                        </td>
+                        <td className="px-8 py-6">
+                          <div>
+                            <p className="text-sm font-black text-slate-900 leading-none">{userName}</p>
+                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tight mt-1.5">ID Log: {audit.id}</p>
                           </div>
-                        </div>
-                      </td>
-                    </tr>
-                  )}
-                </React.Fragment>
-              ))}
+                        </td>
+                        <td className="px-8 py-6">
+                          {getActionBadge(getActionType(audit.event), getActionLabel(audit.event))}
+                        </td>
+                        <td className="px-8 py-6">
+                          <div className="flex flex-col">
+                            <p className="text-xs font-black text-slate-700">{translateModelName(audit.auditable_type)}</p>
+                            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-1">Model: {audit.auditable_type}</p>
+                          </div>
+                        </td>
+                        <td className="px-8 py-6">
+                          <div className="flex items-center gap-2">
+                            <Store size={14} style={{ color: 'var(--store-color)' }} />
+                            <span className="text-[10px] font-bold text-slate-700">
+                              {(() => {
+                                if (audit.auditable_type === 'App\\Models\\Store' && audit.auditable) {
+                                  return audit.auditable.name || audit.auditable.fancy_name || '-';
+                                }
+                                // Se tem store_name no audit
+                                if (audit.store_name) {
+                                  return audit.store_name;
+                                }
+                                if (audit.auditable?.store) {
+                                  return audit.auditable.store.name || audit.auditable.store.fancy_name || '-';
+                                }
+                                if (audit.auditable?.stores && audit.auditable.stores.length > 0) {
+                                  const firstStore = Array.isArray(audit.auditable.stores) 
+                                    ? audit.auditable.stores[0] 
+                                    : audit.auditable.stores;
+                                  return firstStore?.name || firstStore?.fancy_name || '-';
+                                }
+                                return '-';
+                              })()}
+                            </span>
+                          </div>
+                        </td>
+                        <td className="px-8 py-6 text-xs font-bold text-slate-400">
+                          <div className="flex items-center gap-2">
+                            <Clock size={12} /> {formatDate(audit.created_at)}
+                          </div>
+                        </td>
+                        <td className="px-8 py-6">
+                          <div className="flex items-center justify-center">
+                            <button 
+                              onClick={() => toggleRow(logId)}
+                              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
+                                expandedRows.includes(logId) 
+                                ? 'bg-red-600 text-white shadow-lg shadow-red-200' 
+                                : 'bg-white text-slate-400 border border-slate-100 hover:border-red-200 hover:text-red-600'
+                              }`}
+                            >
+                              {expandedRows.includes(logId) ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                              {expandedRows.includes(logId) ? 'Ocultar' : 'Detalhes'}
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                      
+                      {/* Linha Expandida - Detalhes do Log */}
+                      {expandedRows.includes(logId) && (
+                        <tr style={{ backgroundColor: 'var(--store-color-opacity-5)' }}>
+                          <td colSpan={7} className="px-8 py-0">
+                            <div className="py-6 border-t animate-in slide-in-from-top-2 duration-300" style={{ borderColor: 'var(--store-color-opacity-20)' }}>
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                                <div className="space-y-4">
+                                  <div className="flex items-center gap-2 mb-4">
+                                    <Database size={16} className="text-red-600" />
+                                    <h4 className="text-[11px] font-black text-slate-900 uppercase tracking-widest">Alterações de Dados</h4>
+                                  </div>
+                                  
+                                  <div className="bg-white rounded-2xl border shadow-sm overflow-hidden" style={{ borderColor: 'var(--store-color-opacity-20)' }}>
+                                    <table className="w-full text-left">
+                                      <thead>
+                                        <tr className="bg-slate-50">
+                                          <th className="px-4 py-2 text-[9px] font-black text-slate-400 uppercase tracking-widest">Campo</th>
+                                          <th className="px-4 py-2 text-[9px] font-black text-slate-400 uppercase tracking-widest">Valor Anterior</th>
+                                          <th className="px-4 py-2 text-center text-[9px] font-black text-slate-400 uppercase tracking-widest">
+                                            <ArrowRight size={10} className="mx-auto" />
+                                          </th>
+                                          <th className="px-4 py-2 text-[9px] font-black text-slate-400 uppercase tracking-widest">Novo Valor</th>
+                                        </tr>
+                                      </thead>
+                                      <tbody className="divide-y divide-slate-50">
+                                        {details.length > 0 ? details.map((detail, idx) => (
+                                          <tr key={idx}>
+                                            <td className="px-4 py-3 text-[10px] font-bold text-slate-600 uppercase tracking-tight">{detail.field}</td>
+                                            <td className="px-4 py-3">
+                                              <span className={`text-[11px] font-medium ${detail.old ? 'text-red-500 line-through' : 'text-slate-300 italic'}`}>
+                                                {detail.old || 'Nulo'}
+                                              </span>
+                                            </td>
+                                            <td className="px-4 py-3 text-center text-slate-300">
+                                              <ArrowRight size={12} className="mx-auto" />
+                                            </td>
+                                            <td className="px-4 py-3">
+                                              <span className="text-[11px] font-bold text-emerald-600">
+                                                {detail.new || 'Nulo'}
+                                              </span>
+                                            </td>
+                                          </tr>
+                                        )) : (
+                                          <tr>
+                                            <td colSpan={4} className="px-4 py-3 text-center text-slate-400 text-xs">Nenhuma alteração registrada</td>
+                                          </tr>
+                                        )}
+                                      </tbody>
+                                    </table>
+                                  </div>
+                                </div>
+
+                                <div className="space-y-4">
+                                  <div className="flex items-center gap-2 mb-4">
+                                    <Info size={16} style={{ color: 'var(--store-color)' }} />
+                                    <h4 className="text-[11px] font-black text-slate-900 uppercase tracking-widest">Informações Adicionais</h4>
+                                  </div>
+                                  <div className="grid grid-cols-2 gap-4">
+                                    <div className="p-4 bg-white rounded-2xl border border-slate-100 shadow-sm">
+                                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Endereço IP</p>
+                                      <p className="text-xs font-bold text-slate-900 tracking-tight">{audit.ip_address || '-'}</p>
+                                    </div>
+                                    <div className="p-4 bg-white rounded-2xl border border-slate-100 shadow-sm">
+                                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Navegador</p>
+                                      <p className="text-xs font-bold text-slate-900 tracking-tight truncate">{audit.user_agent || '-'}</p>
+                                    </div>
+                                    <div className="col-span-2 p-4 bg-white rounded-2xl border border-slate-100 shadow-sm">
+                                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">URL de Origem</p>
+                                      <p className="text-xs font-bold text-slate-900 tracking-tight truncate">{audit.url || '-'}</p>
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                    </React.Fragment>
+                  );
+                })
+              )}
             </tbody>
           </table>
         </div>
       </Card>
 
-      <div className="flex flex-col md:flex-row items-center justify-between gap-4 px-6">
-         <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Mostrando {auditLogs.length} logs desta sessão</p>
-         <div className="flex gap-2">
-            <Button variant="outline" className="px-6 py-2 text-[10px] rounded-xl">Anterior</Button>
-            <Button className="px-6 py-2 text-[10px] rounded-xl">Próxima Página</Button>
-         </div>
-      </div>
+      {pagination && (
+        <Pagination
+          pagination={pagination}
+          onPageChange={(page) => {
+            const params: any = {};
+            if (eventFilter.length > 0) params.event = eventFilter.join(',');
+            if (auditableTypeFilter.length > 0) params.auditable_type = auditableTypeFilter.join(',');
+            if (userFilter.length > 0) params.user_id = userFilter.join(',');
+            if (storeFilter.length > 0 && !storeFilter.includes('all')) {
+              params.store_id = storeFilter
+                .filter(id => id !== 'all' && !isNaN(parseInt(id)))
+                .join(',');
+            }
+            if (dateFrom) params.date_from = dateFrom;
+            if (dateTo) params.date_to = dateTo;
+            if (sortBy) {
+              params.order_by = sortBy;
+              params.order_dir = sortDirection || 'desc';
+            }
+            fetchAudits(page, params);
+          }}
+          itemName="logs"
+        />
+      )}
     </div>
   );
 };

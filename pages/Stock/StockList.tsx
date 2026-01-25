@@ -1,9 +1,27 @@
 
-import React from 'react';
+import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Search, Edit, Plus, ArrowRightLeft, Filter, Package } from 'lucide-react';
-import { Card, Button, Input, Select, FilterSection, Badge } from '../../components/Common';
+import { Card, Button, Input, Select, FilterSection, Badge, ActiveFiltersBadge } from '../../components/Common';
+import { useActiveFilters } from '../../hooks/useActiveFilters';
 
 export const StockList: React.FC = () => {
+  const navigate = useNavigate();
+  const [skuFilter, setSkuFilter] = useState('');
+  const [descriptionFilter, setDescriptionFilter] = useState('');
+  const [typeFilter, setTypeFilter] = useState('');
+  const [genderFilter, setGenderFilter] = useState('');
+  const [unitFilter, setUnitFilter] = useState('');
+  const [dateFilter, setDateFilter] = useState('');
+  
+  const activeFilters = useActiveFilters({
+    skuFilter,
+    descriptionFilter,
+    typeFilter,
+    genderFilter,
+    unitFilter,
+    dateFilter,
+  });
   const stockItems = [
     { id: '1360', desc: 'Armação Infantil Nylon 1360', type: 'INFANTIL NYLON', gender: 'Feminino', date: '17/06/2024', loc: 'MARINGÁ' },
     { id: '4386', desc: 'Armação Masculina Acetato 4386', type: 'INFANTIL ACETATO', gender: 'Masculino', date: '17/06/2024', loc: 'MARINGÁ' },
@@ -16,27 +34,30 @@ export const StockList: React.FC = () => {
   return (
     <div className="space-y-8 animate-in fade-in duration-700">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-        <div>
-          <h1 className="text-3xl font-black text-slate-950 tracking-tight">Estoque Geral</h1>
-          <p className="text-gray-500 font-medium mt-1">Controle de armações, lentes e insumos da unidade.</p>
+        <div className="flex items-center gap-4">
+          <div>
+            <h1 className="text-3xl font-black text-slate-950 tracking-tight">Estoque Geral</h1>
+            <p className="text-gray-500 font-medium mt-1">Controle de armações, lentes e insumos da unidade.</p>
+          </div>
+          <ActiveFiltersBadge count={activeFilters} />
         </div>
         <div className="flex gap-3">
            <Button variant="outline">
             <ArrowRightLeft size={18} /> Transferências
           </Button>
-          <Button onClick={() => window.location.hash = '#/estoque/novo'} className="shadow-red-600/20">
+          <Button onClick={() => navigate('/estoque/create')} className="shadow-red-600/20">
             <Plus size={18} /> Cadastrar Armação
           </Button>
         </div>
       </div>
 
       <FilterSection>
-        <Input label="Código/SKU" placeholder="0000" />
-        <Input label="Descrição do Produto" placeholder="Buscar por modelo..." />
-        <Select label="Tipo de Armação" options={[{label: 'TODOS', value: ''}, {label: 'ACETATO', value: 'acetato'}, {label: 'METAL', value: 'metal'}]} />
-        <Select label="Gênero" options={[{label: 'TODOS', value: ''}, {label: 'Masculino', value: 'm'}, {label: 'Feminino', value: 'f'}]} />
-        <Select label="Unidade/Ótica" options={[{label: 'TODAS', value: ''}, {label: 'MARINGÁ', value: 'maringa'}]} />
-        <Input label="Cadastrado após" type="date" />
+        <Input label="Código/SKU" placeholder="0000" value={skuFilter} onChange={(e) => setSkuFilter(e.target.value)} />
+        <Input label="Descrição do Produto" placeholder="Buscar por modelo..." value={descriptionFilter} onChange={(e) => setDescriptionFilter(e.target.value)} />
+        <Select label="Tipo de Armação" value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)} options={[{label: 'TODOS', value: ''}, {label: 'ACETATO', value: 'acetato'}, {label: 'METAL', value: 'metal'}]} />
+        <Select label="Gênero" value={genderFilter} onChange={(e) => setGenderFilter(e.target.value)} options={[{label: 'TODOS', value: ''}, {label: 'Masculino', value: 'm'}, {label: 'Feminino', value: 'f'}]} />
+        <Select label="Unidade/Ótica" value={unitFilter} onChange={(e) => setUnitFilter(e.target.value)} options={[{label: 'TODAS', value: ''}, {label: 'MARINGÁ', value: 'maringa'}]} />
+        <Input label="Cadastrado após" type="date" value={dateFilter} onChange={(e) => setDateFilter(e.target.value)} />
       </FilterSection>
 
       <Card>

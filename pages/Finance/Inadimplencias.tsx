@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { AlertTriangle, FileText, Phone, User } from 'lucide-react';
-import { Card, Badge, Button, FilterSection, Input, Select } from '../../components/Common';
+import { Card, Badge, Button, FilterSection, Input, Select, ActiveFiltersBadge } from '../../components/Common';
+import { useActiveFilters } from '../../hooks/useActiveFilters';
 
 interface Delinquency {
   id: string;
@@ -21,6 +22,18 @@ const delinquencyList: Delinquency[] = [
 ];
 
 export const Inadimplencias: React.FC = () => {
+  const [clientFilter, setClientFilter] = useState('');
+  const [osFilter, setOsFilter] = useState('');
+  const [unitFilter, setUnitFilter] = useState('');
+  const [statusFilter, setStatusFilter] = useState('');
+  
+  const activeFilters = useActiveFilters({
+    clientFilter,
+    osFilter,
+    unitFilter,
+    statusFilter,
+  });
+
   const getVariant = (status: Delinquency['status']) => {
     switch (status) {
       case 'Em atraso':
@@ -37,9 +50,12 @@ export const Inadimplencias: React.FC = () => {
   return (
     <div className="space-y-8 animate-in fade-in duration-700">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-        <div>
-          <h1 className="text-3xl font-black text-slate-950 tracking-tight">Inadimplências</h1>
-          <p className="text-gray-500 font-medium mt-1">Ordens abertas no laboratório sem retirada e com valores em aberto.</p>
+        <div className="flex items-center gap-4">
+          <div>
+            <h1 className="text-3xl font-black text-slate-950 tracking-tight">Inadimplências</h1>
+            <p className="text-gray-500 font-medium mt-1">Ordens abertas no laboratório sem retirada e com valores em aberto.</p>
+          </div>
+          <ActiveFiltersBadge count={activeFilters} />
         </div>
         <Button className="shadow-red-600/20">
           <AlertTriangle size={18} /> Gerar cobrança
@@ -47,15 +63,15 @@ export const Inadimplencias: React.FC = () => {
       </div>
 
       <FilterSection>
-        <Input label="Cliente" placeholder="Nome do cliente..." />
-        <Input label="Nº da OS" placeholder="Ex: 39812" />
-        <Select label="Unidade" options={[
+        <Input label="Cliente" placeholder="Nome do cliente..." value={clientFilter} onChange={(e) => setClientFilter(e.target.value)} />
+        <Input label="Nº da OS" placeholder="Ex: 39812" value={osFilter} onChange={(e) => setOsFilter(e.target.value)} />
+        <Select label="Unidade" value={unitFilter} onChange={(e) => setUnitFilter(e.target.value)} options={[
           { label: 'TODAS', value: '' },
           { label: 'Maringá Centro', value: 'maringa' },
           { label: 'Londrina Shopping', value: 'londrina' },
           { label: 'Curitiba Batel', value: 'curitiba' },
         ]} />
-        <Select label="Status" options={[
+        <Select label="Status" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} options={[
           { label: 'TODOS', value: '' },
           { label: 'Em atraso', value: 'atraso' },
           { label: 'Em cobrança', value: 'cobranca' },

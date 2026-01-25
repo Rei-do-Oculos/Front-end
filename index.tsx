@@ -2,6 +2,7 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
+import './styles/system-colors.css';
 
 console.log("🚀 Sistema Rei do Óculos: Iniciando bootstrap...");
 

@@ -1,61 +1,479 @@
 
-import React, { useState } from 'react';
-import { Plus, Edit, Trash2, Shield, Users, Store, Eye } from 'lucide-react';
-import { Card, Button, Badge, Input } from '../../components/Common';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { Plus, Edit, Trash2, Shield, Users, Store, Eye, Save, X, Loader2, ChevronDown, ChevronRight, Check, CheckCircle2 } from 'lucide-react';
+import { Card, Button, Badge, Input, Modal } from '../../components/Common';
+import { useRoles } from '../../services/hooks/useRoles';
+import { useUsers } from '../../services/hooks/useUsers';
+import { Role } from '../../services/api/roles';
+import { usePlucks } from '../../services/hooks/usePlucks';
+import { permissionsService } from '../../services/api/permissions';
+import { translatePermission, translateResource } from '../../utils/translations';
 
-interface Profile {
-  id: string;
-  name: string;
-  description: string;
-  color: string;
-  usersCount: number;
-  stores: string[];
-  permissions: string[];
-}
-
-const mockProfiles: Profile[] = [
-  {
-    id: '1',
-    name: 'Administrador',
-    description: 'Acesso total ao sistema, todas as unidades',
-    color: 'red',
-    usersCount: 3,
-    stores: ['Todas as unidades'],
-    permissions: ['Todas as permissões']
-  },
-  {
-    id: '2',
-    name: 'Gerente',
-    description: 'Acesso completo à unidade designada',
-    color: 'blue',
-    usersCount: 5,
-    stores: ['Maringá Centro', 'Londrina Shopping'],
-    permissions: ['Vendas', 'Estoque', 'Clientes', 'Relatórios']
-  },
-  {
-    id: '3',
-    name: 'Vendedor',
-    description: 'Acesso a vendas e clientes da unidade',
-    color: 'emerald',
-    usersCount: 12,
-    stores: ['Maringá Centro'],
-    permissions: ['PDV', 'Clientes', 'Ordens de Serviço']
-  },
-  {
-    id: '4',
-    name: 'Caixa',
-    description: 'Apenas operações de caixa e pagamentos',
-    color: 'amber',
-    usersCount: 4,
-    stores: ['Todas as unidades'],
-    permissions: ['PDV', 'Pagamentos']
-  },
-];
+const getProfileColor = (roleName: string): string => {
+  const name = roleName.toLowerCase();
+  if (name.includes('admin')) return 'red';
+  if (name.includes('gerente') || name.includes('manager')) return 'blue';
+  if (name.includes('vendedor') || name.includes('seller')) return 'emerald';
+  if (name.includes('caixa') || name.includes('cashier')) return 'amber';
+  return 'info';
+};
 
 export const Profiles: React.FC = () => {
-  const [profiles, setProfiles] = useState<Profile[]>(mockProfiles);
+  const { roles, loading, error, fetchRoles, createRole, updateRole, deleteRole, getRole } = useRoles({
+    autoFetch: false,
+  });
+  
+  const { users } = useUsers({
+    autoFetch: true,
+  });
+  
+  const { plucks: permissionsPlucks, loading: permissionsPlucksLoading } = usePlucks({
+    service: permissionsService,
+    autoFetch: true,
+  });
+  
+  // Garantir que sempre seja um array
+  const safePermissionsPlucks = Array.isArray(permissionsPlucks) ? permissionsPlucks : [];
+  
+  // Contar usuários por perfil
+  const usersCountByRole = useMemo(() => {
+    const count: Record<number, number> = {};
+    
+    console.log('[Profiles] Contando usuários por perfil...');
+    console.log('[Profiles] Total de usuários:', users?.length || 0);
+    
+    if (users && Array.isArray(users)) {
+      users.forEach((user) => {
+        // Garantir que roles seja sempre um array
+        const userRoles = Array.isArray(user.roles) ? user.roles : [];
+        
+        if (userRoles.length > 0) {
+          console.log(`[Profiles] Usuário ${user.email} tem ${userRoles.length} roles:`, userRoles.map(r => r.name));
+        }
+        
+        userRoles.forEach((role) => {
+          if (role && role.id) {
+            count[role.id] = (count[role.id] || 0) + 1;
+            console.log(`[Profiles] Role ${role.id} (${role.name}) agora tem ${count[role.id]} usuários`);
+          }
+        });
+      });
+    }
+    
+    console.log('[Profiles] Contagem final por role:', count);
+    return count;
+  }, [users]);
+
   const [isCreating, setIsCreating] = useState(false);
-  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [roleToDelete, setRoleToDelete] = useState<number | null>(null);
+  const [formData, setFormData] = useState({
+    name: '',
+    guard_name: 'web',
+    permissions: [] as number[],
+  });
+  const [formError, setFormError] = useState<string | null>(null);
+  const [expandedModules, setExpandedModules] = useState<Set<string>>(new Set());
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [loadingRole, setLoadingRole] = useState(false);
+
+  // Agrupar permissões por módulo
+  const permissionsByModule = useMemo(() => {
+    const grouped: Record<string, Array<{ id: number; name: string; action: string }>> = {};
+    
+    safePermissionsPlucks.forEach((perm: any) => {
+      const parts = perm.name.split('.');
+      if (parts.length >= 2) {
+        const module = parts[0];
+        const action = parts.slice(1).join('.');
+        
+        if (!grouped[module]) {
+          grouped[module] = [];
+        }
+        
+        grouped[module].push({
+          id: perm.id,
+          name: perm.name,
+          action: action,
+        });
+      }
+    });
+    
+    return grouped;
+  }, [safePermissionsPlucks]);
+
+  // Obter todos os IDs de permissões
+  const allPermissionIds = useMemo(() => {
+    return safePermissionsPlucks.map((p: any) => p.id);
+  }, [safePermissionsPlucks]);
+
+  // Verificar se todas as permissões estão selecionadas
+  const allSelected = useMemo(() => {
+    return allPermissionIds.length > 0 && allPermissionIds.every(id => formData.permissions.includes(id));
+  }, [allPermissionIds, formData.permissions]);
+
+  // Verificar se todas as permissões de um módulo estão selecionadas
+  const isModuleFullySelected = (module: string) => {
+    const modulePerms = permissionsByModule[module] || [];
+    if (modulePerms.length === 0) return false;
+    return modulePerms.every(perm => formData.permissions.includes(perm.id));
+  };
+
+  // Selecionar todas as permissões
+  const selectAllPermissions = () => {
+    if (allSelected) {
+      setFormData(prev => ({ ...prev, permissions: [] }));
+    } else {
+      setFormData(prev => ({ ...prev, permissions: [...allPermissionIds] }));
+    }
+  };
+
+  // Selecionar todas as permissões de um módulo
+  const selectModulePermissions = (module: string) => {
+    const modulePerms = permissionsByModule[module] || [];
+    const moduleIds = modulePerms.map(p => p.id);
+    const isFullySelected = isModuleFullySelected(module);
+    
+    if (isFullySelected) {
+      // Desmarcar todas do módulo
+      setFormData(prev => ({
+        ...prev,
+        permissions: prev.permissions.filter(id => !moduleIds.includes(id)),
+      }));
+    } else {
+      // Marcar todas do módulo
+      setFormData(prev => ({
+        ...prev,
+        permissions: [...new Set([...prev.permissions, ...moduleIds])],
+      }));
+    }
+  };
+
+  // Toggle de uma permissão individual
+  const togglePermission = (permissionId: number) => {
+    setFormData(prev => ({
+      ...prev,
+      permissions: prev.permissions.includes(permissionId)
+        ? prev.permissions.filter(id => id !== permissionId)
+        : [...prev.permissions, permissionId],
+    }));
+  };
+
+  // Toggle de expansão de módulo
+  const toggleModule = (module: string) => {
+    setExpandedModules(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(module)) {
+        newSet.delete(module);
+      } else {
+        newSet.add(module);
+      }
+      return newSet;
+    });
+  };
+
+  useEffect(() => {
+    fetchRoles(1, {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Limpar mensagem de sucesso quando fechar o modal
+  useEffect(() => {
+    if (!isCreating && !editingId) {
+      setSuccessMessage(null);
+      setFormError(null);
+    }
+  }, [isCreating, editingId]);
+  
+  // Ref para evitar múltiplas execuções do useEffect
+  const loadingRef = useRef(false);
+  const currentEditingIdRef = useRef<number | null>(null);
+  
+  // Carregar dados do role quando editingId mudar
+  useEffect(() => {
+    // Resetar ref se editingId mudou ou foi limpo
+    if (!editingId) {
+      loadingRef.current = false;
+      currentEditingIdRef.current = null;
+      setLoadingRole(false);
+      return;
+    }
+    
+    // Se já está carregando o mesmo ID, não fazer nada
+    if (loadingRef.current && currentEditingIdRef.current === editingId) {
+      console.log('[Profiles] Já está carregando este role, ignorando');
+      return;
+    }
+    
+    // Não executar se estiver criando
+    if (isCreating) {
+      return;
+    }
+    
+    if (editingId) {
+      console.log('[Profiles] useEffect: editingId mudou, iniciando carregamento', { editingId, roles: !!roles, rolesLength: Array.isArray(roles) ? roles.length : 0 });
+      
+      loadingRef.current = true;
+      currentEditingIdRef.current = editingId;
+      setLoadingRole(true);
+      setFormError(null);
+      
+      const loadRoleData = async () => {
+        const targetId = editingId; // Capturar o ID atual
+        
+        // Timeout de segurança (10 segundos)
+        const timeoutId = setTimeout(() => {
+          if (currentEditingIdRef.current === targetId && loadingRef.current) {
+            console.warn('[Profiles] Timeout ao carregar role, usando dados básicos');
+            setLoadingRole(false);
+            loadingRef.current = false;
+            
+            // Tentar usar dados básicos se disponíveis
+            const role = Array.isArray(roles) ? roles.find(r => r && r.id === targetId) : null;
+            if (role) {
+              setFormData({
+                name: role.name,
+                guard_name: role.guard_name || 'web',
+                permissions: role.permissions?.map(p => p.id) || [],
+              });
+              setFormError('Tempo limite excedido. Algumas permissões podem estar ausentes.');
+            } else {
+              setFormError('Tempo limite excedido ao carregar perfil. Tente novamente.');
+            }
+          }
+        }, 10000);
+        
+        try {
+          // Tentar buscar dados básicos da lista primeiro (se disponível)
+          let role = Array.isArray(roles) ? roles.find(r => r && r.id === targetId) : null;
+          
+          if (role) {
+            console.log('[Profiles] Role encontrado na lista, preenchendo dados básicos');
+            console.log('[Profiles] Role da lista:', role);
+            console.log('[Profiles] Permissões do role da lista:', role.permissions);
+            
+            // Extrair IDs das permissões de forma segura
+            let permissionIds: number[] = [];
+            if (role.permissions && Array.isArray(role.permissions)) {
+              permissionIds = role.permissions.map((p: any) => {
+                if (typeof p === 'object' && p !== null && 'id' in p) {
+                  return p.id;
+                } else if (typeof p === 'number') {
+                  return p;
+                }
+                return null;
+              }).filter((id: any): id is number => id !== null);
+            }
+            
+            console.log('[Profiles] IDs de permissões da lista:', permissionIds);
+            
+            // Preencher com dados básicos primeiro para mostrar o formulário rapidamente
+            setFormData({
+              name: role.name || '',
+              guard_name: role.guard_name || 'web',
+              permissions: permissionIds,
+            });
+            console.log('[Profiles] FormData preenchido com dados básicos');
+            // Parar o loading para mostrar o formulário
+            setLoadingRole(false);
+            // Continuar carregando em background para buscar dados completos
+          } else {
+            console.log('[Profiles] Role não encontrado na lista, buscando diretamente da API');
+          }
+          
+          // Sempre buscar o role completo com permissões da API
+          console.log('[Profiles] Buscando role completo da API com ID:', targetId);
+          const fullRole = await getRole(String(targetId));
+          console.log('[Profiles] Role completo recebido:', fullRole);
+          console.log('[Profiles] Permissões do role:', fullRole.permissions);
+          console.log('[Profiles] Tipo de permissions:', typeof fullRole.permissions, 'É array?', Array.isArray(fullRole.permissions));
+          
+          clearTimeout(timeoutId);
+          
+          // Verificar se ainda estamos editando o mesmo role (pode ter mudado durante o carregamento)
+          if (currentEditingIdRef.current === targetId && fullRole && fullRole.id === targetId) {
+            // Extrair IDs das permissões de forma segura
+            let permissionIds: number[] = [];
+            
+            if (fullRole.permissions) {
+              if (Array.isArray(fullRole.permissions)) {
+                permissionIds = fullRole.permissions.map((p: any) => {
+                  if (typeof p === 'object' && p !== null && 'id' in p) {
+                    return p.id;
+                  } else if (typeof p === 'number') {
+                    return p;
+                  }
+                  return null;
+                }).filter((id: any): id is number => id !== null);
+              } else {
+                console.warn('[Profiles] Permissions não é um array:', fullRole.permissions);
+              }
+            } else {
+              console.warn('[Profiles] Permissions é null ou undefined');
+            }
+            
+            console.log('[Profiles] IDs de permissões extraídos:', permissionIds);
+            
+            const newFormData = {
+              name: fullRole.name || '',
+              guard_name: fullRole.guard_name || 'web',
+              permissions: permissionIds,
+            };
+            
+            console.log('[Profiles] FormData que será atualizado:', newFormData);
+            
+            setFormData(newFormData);
+            console.log('[Profiles] FormData atualizado com dados completos');
+            setFormError(null);
+          } else {
+            console.warn('[Profiles] Role não corresponde ao ID atual ou não foi encontrado', {
+              currentEditingId: currentEditingIdRef.current,
+              targetId,
+              fullRoleId: fullRole?.id,
+            });
+          }
+        } catch (err: any) {
+          clearTimeout(timeoutId);
+          console.error('[Profiles] Erro ao carregar perfil completo:', err);
+          console.error('[Profiles] Detalhes do erro:', {
+            message: err.message,
+            response: err.response?.data,
+            status: err.response?.status,
+          });
+          
+          // Tentar usar dados básicos se disponíveis
+          const role = Array.isArray(roles) ? roles.find(r => r && r.id === targetId) : null;
+          if (role && currentEditingIdRef.current === targetId) {
+            setFormData({
+              name: role.name,
+              guard_name: role.guard_name || 'web',
+              permissions: role.permissions?.map(p => p.id) || [],
+            });
+            setFormError('Não foi possível carregar todas as permissões. Algumas podem estar ausentes.');
+          } else if (currentEditingIdRef.current === targetId) {
+            // Se não tiver dados básicos, mostrar erro mas manter modal aberto
+            setFormError('Erro ao carregar perfil. Verifique sua conexão e tente novamente.');
+            setFormData({
+              name: '',
+              guard_name: 'web',
+              permissions: [],
+            });
+          }
+        } finally {
+          // Só resetar se ainda estamos editando o mesmo role
+          if (currentEditingIdRef.current === targetId) {
+            setLoadingRole(false);
+            loadingRef.current = false;
+            console.log('[Profiles] Carregamento finalizado para role:', targetId);
+          }
+        }
+      };
+      
+      loadRoleData();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editingId, isCreating]);
+
+  const handleCreate = () => {
+    setFormData({ name: '', guard_name: 'web', permissions: [] });
+    setFormError(null);
+    setIsCreating(true);
+    setEditingId(null);
+  };
+
+  const handleEdit = (role: Role) => {
+    console.log('[Profiles] handleEdit chamado para role:', role);
+    setFormError(null);
+    setSuccessMessage(null);
+    setEditingId(role.id);
+    setIsCreating(false);
+    // O useEffect vai carregar os dados completos
+  };
+
+  const handleCancel = () => {
+    console.log('[Profiles] handleCancel chamado', { loadingRole, editingId, isCreating });
+    // Não fechar se estiver carregando dados
+    if (loadingRole) {
+      console.log('[Profiles] Cancelando fechamento porque está carregando');
+      return;
+    }
+    setIsCreating(false);
+    setEditingId(null);
+    setFormData({ name: '', guard_name: 'web', permissions: [] });
+    setFormError(null);
+    setSuccessMessage(null);
+    setExpandedModules(new Set());
+    setLoadingRole(false);
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setFormError(null);
+    setSuccessMessage(null);
+
+    if (!formData.name.trim()) {
+      setFormError('Nome do perfil é obrigatório');
+      return;
+    }
+
+    try {
+      const payload = {
+        name: formData.name.trim(),
+        guard_name: formData.guard_name,
+        permissions: formData.permissions, // Enviar array de IDs diretamente, não objetos
+      };
+
+      if (editingId) {
+        await updateRole(String(editingId), payload);
+        setSuccessMessage('Perfil atualizado com sucesso!');
+      } else {
+        await createRole(payload);
+        setSuccessMessage('Perfil criado com sucesso!');
+      }
+
+      await fetchRoles(1, {});
+      
+      // Limpar mensagem de sucesso e fechar modal após 2 segundos
+      setTimeout(() => {
+        setSuccessMessage(null);
+        handleCancel();
+      }, 2000);
+    } catch (err: any) {
+      console.error('Erro ao salvar perfil:', err);
+      setFormError(err.response?.data?.message || err.message || 'Erro ao salvar perfil');
+    }
+  };
+
+  const handleDeleteClick = (id: number) => {
+    setRoleToDelete(id);
+    setDeleteModalOpen(true);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (roleToDelete) {
+      try {
+        await deleteRole(String(roleToDelete));
+        await fetchRoles(1, {});
+        setDeleteModalOpen(false);
+        setRoleToDelete(null);
+      } catch (err: any) {
+        console.error('Erro ao excluir perfil:', err);
+        alert(err.response?.data?.message || err.message || 'Erro ao excluir perfil');
+      }
+    }
+  };
+
+
+  if (loading && (!roles || roles.length === 0) && !error) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <div className="w-8 h-8 border-2 border-red-600 border-t-transparent rounded-full animate-spin"></div>
+      </div>
+    );
+  }
+
+  const editingRole = editingId && roles && Array.isArray(roles) ? roles.find(r => r && r.id === editingId) : null;
 
   return (
     <div className="space-y-6">
@@ -64,91 +482,330 @@ export const Profiles: React.FC = () => {
           <h2 className="text-xl font-black text-slate-950">Perfis de Acesso</h2>
           <p className="text-sm text-slate-500 mt-1">Gerencie os perfis de usuário e suas permissões</p>
         </div>
-        <Button onClick={() => setIsCreating(true)} className="shadow-red-600/20">
+        <Button onClick={handleCreate}>
           <Plus size={18} /> Novo Perfil
         </Button>
       </div>
 
+      {error && (
+        <div className="bg-red-50 border border-red-200 rounded-xl p-4">
+          <p className="text-red-600 font-medium">Erro ao carregar perfis: {error.message}</p>
+        </div>
+      )}
+
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {profiles.map((profile) => (
-          <Card key={profile.id} className="border-l-4" style={{ borderLeftColor: profile.color === 'red' ? '#ef4444' : profile.color === 'blue' ? '#3b82f6' : profile.color === 'emerald' ? '#10b981' : '#f59e0b' }}>
-            <div className="flex items-start justify-between mb-4">
-              <div className="flex items-center gap-3">
-                <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${
-                  profile.color === 'red' ? 'bg-red-100 text-red-600' :
-                  profile.color === 'blue' ? 'bg-blue-100 text-blue-600' :
-                  profile.color === 'emerald' ? 'bg-emerald-100 text-emerald-600' :
-                  'bg-amber-100 text-amber-600'
-                }`}>
-                  <Shield size={24} />
-                </div>
-                <div>
-                  <h3 className="text-lg font-black text-slate-900">{profile.name}</h3>
-                  <p className="text-xs text-slate-500 mt-0.5">{profile.description}</p>
-                </div>
-              </div>
-              <div className="flex gap-2">
-                <button
-                  title="Editar perfil"
-                  className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-all"
-                  onClick={() => setEditingId(profile.id)}
-                >
-                  <Edit size={16} />
-                </button>
-                <button
-                  title="Excluir perfil"
-                  className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all"
-                >
-                  <Trash2 size={16} />
-                </button>
-              </div>
-            </div>
+        {roles && Array.isArray(roles) && roles.length > 0 ? (
+          roles.map((role) => {
+            if (!role || !role.id) return null;
+            const color = getProfileColor(role.name);
+            const colorClasses = {
+              red: { bg: 'bg-red-100', text: 'text-red-600', border: 'var(--store-color)' },
+              blue: { bg: 'bg-blue-100', text: 'text-blue-600', border: '#3b82f6' },
+              emerald: { bg: 'bg-emerald-100', text: 'text-emerald-600', border: '#10b981' },
+              amber: { bg: 'bg-amber-100', text: 'text-amber-600', border: '#f59e0b' },
+              info: { bg: 'bg-slate-100', text: 'text-slate-600', border: '#64748b' },
+            };
+            const colorClass = colorClasses[color as keyof typeof colorClasses] || colorClasses.info;
 
-            <div className="space-y-3 mt-6 pt-6 border-t border-slate-100">
-              <div className="flex items-center gap-2 text-sm">
-                <Users size={14} className="text-slate-400" />
-                <span className="font-bold text-slate-900">{profile.usersCount}</span>
-                <span className="text-slate-500">usuários</span>
-              </div>
-
-              <div className="flex items-start gap-2">
-                <Store size={14} className="text-slate-400 mt-0.5" />
-                <div className="flex-1">
-                  <p className="text-xs font-bold text-slate-500 uppercase mb-1">Unidades</p>
-                  <div className="flex flex-wrap gap-2">
-                    {profile.stores.map((store, idx) => (
-                      <Badge key={idx} variant="info">{store}</Badge>
-                    ))}
+            return (
+              <Card key={role.id} className="border-l-4" style={{ borderLeftColor: colorClass.border }}>
+                <div className="flex items-start justify-between mb-4">
+                  <div className="flex items-center gap-3">
+                    <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${colorClass.bg} ${colorClass.text}`}>
+                      <Shield size={24} />
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-black text-slate-900">{role.name}</h3>
+                      <p className="text-xs text-slate-500 mt-0.5">Guard: {role.guard_name}</p>
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      title="Editar perfil"
+                      className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-all"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        console.log('[Profiles] Botão editar clicado para role:', role);
+                        handleEdit(role);
+                      }}
+                    >
+                      <Edit size={16} />
+                    </button>
+                    <button
+                      type="button"
+                      title="Excluir perfil"
+                      className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        handleDeleteClick(role.id);
+                      }}
+                    >
+                      <Trash2 size={16} />
+                    </button>
                   </div>
                 </div>
-              </div>
 
-              <div>
-                <p className="text-xs font-bold text-slate-500 uppercase mb-2">Permissões</p>
-                <div className="flex flex-wrap gap-2">
-                  {profile.permissions.map((perm, idx) => (
-                    <Badge key={idx} variant="success">{perm}</Badge>
-                  ))}
+                <div className="space-y-3 mt-6 pt-6 border-t border-slate-100">
+                  <div className="flex items-center gap-2 text-sm">
+                    <Users size={14} className="text-slate-400" />
+                    <span className="font-bold text-slate-900">{usersCountByRole[role.id] || 0}</span>
+                    <span className="text-slate-500">
+                      {usersCountByRole[role.id] === 1 ? 'usuário' : 'usuários'}
+                    </span>
+                  </div>
+
+                  <div>
+                    {(() => {
+                      // Garantir que permissions seja sempre um array
+                      const permissions = Array.isArray(role.permissions) ? role.permissions : [];
+                      const permissionsCount = permissions.length;
+                      
+                      return (
+                        <>
+                          <p className="text-xs font-bold text-slate-500 uppercase mb-2">Permissões ({permissionsCount})</p>
+                          <div className="flex flex-wrap gap-2">
+                            {permissionsCount > 0 ? (
+                              permissions.slice(0, 5).map((perm) => (
+                                <Badge key={perm.id} variant="success" title={perm.name}>
+                                  {translatePermission(perm.name)}
+                                </Badge>
+                              ))
+                            ) : (
+                              <span className="text-xs text-slate-400">Nenhuma permissão</span>
+                            )}
+                            {permissionsCount > 5 && (
+                              <Badge variant="info">+{permissionsCount - 5} mais</Badge>
+                            )}
+                          </div>
+                        </>
+                      );
+                    })()}
+                  </div>
                 </div>
-              </div>
-            </div>
+              </Card>
+            );
+          }).filter(Boolean)
+        ) : (
+          <Card>
+            <p className="text-slate-400 text-sm text-center py-8">Nenhum perfil encontrado</p>
           </Card>
-        ))}
+        )}
       </div>
 
-      {isCreating && (
-        <Card className="border-2 border-red-200 bg-red-50/30">
-          <h3 className="text-lg font-black text-slate-900 mb-4">Criar Novo Perfil</h3>
-          <div className="space-y-4">
-            <Input label="Nome do Perfil *" placeholder="Ex: Supervisor" />
-            <Input label="Descrição" placeholder="Descreva o perfil..." />
-            <div className="flex gap-3 pt-4">
-              <Button onClick={() => setIsCreating(false)} variant="outline">Cancelar</Button>
-              <Button className="shadow-red-600/20">Criar Perfil</Button>
-            </div>
+      <Modal
+        isOpen={isCreating || !!editingId}
+        onClose={() => {
+          console.log('[Profiles] Modal onClose chamado', { loadingRole });
+          // Não fechar se estiver carregando
+          if (!loadingRole) {
+            handleCancel();
+          }
+        }}
+        title={editingId ? 'Editar Perfil' : 'Criar Novo Perfil'}
+        message={editingId ? 'Edite as informações do perfil' : 'Preencha os dados para criar um novo perfil'}
+        type="info"
+        size="xl"
+        showCancel={false}
+        onConfirm={undefined}
+        confirmText=""
+      >
+        {loadingRole && !formData.name && editingId ? (
+          <div className="flex items-center justify-center py-12">
+            <Loader2 className="w-8 h-8 animate-spin" style={{ color: 'var(--store-color)' }} />
+            <span className="ml-3 text-slate-600">Carregando dados do perfil...</span>
           </div>
-        </Card>
-      )}
+        ) : (
+          <>
+            {successMessage && (
+              <div className="mb-4 bg-emerald-50 border border-emerald-200 rounded-xl p-3 flex items-center gap-2">
+                <CheckCircle2 size={18} className="text-emerald-600 shrink-0" />
+                <p className="text-emerald-600 text-sm font-medium">{successMessage}</p>
+              </div>
+            )}
+            
+            {formError && (
+              <div className="mb-4 border rounded-xl p-3" style={{ backgroundColor: 'var(--store-color-light)', borderColor: 'var(--store-color-opacity-20)' }}>
+                <p className="text-sm font-medium" style={{ color: 'var(--store-color-dark)' }}>{formError}</p>
+              </div>
+            )}
+
+            <form onSubmit={handleSubmit} className="space-y-4">
+          <Input
+            label="Nome do Perfil *"
+            placeholder="Ex: Supervisor"
+            value={formData.name}
+            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+            required
+          />
+          
+          <div>
+            <div className="flex items-center justify-between mb-3">
+              <label className="text-[10px] font-semibold text-slate-500 uppercase tracking-[0.15em] ml-1 block">
+                Permissões
+              </label>
+              <button
+                type="button"
+                onClick={selectAllPermissions}
+                className="flex items-center gap-2 px-3 py-1.5 text-xs font-semibold text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+              >
+                <div 
+                  className={`w-4 h-4 border-2 rounded flex items-center justify-center ${
+                    allSelected ? '' : 'border-slate-300'
+                  }`}
+                  style={allSelected ? {
+                    backgroundColor: 'var(--store-color)',
+                    borderColor: 'var(--store-color)',
+                  } : undefined}
+                >
+                  {allSelected && <Check size={12} className="text-white" />}
+                </div>
+                Selecionar Todas
+              </button>
+            </div>
+
+            {permissionsPlucksLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="w-6 h-6 animate-spin text-red-600" />
+              </div>
+            ) : Object.keys(permissionsByModule).length === 0 ? (
+              <p className="text-xs text-slate-400 text-center py-4">Nenhuma permissão disponível</p>
+            ) : (
+              <div className="space-y-2 max-h-96 overflow-y-auto border border-slate-200 rounded-xl p-4 bg-white">
+                {/* Tags dos módulos */}
+                <div className="flex flex-wrap gap-2 mb-4 pb-4 border-b border-slate-100">
+                  {Object.keys(permissionsByModule).map((module) => {
+                    const modulePerms = permissionsByModule[module];
+                    const isExpanded = expandedModules.has(module);
+                    const isFullySelected = isModuleFullySelected(module);
+                    const selectedCount = modulePerms.filter(p => formData.permissions.includes(p.id)).length;
+                    
+                    return (
+                      <button
+                        key={module}
+                        type="button"
+                        onClick={() => toggleModule(module)}
+                        className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                          isExpanded
+                            ? 'bg-red-600 text-white'
+                            : isFullySelected
+                            ? 'bg-red-50 text-red-600 border-2 border-red-200'
+                            : selectedCount > 0
+                            ? 'bg-slate-100 text-slate-700 border-2 border-slate-200'
+                            : 'bg-white text-slate-600 border-2 border-slate-200 hover:bg-slate-50'
+                        }`}
+                      >
+                        {translateResource(module)}
+                        {selectedCount > 0 && (
+                          <span 
+                            className={`px-1.5 py-0.5 rounded text-[10px] ${
+                              isExpanded ? 'bg-white/20' : 'text-white'
+                            }`}
+                            style={!isExpanded ? {
+                              backgroundColor: 'var(--store-color)',
+                            } : undefined}
+                          >
+                            {selectedCount}/{modulePerms.length}
+                          </span>
+                        )}
+                        {isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* Permissões expandidas por módulo */}
+                {Object.keys(permissionsByModule).map((module) => {
+                  if (!expandedModules.has(module)) return null;
+                  
+                  const modulePerms = permissionsByModule[module];
+                  const isFullySelected = isModuleFullySelected(module);
+                  
+                  return (
+                    <div key={module} className="mb-4 last:mb-0">
+                      {/* Header do módulo com checkbox "Selecionar todas" */}
+                      <div className="flex items-center justify-between mb-2 pb-2 border-b border-slate-100">
+                        <button
+                          type="button"
+                          onClick={() => selectModulePermissions(module)}
+                          className="flex items-center gap-2 text-sm font-bold text-slate-900 hover:text-red-600 transition-colors"
+                        >
+                          <div 
+                            className={`w-4 h-4 border-2 rounded flex items-center justify-center ${
+                              isFullySelected ? '' : 'border-slate-300'
+                            }`}
+                            style={isFullySelected ? {
+                              backgroundColor: 'var(--store-color)',
+                              borderColor: 'var(--store-color)',
+                            } : undefined}
+                          >
+                            {isFullySelected && <Check size={12} className="text-white" />}
+                          </div>
+                          {translateResource(module)}
+                        </button>
+                        <span className="text-xs text-slate-400">
+                          {modulePerms.filter(p => formData.permissions.includes(p.id)).length} de {modulePerms.length} selecionadas
+                        </span>
+                      </div>
+                      
+                      {/* Lista de permissões do módulo */}
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-2 ml-6">
+                        {modulePerms.map((perm) => {
+                          const isSelected = formData.permissions.includes(perm.id);
+                          return (
+                            <label
+                              key={perm.id}
+                              className="flex items-center gap-2 p-2 hover:bg-slate-50 rounded-lg cursor-pointer"
+                            >
+                              <input
+                                type="checkbox"
+                                checked={isSelected}
+                                onChange={() => togglePermission(perm.id)}
+                                className="w-4 h-4 text-red-600 border-slate-300 rounded focus:ring-red-500"
+                              />
+                              <span className="text-sm text-slate-700">{translatePermission(perm.name)}</span>
+                            </label>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+            <p className="text-xs text-slate-400 mt-2">
+              Clique nos módulos para expandir e selecionar permissões específicas
+            </p>
+          </div>
+
+            <div className="flex gap-3 pt-6 mt-6 border-t border-slate-200">
+              <Button type="button" onClick={handleCancel} variant="outline">Cancelar</Button>
+              <Button type="submit">
+                <Save size={18} /> {editingId ? 'Atualizar' : 'Criar'} Perfil
+              </Button>
+            </div>
+          </form>
+          </>
+        )}
+      </Modal>
+
+      <Modal
+        isOpen={deleteModalOpen}
+        onClose={() => {
+          setDeleteModalOpen(false);
+          setRoleToDelete(null);
+        }}
+        type="danger"
+        title="Excluir Perfil"
+        message="Tem certeza que deseja excluir este perfil? Esta ação não pode ser desfeita."
+        confirmText="Excluir"
+        cancelText="Cancelar"
+        confirmVariant="danger"
+        onConfirm={handleDeleteConfirm}
+        size="md"
+      />
     </div>
   );
 };

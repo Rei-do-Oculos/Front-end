@@ -374,10 +374,10 @@ export const ClientHistory: React.FC = () => {
           </div>
         </div>
         <div className="flex gap-3">
-          <Button variant="outline" onClick={() => window.location.hash = `#/clientes/${client.id}/editar`}>
+          <Button variant="outline" onClick={() => window.location.hash = `#/clients/${client.id}/edit`}>
             <Edit size={18} /> Editar Cliente
           </Button>
-          <Button onClick={() => window.location.hash = `#/pedidos/novo?cliente=${client.id}`} className="shadow-red-600/20">
+          <Button onClick={() => window.location.hash = `#/pedidos/create?cliente=${client.id}`} className="shadow-red-600/20">
             <ShoppingBag size={18} /> Nova Venda
           </Button>
         </div>

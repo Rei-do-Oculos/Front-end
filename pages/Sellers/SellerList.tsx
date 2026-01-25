@@ -1,6 +1,7 @@
 import React from 'react';
 import { Eye, Edit, Plus, TrendingUp, User, Store } from 'lucide-react';
-import { Card, Button, Input, Select, Badge, FilterSection } from '../../components/Common';
+import { Card, Button, Input, Select, Badge, FilterSection, ActiveFiltersBadge } from '../../components/Common';
+import { useActiveFilters } from '../../hooks/useActiveFilters';
 
 interface Seller {
   id: string;
@@ -21,29 +22,42 @@ const sellers: Seller[] = [
 ];
 
 export const SellerList: React.FC = () => {
+  const [nameFilter, setNameFilter] = useState('');
+  const [unitFilter, setUnitFilter] = useState('');
+  const [statusFilter, setStatusFilter] = useState('');
+  
+  const activeFilters = useActiveFilters({
+    nameFilter,
+    unitFilter,
+    statusFilter,
+  });
+
   const getStatusVariant = (status: Seller['status']) => (status === 'Ativo' ? 'success' : 'danger');
 
   return (
     <div className="space-y-8 animate-in fade-in duration-700">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-        <div>
-          <h1 className="text-3xl font-black text-slate-950 tracking-tight">Vendedores</h1>
-          <p className="text-gray-500 font-medium mt-1">Acompanhe metas, vendas e performance por vendedor.</p>
+        <div className="flex items-center gap-4">
+          <div>
+            <h1 className="text-3xl font-black text-slate-950 tracking-tight">Vendedores</h1>
+            <p className="text-gray-500 font-medium mt-1">Acompanhe metas, vendas e performance por vendedor.</p>
+          </div>
+          <ActiveFiltersBadge count={activeFilters} />
         </div>
-        <Button onClick={() => window.location.hash = '#/vendedores/novo'} className="shadow-red-600/20">
+        <Button onClick={() => window.location.hash = '#/vendedores/create'} className="shadow-red-600/20">
           <Plus size={18} /> Novo Vendedor
         </Button>
       </div>
 
       <FilterSection>
-        <Input label="Nome do Vendedor" placeholder="Buscar por nome..." />
-        <Select label="Unidade" options={[
+        <Input label="Nome do Vendedor" placeholder="Buscar por nome..." value={nameFilter} onChange={(e) => setNameFilter(e.target.value)} />
+        <Select label="Unidade" value={unitFilter} onChange={(e) => setUnitFilter(e.target.value)} options={[
           { label: 'TODAS', value: '' },
           { label: 'Maringá Centro', value: 'maringa' },
           { label: 'Londrina Shopping', value: 'londrina' },
           { label: 'Curitiba Batel', value: 'curitiba' },
         ]} />
-        <Select label="Status" options={[
+        <Select label="Status" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} options={[
           { label: 'TODOS', value: '' },
           { label: 'Ativo', value: 'ativo' },
           { label: 'Inativo', value: 'inativo' },

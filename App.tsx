@@ -1,5 +1,4 @@
-
-import React, { useState } from 'react';
+import React from 'react';
 import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Layout } from './components/Layout';
 import { Dashboard } from './pages/Dashboard';
@@ -25,11 +24,20 @@ import { Inadimplencias } from './pages/Finance/Inadimplencias';
 import { InvoiceList } from './pages/Finance/InvoiceList';
 import { InvoiceDetail } from './pages/Finance/InvoiceDetail';
 import { Permissions } from './pages/Permissions/Permissions';
+import { Users } from './pages/Users/Users';
+import { UserForm } from './pages/Users/UserForm';
 import { BrandList } from './pages/Brands/BrandList';
 import { BrandForm } from './pages/Brands/BrandForm';
+import { LensList } from './pages/Lenses/LensList';
 import { Chat } from './pages/Chat';
 import { Login } from './pages/Login';
 import { PWAUpdatePrompt } from './components/PWAUpdatePrompt';
+import { useAuth } from './services/hooks/useAuth';
+import { StoreProvider, useStore } from './contexts/StoreContext';
+import { ProtectedRoute } from './components/ProtectedRoute';
+import { ErrorBoundary } from './components/ErrorBoundary';
+import { StoreSelector } from './components/StoreSelector';
+import { NotificationProvider } from './contexts/NotificationContext';
 
 const PlaceholderPage = ({ title }: { title: string }) => (
   <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -47,66 +55,133 @@ const PlaceholderPage = ({ title }: { title: string }) => (
 );
 
 const App: React.FC = () => {
-  const [isLoggedIn, setIsLoggedIn] = useState<boolean>(() => {
-    return localStorage.getItem('isLoggedIn') === 'true';
-  });
+  const { isAuthenticated, isLoading, logout } = useAuth();
 
   const handleLogin = () => {
-    setIsLoggedIn(true);
-    localStorage.setItem('isLoggedIn', 'true');
+    window.location.reload();
   };
 
-  const handleLogout = () => {
-    setIsLoggedIn(false);
-    localStorage.removeItem('isLoggedIn');
+  const handleLogout = async () => {
+    await logout();
+    window.location.hash = '#/login';
   };
 
-  if (!isLoggedIn) {
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-white flex items-center justify-center">
+        <div className="w-8 h-8 border-2 border-t-transparent rounded-full animate-spin" style={{ borderColor: 'var(--store-color, #dc2626)' }}></div>
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
     return <Login onLogin={handleLogin} />;
   }
 
   return (
-    <HashRouter>
-      <Layout onLogout={handleLogout}>
-        <PWAUpdatePrompt />
-        <Routes>
-          <Route path="/" element={<Dashboard />} />
-          <Route path="/pdv" element={<POS />} />
-          <Route path="/lojas" element={<StoreList />} />
-          <Route path="/lojas/novo" element={<StoreForm />} />
-          <Route path="/lojas/:id/editar" element={<StoreForm />} />
-          <Route path="/lojas/:id" element={<StoreDetail />} />
-          <Route path="/chat" element={<Chat />} />
-          <Route path="/clientes" element={<ClientList />} />
-          <Route path="/clientes/novo" element={<ClientForm />} />
-          <Route path="/clientes/:id/editar" element={<ClientForm />} />
-          <Route path="/clientes/:id" element={<ClientHistory />} />
-          <Route path="/vendedores" element={<SellerList />} />
-          <Route path="/vendedores/novo" element={<SellerForm />} />
-          <Route path="/vendedores/:id/editar" element={<SellerForm />} />
-          <Route path="/vendedores/:id" element={<SellerDetail />} />
-          <Route path="/estoque" element={<StockList />} />
-          <Route path="/fornecedores" element={<SupplierList />} />
-          <Route path="/fornecedores/novo" element={<SupplierForm />} />
-          <Route path="/fornecedores/:id/editar" element={<SupplierForm />} />
-          <Route path="/lentes" element={<BrandList />} />
-          <Route path="/lentes/novo" element={<BrandForm />} />
-          <Route path="/lentes/:id/editar" element={<BrandForm />} />
-          <Route path="/financeiro" element={<CashFlow />} />
-          <Route path="/financeiro/inadimplencias" element={<Inadimplencias />} />
-          <Route path="/notas-fiscais" element={<InvoiceList />} />
-          <Route path="/notas-fiscais/:id" element={<InvoiceDetail />} />
-          <Route path="/pedidos" element={<OrderList />} />
-          <Route path="/pedidos/laboratorio" element={<LabOrders />} />
-          <Route path="/pedidos/novo" element={<OrderForm />} />
-          <Route path="/pedidos/:id/editar" element={<OrderForm />} />
-          <Route path="/permissoes" element={<Permissions />} />
-          <Route path="/auditoria" element={<AuditList />} />
-          <Route path="/lixeira" element={<PlaceholderPage title="Lixeira" />} />
-          <Route path="*" element={<Navigate to="/" />} />
-        </Routes>
-      </Layout>
-    </HashRouter>
+    <ErrorBoundary>
+      <NotificationProvider>
+        <HashRouter>
+          <StoreProvider>
+            <StoreSelectorWrapper onLogout={handleLogout} />
+          </StoreProvider>
+        </HashRouter>
+      </NotificationProvider>
+    </ErrorBoundary>
+  );
+};
+
+const StoreSelectorWrapper: React.FC<{ onLogout: () => void }> = ({ onLogout }) => {
+  const { user } = useAuth();
+  const { availableStores, selectedStore } = useStore();
+  const [showStoreSelector, setShowStoreSelector] = React.useState(false);
+  const [hasSelectedStore, setHasSelectedStore] = React.useState(false);
+
+  // Verificar se precisa mostrar o seletor de loja
+  React.useEffect(() => {
+    if (!user) {
+      setShowStoreSelector(false);
+      setHasSelectedStore(false);
+      return;
+    }
+
+    // Se já tem uma loja selecionada ou já selecionou antes, não mostrar
+    if (selectedStore || hasSelectedStore) {
+      setShowStoreSelector(false);
+      return;
+    }
+
+    // Garantir que roles seja um array
+    const userRoles = Array.isArray(user.roles) ? user.roles : [];
+    
+    // Verificar se tem múltiplas lojas ou é superadmin
+    const isAdmin = userRoles.some((r: any) => {
+      const roleName = typeof r === 'object' && r !== null ? r.name : r;
+      return roleName === 'superadmin';
+    });
+    const hasMultipleStores = availableStores.length > 1;
+
+    // Mostrar seletor se:
+    // 1. É admin e tem lojas disponíveis, OU
+    // 2. Tem múltiplas lojas
+    if ((isAdmin && availableStores.length > 0) || hasMultipleStores) {
+      setShowStoreSelector(true);
+    } else {
+      // Se não precisa selecionar, marcar como já selecionado
+      setHasSelectedStore(true);
+    }
+  }, [user, availableStores, selectedStore, hasSelectedStore]);
+
+  const handleStoreSelected = () => {
+    setShowStoreSelector(false);
+    setHasSelectedStore(true);
+  };
+
+  if (showStoreSelector) {
+    return <StoreSelector onStoreSelected={handleStoreSelected} />;
+  }
+
+  return (
+    <Layout onLogout={onLogout}>
+      <PWAUpdatePrompt />
+      <Routes>
+        <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+        <Route path="/pdv" element={<ProtectedRoute><POS /></ProtectedRoute>} />
+        <Route path="/stores" element={<ProtectedRoute><StoreList /></ProtectedRoute>} />
+        <Route path="/stores/create" element={<ProtectedRoute><StoreForm /></ProtectedRoute>} />
+        <Route path="/stores/:id/edit" element={<ProtectedRoute><StoreForm /></ProtectedRoute>} />
+        <Route path="/stores/:id" element={<ProtectedRoute><StoreDetail /></ProtectedRoute>} />
+        <Route path="/chat" element={<ProtectedRoute><Chat /></ProtectedRoute>} />
+        <Route path="/clients" element={<ProtectedRoute><ClientList /></ProtectedRoute>} />
+        <Route path="/clients/create" element={<ProtectedRoute><ClientForm /></ProtectedRoute>} />
+        <Route path="/clients/:id/edit" element={<ProtectedRoute><ClientForm /></ProtectedRoute>} />
+        <Route path="/clients/:id" element={<ProtectedRoute><ClientHistory /></ProtectedRoute>} />
+        <Route path="/vendedores" element={<ProtectedRoute><SellerList /></ProtectedRoute>} />
+        <Route path="/vendedores/create" element={<ProtectedRoute><SellerForm /></ProtectedRoute>} />
+        <Route path="/vendedores/:id/editar" element={<ProtectedRoute><SellerForm /></ProtectedRoute>} />
+        <Route path="/vendedores/:id" element={<ProtectedRoute><SellerDetail /></ProtectedRoute>} />
+        <Route path="/estoque" element={<ProtectedRoute><StockList /></ProtectedRoute>} />
+        <Route path="/fornecedores" element={<ProtectedRoute><SupplierList /></ProtectedRoute>} />
+        <Route path="/fornecedores/create" element={<ProtectedRoute><SupplierForm /></ProtectedRoute>} />
+        <Route path="/fornecedores/:id/editar" element={<ProtectedRoute><SupplierForm /></ProtectedRoute>} />
+        <Route path="/lenses" element={<ProtectedRoute><LensList /></ProtectedRoute>} />
+        <Route path="/financeiro" element={<ProtectedRoute><CashFlow /></ProtectedRoute>} />
+        <Route path="/financeiro/inadimplencias" element={<ProtectedRoute><Inadimplencias /></ProtectedRoute>} />
+        <Route path="/notas-fiscais" element={<ProtectedRoute><InvoiceList /></ProtectedRoute>} />
+        <Route path="/notas-fiscais/:id" element={<ProtectedRoute><InvoiceDetail /></ProtectedRoute>} />
+        <Route path="/pedidos" element={<ProtectedRoute><OrderList /></ProtectedRoute>} />
+        <Route path="/pedidos/laboratorio" element={<ProtectedRoute><LabOrders /></ProtectedRoute>} />
+        <Route path="/pedidos/create" element={<ProtectedRoute><OrderForm /></ProtectedRoute>} />
+        <Route path="/pedidos/:id/editar" element={<ProtectedRoute><OrderForm /></ProtectedRoute>} />
+        <Route path="/permissions" element={<ProtectedRoute><Permissions /></ProtectedRoute>} />
+        <Route path="/users" element={<ProtectedRoute><Users /></ProtectedRoute>} />
+        <Route path="/users/create" element={<ProtectedRoute><UserForm /></ProtectedRoute>} />
+        <Route path="/users/:id/edit" element={<ProtectedRoute><UserForm /></ProtectedRoute>} />
+        <Route path="/audit" element={<ProtectedRoute><AuditList /></ProtectedRoute>} />
+        <Route path="/trash" element={<ProtectedRoute><PlaceholderPage title="Lixeira" /></ProtectedRoute>} />
+        <Route path="*" element={<Navigate to="/" />} />
+      </Routes>
+    </Layout>
   );
 };
 

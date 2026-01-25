@@ -18,7 +18,8 @@ import {
   // Added missing Plus icon
   Plus
 } from 'lucide-react';
-import { Card, Button, Input, Select, Badge, FilterSection } from '../../components/Common';
+import { Card, Button, Input, Select, Badge, FilterSection, ActiveFiltersBadge } from '../../components/Common';
+import { useActiveFilters } from '../../hooks/useActiveFilters';
 
 interface LabOrder {
   id: string;
@@ -67,6 +68,17 @@ const initialLabOrders: LabOrder[] = [
 
 export const LabOrders: React.FC = () => {
   const [orders, setOrders] = useState<LabOrder[]>(initialLabOrders);
+  const [protocolFilter, setProtocolFilter] = useState('');
+  const [labFilter, setLabFilter] = useState('');
+  const [statusFilter, setStatusFilter] = useState('');
+  const [dateFilter, setDateFilter] = useState('');
+  
+  const activeFilters = useActiveFilters({
+    protocolFilter,
+    labFilter,
+    statusFilter,
+    dateFilter,
+  });
 
   const updateStatus = (id: string, newStatus: LabOrder['status']) => {
     setOrders(orders.map(o => o.id === id ? { ...o, status: newStatus } : o));
@@ -84,9 +96,12 @@ export const LabOrders: React.FC = () => {
   return (
     <div className="space-y-8 animate-in fade-in duration-700">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-        <div>
-          <h1 className="text-3xl font-black text-slate-950 tracking-tight">Fluxo de Laboratório</h1>
-          <p className="text-gray-500 font-medium mt-1 uppercase text-[9px] tracking-[0.25em]">Triagem de Lentes • Controle de Produção Externa</p>
+        <div className="flex items-center gap-4">
+          <div>
+            <h1 className="text-3xl font-black text-slate-950 tracking-tight">Fluxo de Laboratório</h1>
+            <p className="text-gray-500 font-medium mt-1 uppercase text-[9px] tracking-[0.25em]">Triagem de Lentes • Controle de Produção Externa</p>
+          </div>
+          <ActiveFiltersBadge count={activeFilters} />
         </div>
         <div className="flex gap-3">
            <Button className="shadow-red-600/20 bg-red-600 rounded-2xl">
@@ -114,19 +129,19 @@ export const LabOrders: React.FC = () => {
       </div>
 
       <FilterSection>
-        <Input label="Protocolo ou Cliente" placeholder="Ex: LAB-000..." />
-        <Select label="Laboratório" options={[
+        <Input label="Protocolo ou Cliente" placeholder="Ex: LAB-000..." value={protocolFilter} onChange={(e) => setProtocolFilter(e.target.value)} />
+        <Select label="Laboratório" value={labFilter} onChange={(e) => setLabFilter(e.target.value)} options={[
           {label: 'TODOS', value: ''},
           {label: 'Essilor', value: 'essilor'},
           {label: 'Hoya', value: 'hoya'},
         ]} />
-        <Select label="Status Atual" options={[
+        <Select label="Status Atual" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} options={[
           {label: 'TODOS', value: ''},
           {label: 'Aguardando Envio', value: 'wait'},
           {label: 'Em Laboratório', value: 'lab'},
           {label: 'Recebido na Loja', value: 'received'},
         ]} />
-        <Input label="Data Solicitação" type="date" />
+        <Input label="Data Solicitação" type="date" value={dateFilter} onChange={(e) => setDateFilter(e.target.value)} />
       </FilterSection>
 
       <Card className="p-0 overflow-hidden border-none shadow-xl shadow-slate-200/40">

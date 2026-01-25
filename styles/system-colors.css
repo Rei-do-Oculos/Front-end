@@ -1,0 +1,104 @@
+/**
+ * Classes utilitárias para cores do sistema
+ * Usa variáveis CSS definidas dinamicamente pelo Layout
+ */
+
+/* Botões */
+.btn-primary {
+  background-color: var(--store-color) !important;
+  color: white !important;
+  box-shadow: 0 10px 15px -3px var(--store-color-opacity-20), 0 4px 6px -2px var(--store-color-opacity-10) !important;
+}
+
+.btn-primary:hover {
+  background-color: var(--store-color-dark) !important;
+  opacity: 0.9;
+}
+
+.btn-outline {
+  background-color: transparent !important;
+  border-color: var(--store-color) !important;
+  color: var(--store-color) !important;
+  border-width: 2px !important;
+}
+
+.btn-outline:hover {
+  background-color: var(--store-color-light) !important;
+}
+
+/* Inputs */
+.input-focus:focus {
+  border-color: var(--store-color) !important;
+  box-shadow: 0 0 0 4px var(--store-color-opacity-5) !important;
+}
+
+.input-error {
+  border-color: var(--store-color) !important;
+}
+
+.text-error {
+  color: var(--store-color) !important;
+}
+
+/* Backgrounds */
+.bg-system-light {
+  background-color: var(--store-color-light) !important;
+}
+
+.bg-system-lighter {
+  background-color: var(--store-color-lighter) !important;
+}
+
+.bg-system-opacity-10 {
+  background-color: var(--store-color-opacity-10) !important;
+}
+
+.bg-system-opacity-20 {
+  background-color: var(--store-color-opacity-20) !important;
+}
+
+/* Textos */
+.text-system {
+  color: var(--store-color) !important;
+}
+
+.text-system-dark {
+  color: var(--store-color-dark) !important;
+}
+
+/* Bordas */
+.border-system {
+  border-color: var(--store-color) !important;
+}
+
+.border-system-light {
+  border-color: var(--store-color-opacity-20) !important;
+}
+
+/* Shadows */
+.shadow-system {
+  box-shadow: 0 10px 15px -3px var(--store-color-opacity-20), 0 4px 6px -2px var(--store-color-opacity-10) !important;
+}
+
+.shadow-system-sm {
+  box-shadow: 0 1px 2px 0 var(--store-color-opacity-10) !important;
+}
+
+/* Badges e Tags */
+.badge-system {
+  background-color: var(--store-color-light) !important;
+  color: var(--store-color-dark) !important;
+}
+
+/* Hover states */
+.hover-system:hover {
+  color: var(--store-color) !important;
+}
+
+.hover-bg-system:hover {
+  background-color: var(--store-color-light) !important;
+}
+
+.hover-border-system:hover {
+  border-color: var(--store-color) !important;
+}

@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
-import { Eye, EyeOff, Lock, User, ArrowRight } from 'lucide-react';
-import { Button, Input } from '../components/Common';
+import { Eye, EyeOff } from 'lucide-react';
+import { useAuth } from '../services/hooks/useAuth';
 
 interface LoginProps {
   onLogin: () => void;
@@ -9,97 +9,159 @@ interface LoginProps {
 
 export const Login: React.FC<LoginProps> = ({ onLogin }) => {
   const [showPassword, setShowPassword] = useState(false);
-  const [loading, setLoading] = useState(false);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const { login, isLoading } = useAuth();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const getLoginErrorMessage = (err: any): string => {
+    // Erro de rede/CORS
+    if (!err.response) {
+      if (err.message?.includes('Network Error') || err.code === 'ERR_NETWORK') {
+        return 'Erro de conexão. Verifique se o servidor está rodando.';
+      }
+      if (err.message?.includes('CORS')) {
+        return 'Erro de CORS. Verifique a configuração do servidor.';
+      }
+      return err.message || 'Erro ao conectar com o servidor.';
+    }
+
+    // Erro da API
+    const apiMessage = err?.response?.data?.message;
+    const emailErrors = err?.response?.data?.data?.errors?.email;
+    const passwordErrors = err?.response?.data?.data?.errors?.password;
+
+    if (Array.isArray(emailErrors) && emailErrors.length > 0) {
+      return emailErrors[0];
+    }
+
+    if (Array.isArray(passwordErrors) && passwordErrors.length > 0) {
+      return passwordErrors[0];
+    }
+
+    if (apiMessage) {
+      if (apiMessage === 'The provided credentials are incorrect.') {
+        return 'E-mail ou senha inválidos.';
+      }
+      return apiMessage;
+    }
+
+    return 'E-mail ou senha inválidos.';
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoading(true);
-    // Simulate API call
-    setTimeout(() => {
-      setLoading(false);
+    setError(null);
+
+    if (!email || !password) {
+      setError('Por favor, preencha todos os campos');
+      return;
+    }
+
+    try {
+      await login({ email, password });
       onLogin();
-    }, 800);
+    } catch (err: any) {
+      setError(getLoginErrorMessage(err));
+    }
   };
 
   return (
-    <div className="min-h-screen bg-white flex items-center justify-center p-4">
-      {/* Background Decorative Elements */}
-      <div className="absolute top-0 left-0 w-full h-full overflow-hidden -z-10 pointer-events-none">
-        <div className="absolute -top-24 -left-24 w-96 h-96 bg-red-50 rounded-full blur-3xl opacity-50"></div>
-        <div className="absolute -bottom-24 -right-24 w-96 h-96 bg-gray-50 rounded-full blur-3xl opacity-50"></div>
-      </div>
-
-      <div className="w-full max-w-md animate-in fade-in zoom-in-95 duration-500">
-        <div className="text-center mb-10">
-          <div className="inline-flex items-center justify-center w-16 h-16 bg-red-600 rounded-2xl shadow-lg shadow-red-200 mb-6 transform -rotate-6">
-            <span className="text-white font-black text-2xl">RÓ</span>
+    <div className="min-h-screen bg-white flex items-center justify-center p-6">
+      <div className="w-full max-w-sm">
+        <div className="text-center mb-12">
+          <div className="inline-flex items-center justify-center w-12 h-12 bg-red-600 rounded-xl mb-4">
+            <span className="text-white font-black text-lg">RÓ</span>
           </div>
-          <h1 className="text-3xl font-bold text-gray-900 tracking-tight">
-            REI DO <span className="text-red-600 uppercase">Óculos</span>
+          <h1 className="text-2xl font-bold text-gray-900 mb-1">
+            REI DO <span className="text-red-600">ÓCULOS</span>
           </h1>
-          <p className="text-gray-500 mt-2 font-medium">Gestão Inteligente para sua Ótica</p>
+          <p className="text-sm text-gray-500">Gestão Inteligente para sua Ótica</p>
         </div>
 
-        <div className="bg-white rounded-3xl border border-gray-100 shadow-xl shadow-gray-200/50 p-8">
-          <form onSubmit={handleSubmit} className="space-y-6">
-            <div className="space-y-4">
-              <div className="relative">
-                <Input 
-                  label="Usuário" 
-                  placeholder="ex: rodrigo.paduin" 
-                  className="pl-11"
-                  required
-                />
-                <User className="absolute left-3.5 bottom-3 text-gray-400" size={18} />
-              </div>
-
-              <div className="relative">
-                <Input 
-                  label="Senha" 
-                  type={showPassword ? "text" : "password"} 
-                  placeholder="••••••••" 
-                  className="pl-11 pr-11"
-                  required
-                />
-                <Lock className="absolute left-3.5 bottom-3 text-gray-400" size={18} />
-                <button 
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 bottom-3 text-gray-400 hover:text-red-600 transition-colors"
-                >
-                  {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-                </button>
-              </div>
+        <form onSubmit={handleSubmit} className="space-y-5">
+          {error && (
+            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-2.5 rounded-lg text-sm">
+              {error}
             </div>
+          )}
 
-            <div className="flex items-center justify-between text-sm">
-              <label className="flex items-center gap-2 cursor-pointer group">
-                <input type="checkbox" className="w-4 h-4 rounded border-gray-300 text-red-600 focus:ring-red-500 cursor-pointer" />
-                <span className="text-gray-600 group-hover:text-gray-900 transition-colors">Lembrar de mim</span>
-              </label>
-              <a href="#" className="text-red-600 font-semibold hover:underline">Esqueceu a senha?</a>
+          <div>
+            <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1.5">
+              E-mail
+            </label>
+            <input
+              id="email"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="ex: admin@reidooculos.com"
+              required
+              disabled={isLoading}
+              className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent disabled:bg-gray-50 disabled:cursor-not-allowed"
+            />
+          </div>
+
+          <div>
+            <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1.5">
+              Senha
+            </label>
+            <div className="relative">
+              <input
+                id="password"
+                type={showPassword ? "text" : "password"}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="••••••••"
+                required
+                disabled={isLoading}
+                className="w-full px-4 py-2.5 pr-10 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent disabled:bg-gray-50 disabled:cursor-not-allowed"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                disabled={isLoading}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors disabled:cursor-not-allowed"
+              >
+                {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+              </button>
             </div>
+          </div>
 
-            <Button 
-              type="submit" 
-              className="w-full py-3.5 text-base shadow-lg shadow-red-200 group"
-              disabled={loading}
-            >
-              {loading ? (
-                <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-              ) : (
-                <>
-                  Entrar no Sistema
-                  <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
-                </>
-              )}
-            </Button>
-          </form>
+          <div className="flex items-center justify-between text-sm">
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                className="w-4 h-4 rounded border-gray-300 text-red-600 focus:ring-red-500 cursor-pointer"
+              />
+              <span className="text-gray-600">Lembrar de mim</span>
+            </label>
+            <a href="#" className="text-red-600 hover:text-red-700 font-medium">
+              Esqueceu a senha?
+            </a>
+          </div>
+
+          <button
+            type="submit"
+            disabled={isLoading}
+            className="w-full bg-red-600 text-white py-2.5 px-4 rounded-lg font-medium text-sm hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
+          >
+            {isLoading ? (
+              <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+            ) : (
+              'Entrar'
+            )}
+          </button>
+        </form>
+
+        <div className="mt-10 text-center space-y-1">
+          <p className="text-xs text-gray-400">
+            &copy; {new Date().getFullYear()} Rei do Óculos. Todos os direitos reservados.
+          </p>
+          <p className="text-xs text-gray-400">
+            Desenvolvido por TecWeb Services
+          </p>
         </div>
-
-        <p className="text-center text-gray-400 text-xs mt-8">
-          &copy; {new Date().getFullYear()} Rei do Óculos. Todos os direitos reservados.
-        </p>
       </div>
     </div>
   );

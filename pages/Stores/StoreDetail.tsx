@@ -29,7 +29,7 @@ export const StoreDetail: React.FC = () => {
   const store = {
     name: 'Maringá Centro',
     fancyName: 'Rei do Óculos - Matriz PR',
-    color: '#dc2626',
+    color: 'var(--store-color)',
     city: 'Maringá - PR',
     address: 'Av. Brasil, 4500 - Centro',
     phone: '(44) 3025-1010',
@@ -55,8 +55,16 @@ export const StoreDetail: React.FC = () => {
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
         <div className="flex items-center gap-6">
           <button 
-            onClick={() => navigate('/lojas')}
-            className="w-12 h-12 rounded-2xl bg-white border border-slate-100 flex items-center justify-center text-slate-400 hover:text-red-600 hover:border-red-100 transition-all shadow-sm"
+            onClick={() => navigate('/stores')}
+            className="w-12 h-12 rounded-2xl bg-white border border-slate-100 flex items-center justify-center text-slate-400 transition-all shadow-sm"
+            onMouseEnter={(e) => {
+              e.currentTarget.style.color = 'var(--store-color-dark)';
+              e.currentTarget.style.borderColor = 'var(--store-color-opacity-20)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.color = '';
+              e.currentTarget.style.borderColor = '';
+            }}
           >
             <ArrowLeft size={20} />
           </button>
@@ -72,7 +80,7 @@ export const StoreDetail: React.FC = () => {
           <Button variant="outline" className="rounded-2xl border-slate-200">
             <Settings size={18} /> Configurar Loja
           </Button>
-          <Button className="shadow-red-600/20 px-8 rounded-2xl">
+          <Button className="px-8 rounded-2xl">
             <Plus size={18} /> Novo Vendedor
           </Button>
         </div>
@@ -82,7 +90,13 @@ export const StoreDetail: React.FC = () => {
         {/* Sidebar Info */}
         <div className="space-y-6">
           <Card className="border-none shadow-lg">
-            <div className="w-24 h-24 mx-auto rounded-3xl mb-6 flex items-center justify-center text-white shadow-xl shadow-red-100" style={{ backgroundColor: store.color }}>
+            <div 
+              className="w-24 h-24 mx-auto rounded-3xl mb-6 flex items-center justify-center text-white shadow-xl" 
+              style={{ 
+                backgroundColor: store.color,
+                boxShadow: '0 20px 25px -5px var(--store-color-opacity-20)',
+              }}
+            >
                <Store size={48} />
             </div>
             <div className="text-center mb-8">
@@ -92,15 +106,15 @@ export const StoreDetail: React.FC = () => {
             
             <div className="space-y-4 border-t border-slate-50 pt-6">
                <div className="flex items-center gap-3">
-                  <MapPin size={16} className="text-red-600 shrink-0" />
+                  <MapPin size={16} style={{ color: 'var(--store-color)' }} className="shrink-0" />
                   <p className="text-xs font-semibold text-slate-600 leading-relaxed">{store.address}</p>
                </div>
                <div className="flex items-center gap-3">
-                  <Smartphone size={16} className="text-red-600 shrink-0" />
+                  <Smartphone size={16} style={{ color: 'var(--store-color)' }} className="shrink-0" />
                   <p className="text-xs font-semibold text-slate-600">{store.phone}</p>
                </div>
                <div className="flex items-center gap-3">
-                  <Mail size={16} className="text-red-600 shrink-0" />
+                  <Mail size={16} style={{ color: 'var(--store-color)' }} className="shrink-0" />
                   <p className="text-xs font-semibold text-slate-600 truncate">{store.email}</p>
                </div>
             </div>
@@ -108,12 +122,12 @@ export const StoreDetail: React.FC = () => {
 
           <Card className="bg-slate-950 text-white border-none">
              <div className="flex items-center gap-3 mb-6">
-                <div className="p-2 bg-red-600 rounded-lg"><TrendingUp size={16} /></div>
+                <div className="p-2 rounded-lg" style={{ backgroundColor: 'var(--store-color)' }}><TrendingUp size={16} /></div>
                 <h4 className="text-xs font-black uppercase tracking-widest">Meta Mensal</h4>
              </div>
              <p className="text-2xl font-black tracking-tight">R$ 180.000</p>
              <div className="w-full h-1.5 bg-white/10 rounded-full mt-4 overflow-hidden">
-                <div className="h-full bg-red-600" style={{ width: '65%' }}></div>
+                <div className="h-full" style={{ width: '65%', backgroundColor: 'var(--store-color)' }}></div>
              </div>
              <p className="text-[10px] font-bold text-slate-400 mt-2 uppercase">65% Atingido • R$ 117k</p>
           </Card>
@@ -134,9 +148,13 @@ export const StoreDetail: React.FC = () => {
                 onClick={() => setActiveTab(tab.id as any)}
                 className={`flex items-center gap-2 px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
                   activeTab === tab.id 
-                    ? 'bg-red-600 text-white shadow-lg shadow-red-200' 
+                    ? 'text-white shadow-lg'
                     : 'text-slate-400 hover:bg-slate-50 hover:text-slate-900'
                 }`}
+                style={activeTab === tab.id ? {
+                  backgroundColor: 'var(--store-color)',
+                  boxShadow: '0 10px 15px -3px var(--store-color-opacity-20)',
+                } : undefined}
               >
                 <tab.icon size={14} /> {tab.label}
               </button>
@@ -155,10 +173,18 @@ export const StoreDetail: React.FC = () => {
                                  <p className="text-xs font-black text-slate-900 uppercase">OS #3982{i}</p>
                                  <p className="text-[10px] font-bold text-slate-400 uppercase mt-0.5">Cliente: Maria Santos</p>
                               </div>
-                              <p className="text-sm font-black text-red-600">R$ 1.450,00</p>
+                              <p className="text-sm font-black" style={{ color: 'var(--store-color)' }}>R$ 1.450,00</p>
                            </div>
                          ))}
-                         <button className="w-full text-center text-[10px] font-black text-slate-400 hover:text-red-600 uppercase tracking-widest pt-2">Ver Todas as Vendas</button>
+                         <button 
+                           className="w-full text-center text-[10px] font-black text-slate-400 uppercase tracking-widest pt-2"
+                           onMouseEnter={(e) => {
+                             e.currentTarget.style.color = 'var(--store-color-dark)';
+                           }}
+                           onMouseLeave={(e) => {
+                             e.currentTarget.style.color = '';
+                           }}
+                         >Ver Todas as Vendas</button>
                       </div>
                    </Card>
                    <Card title="Status Laboratório" className="border-none shadow-lg">
@@ -232,7 +258,16 @@ export const StoreDetail: React.FC = () => {
                 <Card title="Acesso ao Sistema" subtitle="Quem pode operar o sistema nesta unidade">
                    <div className="space-y-4 mt-4">
                       {systemUsers.map(u => (
-                        <div key={u.id} className="flex items-center justify-between p-5 border border-slate-100 rounded-3xl hover:border-red-100 transition-all">
+                        <div 
+                          key={u.id} 
+                          className="flex items-center justify-between p-5 border border-slate-100 rounded-3xl transition-all"
+                          onMouseEnter={(e) => {
+                            e.currentTarget.style.borderColor = 'var(--store-color-opacity-20)';
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.borderColor = '';
+                          }}
+                        >
                            <div className="flex items-center gap-4">
                               <div className="w-10 h-10 bg-slate-100 rounded-2xl flex items-center justify-center text-slate-400">
                                  <ShieldCheck size={20} />
@@ -248,7 +283,18 @@ export const StoreDetail: React.FC = () => {
                            </div>
                         </div>
                       ))}
-                      <Button variant="outline" className="w-full mt-4 border-dashed border-2 rounded-2xl border-slate-200 text-slate-400 hover:text-red-600 hover:border-red-600">
+                      <Button 
+                        variant="outline" 
+                        className="w-full mt-4 border-dashed border-2 rounded-2xl border-slate-200 text-slate-400"
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.color = 'var(--store-color-dark)';
+                          e.currentTarget.style.borderColor = 'var(--store-color)';
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.color = '';
+                          e.currentTarget.style.borderColor = '';
+                        }}
+                      >
                          <Plus size={16} /> Liberar Novo Acesso
                       </Button>
                    </div>

@@ -1,7 +1,8 @@
 
 import React, { useState } from 'react';
 import { Plus, Edit, Trash2, Eye } from 'lucide-react';
-import { Card, Button, Input, FilterSection } from '../../components/Common';
+import { Card, Button, Input, FilterSection, ActiveFiltersBadge } from '../../components/Common';
+import { useActiveFilters } from '../../hooks/useActiveFilters';
 
 interface Brand {
   id: string;
@@ -18,6 +19,11 @@ const mockBrands: Brand[] = [
 
 export const BrandList: React.FC = () => {
   const [brands, setBrands] = useState<Brand[]>(mockBrands);
+  const [nameFilter, setNameFilter] = useState('');
+  
+  const activeFilters = useActiveFilters({
+    nameFilter,
+  });
 
   const handleDelete = (id: string) => {
     if (window.confirm('Tem certeza que deseja excluir esta marca?')) {
@@ -28,17 +34,20 @@ export const BrandList: React.FC = () => {
   return (
     <div className="space-y-8 animate-in fade-in duration-700">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-        <div>
-          <h1 className="text-3xl font-black text-slate-950 tracking-tight">Marcas de Lentes</h1>
-          <p className="text-gray-500 font-medium mt-1">Gerencie as marcas de lentes disponíveis no sistema.</p>
+        <div className="flex items-center gap-4">
+          <div>
+            <h1 className="text-3xl font-black text-slate-950 tracking-tight">Marcas de Lentes</h1>
+            <p className="text-gray-500 font-medium mt-1">Gerencie as marcas de lentes disponíveis no sistema.</p>
+          </div>
+          <ActiveFiltersBadge count={activeFilters} />
         </div>
-        <Button onClick={() => window.location.hash = '#/lentes/novo'} className="shadow-red-600/20">
+        <Button onClick={() => window.location.hash = '#/lenses/create'} className="shadow-red-600/20">
           <Plus size={18} /> Nova Marca
         </Button>
       </div>
 
       <FilterSection>
-        <Input label="Nome da Marca" placeholder="Buscar por nome..." />
+        <Input label="Nome da Marca" placeholder="Buscar por nome..." value={nameFilter} onChange={(e) => setNameFilter(e.target.value)} />
       </FilterSection>
 
       <Card className="p-0 overflow-hidden">

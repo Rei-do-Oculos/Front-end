@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { styles } from '../config/styles';
 import { 
   LayoutDashboard, 
@@ -14,7 +14,6 @@ import {
   ChevronRight,
   LogOut,
   Settings,
-  Search,
   Bell,
   Eye,
   Target,
@@ -32,6 +31,10 @@ import {
   Calendar
 } from 'lucide-react';
 import { useLocation, Link } from 'react-router-dom';
+import { useAuth } from '../services/hooks/useAuth';
+import { hasRoutePermission, getAllUserPermissions, isSuperAdmin, hasAnyModulePermission, routePermissionMap } from '../utils/menuPermissions';
+import { useStore } from '../contexts/StoreContext';
+import { generateColorVariables } from '../utils/colorUtils';
 
 interface MenuItem {
   title: string;
@@ -52,12 +55,12 @@ const menuItems: MenuItem[] = [
   { 
     title: 'Lojas / Unidades', 
     icon: <Store size={20} />, 
-    path: '/lojas'
+    path: '/stores'
   },
   { 
     title: 'Clientes', 
     icon: <Users size={20} />, 
-    path: '/clientes'
+    path: '/clients'
   },
   {
     title: 'Vendedores',
@@ -70,7 +73,7 @@ const menuItems: MenuItem[] = [
     path: '/estoque',
     submenu: [
       { title: 'Visão Geral', path: '/estoque' },
-      { title: 'Nova Armação', path: '/estoque/novo' },
+      { title: 'Nova Armação', path: '/estoque/create' },
       { title: 'Lentes e Insumos', path: '/estoque/lentes' }
     ]
   },
@@ -82,7 +85,7 @@ const menuItems: MenuItem[] = [
   { 
     title: 'Lentes', 
     icon: <Sparkles size={20} />, 
-    path: '/lentes'
+    path: '/lenses'
   },
   { 
     title: 'Financeiro', 
@@ -101,20 +104,88 @@ const menuItems: MenuItem[] = [
     submenu: [
       { title: 'Listagem Geral (Faturamento)', path: '/pedidos' },
       { title: 'Laboratório / Produção', path: '/pedidos/laboratorio' },
-      { title: 'Abrir Nova OS', path: '/pedidos/novo' }
+      { title: 'Abrir Nova OS', path: '/pedidos/create' }
     ]
   },
   { 
     title: 'Sistema', 
     icon: <Settings size={20} />, 
-    path: '/permissoes',
+    path: '/permissions',
     submenu: [
-      { title: 'Permissões', path: '/permissoes' },
-      { title: 'Auditoria', path: '/auditoria' },
-      { title: 'Lixeira', path: '/lixeira' }
+      { title: 'Permissões', path: '/permissions' },
+      { title: 'Usuários', path: '/users' },
+      { title: 'Auditoria', path: '/audit' },
+      { title: 'Lixeira', path: '/trash' }
     ]
   },
 ];
+
+// Componente de Dropdown do Usuário
+const UserDropdown: React.FC<{ user: any; onLogout: () => void }> = ({ user, onLogout }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+
+    if (isOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isOpen]);
+
+  return (
+    <div className="relative" ref={dropdownRef}>
+      <button
+        onClick={() => setIsOpen(!isOpen)}
+        className="p-1.5 sm:p-2 text-slate-400 hover:text-slate-900 transition-colors flex items-center gap-1.5"
+      >
+        <User size={16} className="sm:w-[18px] sm:h-[18px]" />
+        <ChevronDown size={12} className={`transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+      </button>
+      
+      {isOpen && (
+        <div className="absolute right-0 top-full mt-2 w-64 bg-white border border-slate-200 rounded-xl shadow-xl z-50 overflow-hidden">
+          {/* Informações do Usuário */}
+          <div className="p-4 border-b border-slate-100">
+            <div className="flex items-center gap-3">
+              <img 
+                src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.name || 'User'}`}
+                className="w-10 h-10 rounded-lg bg-slate-100 p-1 border border-slate-200" 
+                alt="User"
+              />
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold text-slate-900 truncate">{user?.name || 'Usuário'}</p>
+                <p className="text-xs text-slate-500 truncate">{user?.email || ''}</p>
+              </div>
+            </div>
+          </div>
+          
+          {/* Botão de Logout */}
+          <div className="p-2">
+            <button
+              onClick={() => {
+                setIsOpen(false);
+                onLogout();
+              }}
+              className="w-full flex items-center gap-3 px-3 py-2.5 text-sm text-slate-600 hover:bg-red-50 hover:text-red-600 transition-all rounded-lg"
+            >
+              <LogOut size={16} />
+              <span className="font-medium">Sair</span>
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
 
 export const Layout: React.FC<{ children: React.ReactNode; onLogout: () => void }> = ({ children, onLogout }) => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
@@ -123,6 +194,161 @@ export const Layout: React.FC<{ children: React.ReactNode; onLogout: () => void 
   const [currentDate, setCurrentDate] = useState('');
   const [currentTime, setCurrentTime] = useState('');
   const location = useLocation();
+  const { user } = useAuth();
+  const { selectedStore, availableStores, setSelectedStore, storeColor, storeUnity } = useStore();
+  const [storeDropdownOpen, setStoreDropdownOpen] = useState(false);
+  const storeDropdownRef = useRef<HTMLDivElement>(null);
+
+  // Filtrar itens do menu baseado nas permissões do usuário
+  const filteredMenuItems = useMemo(() => {
+    if (!user) {
+      // Se não há usuário, retornar array vazio
+      console.log('[Layout] ❌ Nenhum usuário encontrado');
+      return [];
+    }
+
+    // Debug: Log completo do usuário
+    console.log('[Layout] 🔍 Analisando usuário:', {
+      userId: user.id,
+      userName: user.name,
+      userEmail: user.email,
+      roles: user.roles,
+      permissions: user.permissions,
+      rolesCount: Array.isArray(user.roles) ? user.roles.length : 0,
+      permissionsCount: Array.isArray(user.permissions) ? user.permissions.length : 0,
+    });
+
+    // Verificar se é superadmin
+    const userIsSuperAdmin = isSuperAdmin(user);
+    console.log('[Layout] 👤 É superadmin?', userIsSuperAdmin);
+
+    // Se for superadmin, mostrar TODOS os itens do menu SEM FILTRO
+    if (userIsSuperAdmin) {
+      console.log('[Layout] ✅ Superadmin detectado - mostrando todos os itens do menu');
+      return menuItems;
+    }
+
+    // Obter todas as permissões do usuário (roles + diretas)
+    const allPermissions = getAllUserPermissions(user);
+
+    // Debug: Log das permissões e filtragem
+    console.log('[Layout] 📋 Filtrando menu:', {
+      totalMenuItems: menuItems.length,
+      userPermissions: allPermissions.map(p => p.name),
+      userPermissionsCount: allPermissions.length,
+    });
+
+    // Se o usuário não tem nenhuma permissão coletada, mas tem permissões diretas ou roles,
+    // pode ser um problema na coleta. Vamos mostrar um aviso e permitir acesso temporariamente
+    if (allPermissions.length === 0 && (user.permissions?.length || user.roles?.length)) {
+      console.warn('[Layout] ⚠️ ATENÇÃO: Usuário tem roles/permissions mas nenhuma foi coletada! Permitindo acesso temporário.');
+      console.warn('[Layout] ⚠️ Estrutura do usuário:', JSON.stringify(user, null, 2));
+      // Por segurança, vamos retornar apenas rotas públicas se não conseguirmos coletar permissões
+      return menuItems.filter(item => {
+        const requiredPermissions = routePermissionMap[item.path];
+        return !requiredPermissions || requiredPermissions.length === 0;
+      });
+    }
+
+    // Mapeamento de rotas para prefixos de módulos
+    const routeToModuleMap: Record<string, string> = {
+      '/clients': 'clients',
+      '/stores': 'stores',
+      '/lenses': 'lenses',
+      '/users': 'users',
+      '/permissions': 'roles', // permissions ou roles
+      '/audit': 'audits',
+      '/vendedores': 'sellers',
+      '/fornecedores': 'suppliers',
+      '/pedidos': 'orders',
+      '/estoque': 'stock',
+      '/financeiro': 'finance',
+      '/pdv': 'pos',
+      '/chat': 'chat',
+    };
+
+    // Filtrar e mapear itens do menu
+    const filtered = menuItems
+      .filter(item => {
+        const requiredPermissions = routePermissionMap[item.path];
+        const modulePrefix = routeToModuleMap[item.path];
+        
+        // Se há um prefixo de módulo mapeado, verificar PRIMEIRO se o usuário tem pelo menos uma permissão desse módulo
+        // Isso garante que se o usuário não tem NENHUMA permissão do módulo, o item não aparece
+        if (modulePrefix) {
+          const hasAnyPermission = hasAnyModulePermission(allPermissions, modulePrefix);
+          
+          console.log(`[Layout] 🔍 Verificando módulo "${modulePrefix}" para item "${item.title}" (${item.path}):`, {
+            hasAnyPermission,
+            modulePrefix,
+            userPermissions: allPermissions.map(p => typeof p === 'string' ? p : p.name),
+            allPermissionsCount: allPermissions.length,
+          });
+          
+          if (!hasAnyPermission) {
+            console.log(`[Layout] ❌ Item "${item.title}" REMOVIDO do menu (sem nenhuma permissão do módulo ${modulePrefix})`);
+            return false; // REMOVER imediatamente se não tem nenhuma permissão do módulo
+          }
+        }
+        
+        // Se há permissões requeridas para a rota, verificar se o usuário tem permissão específica
+        if (requiredPermissions && requiredPermissions.length > 0) {
+          const hasMainPermission = hasRoutePermission(allPermissions, item.path, user);
+          
+          console.log(`[Layout] 🔍 Verificando permissão específica da rota "${item.title}" (${item.path}):`, {
+            hasMainPermission,
+            requiredPermissions,
+          });
+          
+          if (!hasMainPermission) {
+            console.log(`[Layout] ❌ Item "${item.title}" REMOVIDO do menu (sem permissão para rota)`);
+            return false;
+          }
+        }
+        
+        // Se tem submenu, verificar se há pelo menos um subitem com permissão
+        if (item.submenu && item.submenu.length > 0) {
+          const hasAnySubmenuPermission = item.submenu.some(sub => {
+            const hasSubPermission = hasRoutePermission(allPermissions, sub.path, user);
+            console.log(`[Layout] 🔍 Submenu "${sub.title}" (${sub.path}):`, {
+              hasSubPermission,
+              requiredPermissions: routePermissionMap[sub.path] || 'Nenhuma (público)',
+            });
+            return hasSubPermission;
+          });
+          
+          if (!hasAnySubmenuPermission) {
+            console.log(`[Layout] ❌ Item "${item.title}" REMOVIDO do menu (nenhum submenu com permissão)`);
+            return false;
+          }
+        }
+
+        // Se chegou aqui, manter o item
+        console.log(`[Layout] ✅ Item "${item.title}" MANTIDO no menu`);
+        return true;
+      })
+      .map(item => {
+        // Se tem submenu, filtrar os subitens baseado nas permissões
+        if (item.submenu && item.submenu.length > 0) {
+          const filteredSubmenu = item.submenu.filter(sub => 
+            hasRoutePermission(allPermissions, sub.path, user)
+          );
+          return {
+            ...item,
+            submenu: filteredSubmenu,
+          };
+        }
+        return item;
+      });
+
+    console.log('[Layout] 📊 Resultado final:', {
+      totalItensOriginal: menuItems.length,
+      totalItensFiltrado: filtered.length,
+      itensMantidos: filtered.map(i => i.title),
+    });
+
+    return filtered;
+  }, [user]);
 
   // Mapeamento de rotas para breadcrumbs
   const getBreadcrumbs = () => {
@@ -134,36 +360,39 @@ export const Layout: React.FC<{ children: React.ReactNode; onLogout: () => void 
     // Mapeamento de rotas
     const routeMap: { [key: string]: string } = {
       '/pdv': 'PDV / Vendas',
-      '/lojas': 'Lojas / Unidades',
-      '/lojas/novo': 'Nova Unidade',
-      '/clientes': 'Clientes',
-      '/clientes/novo': 'Novo Cliente',
+      '/stores': 'Lojas / Unidades',
+      '/stores/create': 'Nova Unidade',
+      '/clients': 'Clientes',
+      '/clients/create': 'Novo Cliente',
+      '/clients/:id': 'Detalhes do Cliente',
+      '/clients/:id/edit': 'Editar Cliente',
       '/vendedores': 'Vendedores',
-      '/vendedores/novo': 'Novo Vendedor',
+      '/vendedores/create': 'Novo Vendedor',
       '/estoque': 'Estoque',
       '/fornecedores': 'Fornecedores',
-      '/fornecedores/novo': 'Novo Fornecedor',
-      '/lentes': 'Lentes',
-      '/lentes/novo': 'Nova Marca',
+      '/fornecedores/create': 'Novo Fornecedor',
+      '/lenses': 'Lentes',
+      '/lenses/create': 'Nova Lente',
       '/financeiro': 'Financeiro',
       '/financeiro/inadimplencias': 'Inadimplências',
       '/notas-fiscais': 'Notas Fiscais',
       '/pedidos': 'Ordens de Serviço',
       '/pedidos/laboratorio': 'Laboratório',
-      '/pedidos/novo': 'Nova OS',
-      '/permissoes': 'Permissões',
-      '/auditoria': 'Auditoria',
-      '/lixeira': 'Lixeira',
+      '/pedidos/create': 'Nova OS',
+      '/permissions': 'Permissões',
+      '/users': 'Usuários',
+      '/audit': 'Auditoria',
+      '/trash': 'Lixeira',
     };
 
     // Detectar se é edição ou detalhes
-    if (path.includes('/editar')) {
-      const basePath = path.split('/editar')[0];
+    if (path.includes('/edit')) {
+      const basePath = path.split('/edit')[0];
       const baseLabel = routeMap[basePath] || basePath.replace('/', '');
       crumbs.push({ label: baseLabel, path: basePath });
       crumbs.push({ label: 'Editar', path: path });
-    } else if (path.match(/\/[^/]+\/[^/]+$/) && !path.includes('/novo') && !path.includes('/laboratorio') && !path.includes('/inadimplencias') && !path.includes('/notas-fiscais')) {
-      // Detectar detalhes (ex: /clientes/:id)
+    } else if (path.match(/\/[^/]+\/[^/]+$/) && !path.includes('/create') && !path.includes('/laboratorio') && !path.includes('/inadimplencias') && !path.includes('/notas-fiscais')) {
+      // Detectar detalhes (ex: /clients/:id)
       const basePath = '/' + path.split('/')[1];
       const baseLabel = routeMap[basePath] || basePath.replace('/', '');
       crumbs.push({ label: baseLabel, path: basePath });
@@ -222,23 +451,44 @@ export const Layout: React.FC<{ children: React.ReactNode; onLogout: () => void 
     setIsMobileMenuOpen(false);
   }, [location]);
 
+  // Definir variáveis CSS para a cor do sistema
+  useEffect(() => {
+    const root = document.documentElement;
+    const colorVars = generateColorVariables(storeColor);
+    
+    Object.entries(colorVars).forEach(([key, value]) => {
+      root.style.setProperty(key, value);
+    });
+
+    return () => {
+      // Limpar variáveis ao desmontar (opcional)
+      Object.keys(colorVars).forEach((key) => {
+        root.style.removeProperty(key);
+      });
+    };
+  }, [storeColor]);
+
   const SidebarContent = () => (
-    <div className="flex flex-col h-full bg-slate-950 text-white font-sans">
-      <div className="p-6 flex items-center gap-3 h-20 shrink-0">
-        <div className={`w-10 h-10 bg-red-600 ${styles.button.small} flex items-center justify-center shrink-0 shadow-lg shadow-red-600/20`}>
-          <span className="font-bold text-white text-lg">RÓ</span>
+    <div className="flex flex-col h-full bg-slate-950 text-white font-sans min-h-0">
+      {/* Header fixo */}
+      <div className="p-4 sm:p-6 flex items-center gap-3 h-16 sm:h-20 shrink-0 border-b border-white/5">
+        <div 
+          className="w-10 h-10 rounded-xl flex items-center justify-center text-white shadow-lg shrink-0"
+          style={{ backgroundColor: storeColor }}
+        >
+          <Store size={20} />
         </div>
         {(isSidebarOpen || isMobileMenuOpen) && (
           <span className="font-semibold text-lg tracking-tight whitespace-nowrap">
-            REI DO <span className="text-red-600 uppercase">Óculos</span>
+            {storeUnity || ''}
           </span>
         )}
       </div>
 
-      <div className="flex-1 overflow-y-auto px-4 py-2 space-y-6 scrollbar-hide">
+      {/* Conteúdo scrollável */}
+      <div className="flex-1 overflow-y-auto px-4 py-2 space-y-6 min-h-0 scrollbar-hide">
         <nav className="space-y-1">
-          <p className="px-4 pb-2 text-[9px] font-bold text-slate-600 uppercase tracking-[0.25em]">Navegação</p>
-          {menuItems.map((item) => (
+          {filteredMenuItems.map((item) => (
             <div key={item.title} className="group">
               {item.path === '/pdv' ? (
                 <a
@@ -246,8 +496,14 @@ export const Layout: React.FC<{ children: React.ReactNode; onLogout: () => void 
                   target="_blank"
                   rel="noopener noreferrer"
                   className={`w-full flex items-center justify-between p-3 ${styles.button.default} cursor-pointer transition-all duration-300 ${
-                    item.highlight ? 'bg-red-600/10 border border-red-600/20 text-red-500 hover:bg-red-600 hover:text-white mb-2' : ''
-                  } ${item.highlight && isActive(item.path, item.submenu) ? 'bg-red-600 text-white border-transparent shadow-lg shadow-red-600/20' : ''}`}
+                    item.highlight ? 'border border-[var(--store-color-opacity-20)] text-[var(--store-color-dark)] hover:bg-[var(--store-color)] hover:text-white mb-2' : ''
+                  } ${item.highlight && isActive(item.path, item.submenu) ? 'text-white border-transparent shadow-lg' : ''}`}
+                  style={item.highlight && isActive(item.path, item.submenu) ? {
+                    backgroundColor: 'var(--store-color)',
+                    boxShadow: '0 10px 15px -3px var(--store-color-opacity-20)',
+                  } : item.highlight ? {
+                    backgroundColor: 'var(--store-color-opacity-10)',
+                  } : undefined}
                 >
                   <div className="flex items-center gap-3.5">
                     <span className={`${isActive(item.path) ? 'text-white' : ''} group-hover:scale-110 transition-transform`}>
@@ -266,12 +522,37 @@ export const Layout: React.FC<{ children: React.ReactNode; onLogout: () => void 
                     }
                   }}
                   className={`w-full flex items-center justify-between p-3 ${styles.button.default} cursor-pointer transition-all duration-300 ${
-                    item.highlight ? 'bg-red-600/10 border border-red-600/20 text-red-500 hover:bg-red-600 hover:text-white mb-2' : ''
+                    item.highlight ? 'mb-2' : ''
                   } ${
                     isActive(item.path, item.submenu) && !item.highlight
-                      ? 'bg-red-600 text-white shadow-lg shadow-red-600/10' 
+                      ? 'text-white shadow-lg' 
                       : !item.highlight ? 'text-slate-400 hover:bg-white/5 hover:text-white' : ''
-                  } ${item.highlight && isActive(item.path, item.submenu) ? 'bg-red-600 text-white border-transparent shadow-lg shadow-red-600/20' : ''}`}
+                  }`}
+                  style={item.highlight && isActive(item.path, item.submenu) ? {
+                    backgroundColor: 'var(--store-color)',
+                    color: 'white',
+                    borderColor: 'transparent',
+                    boxShadow: '0 10px 15px -3px var(--store-color-opacity-20)',
+                  } : item.highlight ? {
+                    backgroundColor: 'var(--store-color-opacity-10)',
+                    borderColor: 'var(--store-color-opacity-20)',
+                    color: 'var(--store-color-dark)',
+                  } : isActive(item.path, item.submenu) ? {
+                    backgroundColor: 'var(--store-color)',
+                    boxShadow: '0 10px 15px -3px var(--store-color-opacity-10)',
+                  } : undefined}
+                  onMouseEnter={(e) => {
+                    if (item.highlight && !isActive(item.path, item.submenu)) {
+                      e.currentTarget.style.backgroundColor = 'var(--store-color)';
+                      e.currentTarget.style.color = 'white';
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    if (item.highlight && !isActive(item.path, item.submenu)) {
+                      e.currentTarget.style.backgroundColor = 'var(--store-color-opacity-10)';
+                      e.currentTarget.style.color = 'var(--store-color-dark)';
+                    }
+                  }}
                 >
                   <div className="flex items-center gap-3.5">
                     <span className={`${isActive(item.path) ? 'text-white' : ''} group-hover:scale-110 transition-transform`}>
@@ -285,16 +566,35 @@ export const Layout: React.FC<{ children: React.ReactNode; onLogout: () => void 
                 </Link>
               )}
               {(isSidebarOpen || isMobileMenuOpen) && item.submenu && openSubmenus.includes(item.title) && (
-                <div className="mt-1 ml-6 pl-4 border-l border-white/10 space-y-1 animate-in slide-in-from-top-2">
+                <div 
+                  className="mt-1 ml-6 pl-4 border-l space-y-1 animate-in slide-in-from-top-2"
+                  style={{ borderColor: 'var(--store-color-opacity-40)' }}
+                >
                   {item.submenu.map((sub) => (
                     <Link
                       key={sub.title}
                       to={sub.path}
-                      className={`block p-2 text-xs font-medium ${styles.button.small} transition-all ${
-                        location.pathname === sub.path ? 'text-white bg-white/5' : 'text-slate-500 hover:text-red-400 hover:translate-x-1'
+                      className={`flex items-center gap-2 p-2 text-xs font-medium ${styles.button.small} transition-all ${
+                        location.pathname === sub.path ? 'text-white bg-white/5' : 'text-slate-500 hover:translate-x-1'
+                      }
+                      style={location.pathname !== sub.path ? { color: 'var(--store-color-opacity-50)' } : undefined}
+                      onMouseEnter={(e) => {
+                        if (location.pathname !== sub.path) {
+                          e.currentTarget.style.color = 'var(--store-color)';
+                        }
+                      }}
+                      onMouseLeave={(e) => {
+                        if (location.pathname !== sub.path) {
+                          e.currentTarget.style.color = 'var(--store-color-opacity-50)';
+                        }
+                      }}
                       }`}
                     >
-                      {sub.title}
+                      <div 
+                        className="w-1.5 h-1.5 rounded-full shrink-0"
+                        style={{ backgroundColor: location.pathname === sub.path ? 'var(--store-color)' : 'var(--store-color-opacity-50)' }}
+                      ></div>
+                      <span>{sub.title}</span>
                     </Link>
                   ))}
                 </div>
@@ -302,33 +602,6 @@ export const Layout: React.FC<{ children: React.ReactNode; onLogout: () => void 
             </div>
           ))}
         </nav>
-      </div>
-
-      <div className="p-6 border-t border-white/5 space-y-4">
-        {/* Informações do Usuário */}
-        <div className="flex items-center gap-3">
-          <img 
-            src="https://api.dicebear.com/7.x/avataaars/svg?seed=Rodrigo" 
-            className={`w-10 h-10 ${styles.button.small} bg-slate-800 p-1 border border-white/10`} 
-            alt="User"
-          />
-          {(isSidebarOpen || isMobileMenuOpen) && (
-            <div className="overflow-hidden">
-              <p className="text-sm font-semibold text-white truncate">Rodrigo Paduin</p>
-              <div className="flex items-center gap-1.5 mt-0.5">
-                <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></div>
-                <p className="text-[8px] text-slate-400 font-bold uppercase tracking-[0.2em]">Unidade Maringá</p>
-              </div>
-            </div>
-          )}
-        </div>
-        <button 
-          onClick={onLogout}
-          className={`w-full flex items-center gap-3 p-3 ${styles.button.default} text-slate-400 hover:bg-red-600/10 hover:text-red-500 transition-all border border-transparent hover:border-red-600/20`}
-        >
-          <LogOut size={18} />
-          {(isSidebarOpen || isMobileMenuOpen) && <span className="text-sm font-semibold">Sair</span>}
-        </button>
       </div>
     </div>
   );
@@ -348,7 +621,8 @@ export const Layout: React.FC<{ children: React.ReactNode; onLogout: () => void 
             <SidebarContent />
             <button 
               onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-              className="absolute -right-3 top-10 bg-red-600 text-white p-1.5 rounded-full shadow-lg hover:scale-110 transition-transform border-2 border-white z-50"
+              className="absolute -right-3 top-10 text-white p-1.5 rounded-full shadow-lg hover:scale-110 transition-transform border-2 border-white z-50"
+              style={{ backgroundColor: 'var(--store-color)' }}
             >
               <ChevronRight size={14} className={`transition-transform duration-500 ${isSidebarOpen ? 'rotate-180' : ''}`} />
             </button>
@@ -362,24 +636,48 @@ export const Layout: React.FC<{ children: React.ReactNode; onLogout: () => void 
                 onClick={() => setIsMobileMenuOpen(false)}
               />
               <aside className="fixed left-0 top-0 h-full w-72 shadow-2xl z-50 lg:hidden animate-in slide-in-from-left duration-300">
-                <div className="flex flex-col h-full bg-slate-950 text-white font-sans">
-                  <div className="p-6 flex items-center justify-between h-20 shrink-0 border-b border-white/10">
-                    <div className="flex items-center gap-3">
-                      <div className={`w-10 h-10 bg-red-600 ${styles.button.small} flex items-center justify-center shrink-0 shadow-lg shadow-red-600/20`}>
-                        <span className="font-bold text-white text-lg">RÓ</span>
+                <div className="flex flex-col h-full bg-slate-950 text-white font-sans min-h-0">
+                  <div className="p-4 sm:p-6 flex items-center justify-between h-16 sm:h-20 shrink-0 border-b border-white/10">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div 
+                        className="w-10 h-10 rounded-xl flex items-center justify-center text-white shadow-lg shrink-0"
+                        style={{ backgroundColor: storeColor }}
+                      >
+                        <Store size={20} />
                       </div>
-                      <span className="font-semibold text-lg tracking-tight whitespace-nowrap">
-                        REI DO <span className="text-red-600 uppercase">Óculos</span>
-                      </span>
+                      <div className="min-w-0">
+                        <span className="font-semibold text-lg tracking-tight whitespace-nowrap block">
+                          REI DO <span className="uppercase" style={{ color: storeColor }}>Óculos</span>
+                        </span>
+                        {user && (
+                          <div className="flex items-center gap-1.5 mt-0.5">
+                            <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></div>
+                            <p className="text-[8px] text-slate-400 font-bold uppercase tracking-[0.2em] truncate">
+                              {selectedStore?.unity || selectedStore?.name || 'Nenhuma unidade'}
+                            </p>
+                          </div>
+                        )}
+                      </div>
                     </div>
-                    <button
-                      onClick={() => setIsMobileMenuOpen(false)}
-                      className="p-2 text-slate-400 hover:text-white transition-colors"
-                    >
-                      <X size={20} />
-                    </button>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <button 
+                        onClick={onLogout}
+                        className="p-2 text-slate-400 hover:bg-red-600/10 hover:text-red-500 transition-all rounded-lg border border-transparent hover:border-red-600/20"
+                        title="Sair"
+                      >
+                        <LogOut size={18} />
+                      </button>
+                      <button
+                        onClick={() => setIsMobileMenuOpen(false)}
+                        className="p-2 text-slate-400 hover:text-white transition-colors"
+                      >
+                        <X size={20} />
+                      </button>
+                    </div>
                   </div>
-                  <SidebarContent />
+                  <div className="flex-1 min-h-0 overflow-hidden">
+                    <SidebarContent />
+                  </div>
                 </div>
               </aside>
             </>
@@ -390,78 +688,134 @@ export const Layout: React.FC<{ children: React.ReactNode; onLogout: () => void 
       <div className={`flex-1 flex flex-col overflow-hidden ${isPDVPage ? 'w-full' : ''}`}>
         {!isPDVPage && (
           <header className="bg-white border-b border-gray-100 shrink-0 z-40">
-          {/* Breadcrumbs e Data/Hora */}
-          <div className="min-h-14 border-b border-gray-100 flex flex-col sm:flex-row items-start sm:items-center justify-between px-4 sm:px-6 lg:px-10 py-2 sm:py-0 gap-2 sm:gap-0">
-            <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
-              {/* Breadcrumbs */}
-              <nav className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm min-w-0">
-                {getBreadcrumbs().map((crumb, index, array) => (
-                  <React.Fragment key={crumb.path}>
-                    {index === 0 ? (
-                      <Link to={crumb.path} className="flex items-center gap-1 sm:gap-2 text-slate-400 hover:text-slate-900 transition-colors">
-                        <Home size={14} className="sm:w-4 sm:h-4" />
-                        <span className="truncate">{crumb.label}</span>
-                      </Link>
-                    ) : (
-                      <>
-                        <ChevronRight size={12} className="sm:w-3.5 sm:h-3.5 text-slate-300 shrink-0" />
-                        {index === array.length - 1 ? (
-                          <span className="text-slate-900 font-semibold truncate">{crumb.label}</span>
-                        ) : (
-                          <Link to={crumb.path} className="text-slate-400 hover:text-slate-900 transition-colors truncate">
-                            {crumb.label}
-                          </Link>
-                        )}
-                      </>
-                    )}
-                  </React.Fragment>
-                ))}
-              </nav>
-            </div>
-
-            {/* Data e Hora */}
-            <div className="hidden sm:flex items-center gap-3 md:gap-4 text-xs md:text-sm text-slate-600">
-              <div className="flex items-center gap-1.5 md:gap-2">
-                <Calendar size={14} className="md:w-4 md:h-4 text-slate-400" />
-                <span className="font-medium">{currentDate}</span>
-              </div>
-              <div className="w-px h-4 bg-slate-200"></div>
-              <div className="flex items-center gap-1.5 md:gap-2">
-                <Clock size={14} className="md:w-4 md:h-4 text-slate-400" />
-                <span className="font-medium">{currentTime}</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Barra de Busca e Ações */}
-          <div className="min-h-16 flex flex-col sm:flex-row items-stretch sm:items-center justify-between px-4 sm:px-6 lg:px-10 py-2 sm:py-0 gap-2 sm:gap-0">
-            <div className="flex items-center gap-3 sm:gap-6 flex-1 min-w-0">
+          {/* Tudo na mesma linha: Horário + Breadcrumbs à esquerda | Seletor de Loja + Notificação + Usuário à direita */}
+          <div className="min-h-14 flex flex-col sm:flex-row items-start sm:items-center justify-between px-4 sm:px-6 lg:px-10 py-2 sm:py-0 gap-2 sm:gap-0">
+            {/* Esquerda: Horário + Breadcrumbs */}
+            <div className="flex items-center gap-3 sm:gap-4 md:gap-6 min-w-0 flex-1">
+              {/* Botão Menu Mobile */}
               <button 
-                className={`lg:hidden p-2 sm:p-2.5 text-slate-600 bg-slate-50 hover:bg-red-50 hover:text-red-600 ${styles.button.default} transition-all shrink-0`}
+                className={`lg:hidden p-2 sm:p-2.5 text-slate-600 bg-slate-50 ${styles.button.default} transition-all shrink-0`}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = 'var(--store-color-light)';
+                  e.currentTarget.style.color = 'var(--store-color-dark)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = '';
+                  e.currentTarget.style.color = '';
+                }}
                 onClick={() => setIsMobileMenuOpen(true)}
               >
                 <Menu size={18} className="sm:w-5 sm:h-5" />
               </button>
-              <div className="relative flex-1 sm:flex-none hidden sm:block">
-                <Search className="absolute left-3 sm:left-4 top-1/2 -translate-y-1/2 text-slate-400" size={14} className="sm:w-4 sm:h-4" />
-                <input 
-                  type="text" 
-                  placeholder="Pesquisar..." 
-                  className={`pl-10 sm:pl-12 pr-4 sm:pr-6 py-2 sm:py-2.5 bg-slate-50 border-none ${styles.input.default} text-xs sm:text-sm focus:ring-4 focus:ring-red-500/5 transition-all outline-none w-full sm:w-80 font-medium`}
-                />
+              
+              {/* Horário */}
+              <div className="hidden sm:flex items-center gap-3 md:gap-4 text-xs md:text-sm text-slate-600 shrink-0">
+                <div className="flex items-center gap-1.5 md:gap-2">
+                  <Calendar size={14} className="md:w-4 md:h-4 text-slate-400" />
+                  <span className="font-medium">{currentDate}</span>
+                </div>
+                <div className="w-px h-4 bg-slate-200"></div>
+                <div className="flex items-center gap-1.5 md:gap-2">
+                  <Clock size={14} className="md:w-4 md:h-4 text-slate-400" />
+                  <span className="font-medium">{currentTime}</span>
+                </div>
               </div>
+              
             </div>
             
+            {/* Direita: Seletor de Loja + Notificação + Usuário */}
             <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+              {/* Seletor de Loja */}
+              {availableStores.length > 1 && (
+                <div className="relative" ref={storeDropdownRef}>
+                  <button
+                    onClick={() => setStoreDropdownOpen(!storeDropdownOpen)}
+                    className="flex items-center gap-2 px-3 py-2 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-lg transition-all"
+                  >
+                    <div 
+                      className="w-3 h-3 rounded-full shadow-sm"
+                      style={{ backgroundColor: storeColor }}
+                    ></div>
+                    <span className="text-xs font-semibold text-slate-700 hidden sm:block">
+                      {selectedStore ? (selectedStore.fancy_name || selectedStore.name) : 'Selecione'}
+                    </span>
+                    <ChevronDown size={14} className={`text-slate-400 transition-transform ${storeDropdownOpen ? 'rotate-180' : ''}`} />
+                  </button>
+                  
+                  {storeDropdownOpen && (
+                    <div className="absolute right-0 top-full mt-2 w-56 bg-white border border-slate-200 rounded-xl shadow-xl z-50 overflow-hidden">
+                      <div className="p-2">
+                        {availableStores.map((store) => (
+                          <button
+                            key={store.id}
+                            onClick={() => {
+                              setSelectedStore(store);
+                              setStoreDropdownOpen(false);
+                            }}
+                            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all text-left ${
+                              selectedStore?.id === store.id
+                                ? 'bg-slate-50'
+                                : 'hover:bg-slate-50'
+                            }`}
+                          >
+                            <div 
+                              className="w-4 h-4 rounded-full shadow-sm shrink-0"
+                              style={{ backgroundColor: store.color || '#dc2626' }}
+                            ></div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-semibold text-slate-900 truncate">
+                                {store.fancy_name || store.name}
+                              </p>
+                              {store.fancy_name && (
+                                <p className="text-[10px] text-slate-500 truncate">{store.name}</p>
+                              )}
+                            </div>
+                            {selectedStore?.id === store.id && (
+                              <div className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: store.color || '#dc2626' }}></div>
+                            )}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+              
+              {/* Mostrar loja única */}
+              {availableStores.length === 1 && selectedStore && (
+                <div className="flex items-center gap-2 px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg">
+                  <div 
+                    className="w-8 h-8 rounded-lg flex items-center justify-center text-white shadow-sm shrink-0"
+                    style={{ backgroundColor: storeColor }}
+                  >
+                    <Store size={16} />
+                  </div>
+                  <span className="text-xs font-semibold text-slate-700 hidden sm:block">
+                    {selectedStore.fancy_name || selectedStore.name}
+                  </span>
+                </div>
+              )}
+
+              {/* Notificação e Usuário */}
               <div className={`flex items-center bg-slate-50 p-1 sm:p-1.5 ${styles.button.default} border border-slate-100`}>
-                <button className="p-1.5 sm:p-2 text-slate-400 hover:text-red-600 transition-colors relative">
+                <button 
+                  className="p-1.5 sm:p-2 text-slate-400 transition-colors relative"
+                  style={{ color: 'var(--store-color-opacity-50)' }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.color = 'var(--store-color-dark)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.color = 'var(--store-color-opacity-50)';
+                  }}
+                >
                   <Bell size={16} className="sm:w-[18px] sm:h-[18px]" />
-                  <span className="absolute top-1 right-1 sm:top-1.5 sm:right-1.5 w-1.5 h-1.5 sm:w-2 sm:h-2 bg-red-600 rounded-full border-2 border-white"></span>
+                  <span 
+                    className="absolute top-1 right-1 sm:top-1.5 sm:right-1.5 w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full border-2 border-white"
+                    style={{ backgroundColor: 'var(--store-color)' }}
+                  ></span>
                 </button>
                 <div className="w-px h-5 sm:h-6 bg-slate-200 mx-0.5 sm:mx-1"></div>
-                <button className="p-1.5 sm:p-2 text-slate-400 hover:text-slate-900 transition-colors">
-                  <Settings size={16} className="sm:w-[18px] sm:h-[18px]" />
-                </button>
+                <UserDropdown user={user} onLogout={onLogout} />
               </div>
             </div>
           </div>

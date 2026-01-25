@@ -1,9 +1,22 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import { Search, Edit, Plus, Truck, Phone, MapPin, ExternalLink } from 'lucide-react';
-import { Card, Button, Badge, FilterSection, Input, Select } from '../../components/Common';
+import { Card, Button, Badge, FilterSection, Input, Select, ActiveFiltersBadge } from '../../components/Common';
+import { useActiveFilters } from '../../hooks/useActiveFilters';
 
 export const SupplierList: React.FC = () => {
+  const [nameFilter, setNameFilter] = useState('');
+  const [cnpjFilter, setCnpjFilter] = useState('');
+  const [specialtyFilter, setSpecialtyFilter] = useState('');
+  const [statusFilter, setStatusFilter] = useState('');
+  
+  const activeFilters = useActiveFilters({
+    nameFilter,
+    cnpjFilter,
+    specialtyFilter,
+    statusFilter,
+  });
+
   const suppliers = [
     { id: '1', name: 'Essilor Laboratório', cnpj: '00.123.456/0001-99', specialty: 'Lentes Premium', contact: 'Roberto (Consultor)', phone: '(11) 98877-6655', city: 'São Paulo - SP', status: 'Ativo' },
     { id: '2', name: 'Hoya Vision Care', cnpj: '11.444.777/0001-22', specialty: 'Tecnologia Japonesa', contact: 'Ana Paula', phone: '(11) 97766-5544', city: 'Curitiba - PR', status: 'Ativo' },
@@ -18,20 +31,20 @@ export const SupplierList: React.FC = () => {
           <h1 className="text-3xl font-black text-slate-950 tracking-tight">Fornecedores & Laboratórios</h1>
           <p className="text-gray-500 font-medium mt-1">Gerencie seus parceiros de suprimentos e produção de lentes.</p>
         </div>
-        <Button onClick={() => window.location.hash = '#/fornecedores/novo'} className="shadow-red-600/20">
+        <Button onClick={() => window.location.hash = '#/fornecedores/create'} className="shadow-red-600/20">
           <Plus size={18} /> Novo Fornecedor
         </Button>
       </div>
 
       <FilterSection>
-        <Input label="Razão Social / Fantasia" placeholder="Ex: Essilor..." />
-        <Input label="CNPJ" placeholder="00.000.000/0000-00" />
-        <Select label="Especialidade" options={[
+        <Input label="Razão Social / Fantasia" placeholder="Ex: Essilor..." value={nameFilter} onChange={(e) => setNameFilter(e.target.value)} />
+        <Input label="CNPJ" placeholder="00.000.000/0000-00" value={cnpjFilter} onChange={(e) => setCnpjFilter(e.target.value)} />
+        <Select label="Especialidade" value={specialtyFilter} onChange={(e) => setSpecialtyFilter(e.target.value)} options={[
           {label: 'TODAS', value: ''},
           {label: 'Laboratório', value: 'lab'},
           {label: 'Armações', value: 'frames'},
         ]} />
-        <Select label="Status" options={[
+        <Select label="Status" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} options={[
           {label: 'TODOS', value: ''},
           {label: 'Ativo', value: 'ativo'},
           {label: 'Atrasado', value: 'atrasado'},

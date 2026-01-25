@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import { 
   ClipboardList, 
   Search, 
@@ -90,6 +90,18 @@ const mockOS: OS[] = [
 ];
 
 export const OrderList: React.FC = () => {
+  const [osNumber, setOsNumber] = useState('');
+  const [clientName, setClientName] = useState('');
+  const [statusFilter, setStatusFilter] = useState('');
+  const [unitFilter, setUnitFilter] = useState('');
+  
+  const activeFilters = useActiveFilters({
+    osNumber,
+    clientName,
+    statusFilter,
+    unitFilter,
+  });
+
   const getStatusVariant = (status: string) => {
     switch (status) {
       case 'Laboratório': return 'primary';
@@ -113,7 +125,7 @@ export const OrderList: React.FC = () => {
           <Button variant="outline" className="border-slate-200 text-slate-600 bg-white">
             <Printer size={18} /> Relatório Diário
           </Button>
-          <Button onClick={() => window.location.hash = '#/pedidos/novo'} className="shadow-red-600/20 bg-red-600">
+          <Button onClick={() => window.location.hash = '#/pedidos/create'} className="shadow-red-600/20 bg-red-600">
             <Plus size={18} /> Abrir Nova OS
           </Button>
         </div>
@@ -135,9 +147,9 @@ export const OrderList: React.FC = () => {
       </div>
 
       <FilterSection>
-        <Input label="Nº da OS" placeholder="Ex: 39832" />
-        <Input label="Cliente" placeholder="Nome do paciente..." />
-        <Select label="Status" options={[
+        <Input label="Nº da OS" placeholder="Ex: 39832" value={osNumber} onChange={(e) => setOsNumber(e.target.value)} />
+        <Input label="Cliente" placeholder="Nome do paciente..." value={clientName} onChange={(e) => setClientName(e.target.value)} />
+        <Select label="Status" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} options={[
           {label: 'TODOS', value: ''},
           {label: 'Pendente', value: 'pendente'},
           {label: 'Laboratório', value: 'lab'},
@@ -145,7 +157,7 @@ export const OrderList: React.FC = () => {
           {label: 'Entregue', value: 'entregue'},
           {label: 'Cancelado', value: 'cancelado'},
         ]} />
-        <Select label="Unidade" options={[
+        <Select label="Unidade" value={unitFilter} onChange={(e) => setUnitFilter(e.target.value)} options={[
           {label: 'TODAS', value: ''},
           {label: 'Maringá Centro', value: 'maringa'},
           {label: 'Londrina Shopping', value: 'londrina'},

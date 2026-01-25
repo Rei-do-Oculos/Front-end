@@ -16,6 +16,7 @@ import {
   Target
 } from 'lucide-react';
 import { StatCard, Card, Button, Badge } from '../components/Common';
+import { useStore } from '../contexts/StoreContext';
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -114,6 +115,8 @@ const adimplenciaData = [
 ];
 
 export const Dashboard: React.FC = () => {
+  const { storeColor } = useStore();
+  
   return (
     <div className="space-y-8 lg:space-y-10 animate-in fade-in duration-700">
       {/* Header com Saudação */}
@@ -557,11 +560,12 @@ export const Dashboard: React.FC = () => {
                   <p className="text-[10px] text-slate-400 font-medium">{client.purchases} compras este mês</p>
                 </div>
                 <p className="text-sm font-bold text-emerald-600">{client.total}</p>
-             </div>
+              </div>
             ))}
             <button 
-              onClick={() => window.location.hash = '#/clientes'}
-              className="w-full text-center text-[10px] font-bold text-red-600 uppercase tracking-[0.2em] pt-3 hover:underline transition-all"
+              onClick={() => window.location.hash = '#/clients'}
+              className="w-full text-center text-[10px] font-bold uppercase tracking-[0.2em] pt-3 hover:underline transition-all"
+              style={{ color: storeColor }}
             >
               Ver Todos os Clientes →
             </button>
@@ -604,7 +608,8 @@ export const Dashboard: React.FC = () => {
                 ))}
             <button 
               onClick={() => window.location.hash = '#/vendedores'}
-              className="w-full text-center text-[10px] font-bold text-red-600 uppercase tracking-[0.2em] pt-2 hover:underline transition-all"
+              className="w-full text-center text-[10px] font-bold uppercase tracking-[0.2em] pt-2 hover:underline transition-all"
+              style={{ color: storeColor }}
             >
               Ver Todos os Vendedores →
             </button>
@@ -622,7 +627,16 @@ export const Dashboard: React.FC = () => {
               { product: 'Armação Infantil Nylon 1360', stock: '8 unidades', status: 'warning' },
               { product: 'Lente Transitions', stock: '22%', status: 'warning' },
             ].map((item, idx) => (
-              <div key={idx} className="flex items-center justify-between p-4 rounded-lg border border-red-100 bg-red-50/50 hover:bg-red-50 transition-all">
+              <div 
+                key={idx} 
+                className="flex items-center justify-between p-4 rounded-lg border transition-all"
+                style={{ 
+                  borderColor: `${storeColor}40`,
+                  backgroundColor: `${storeColor}10`
+                }}
+                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = `${storeColor}20`}
+                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = `${storeColor}10`}
+              >
                 <div className="flex-1">
                   <p className="text-sm font-semibold text-slate-900">{item.product}</p>
                   <p className="text-[10px] text-slate-500 mt-1">Estoque atual</p>
@@ -632,7 +646,8 @@ export const Dashboard: React.FC = () => {
             ))}
             <button 
               onClick={() => window.location.hash = '#/estoque'}
-              className="w-full text-center text-[10px] font-bold text-red-600 uppercase tracking-[0.2em] pt-2 hover:underline transition-all"
+              className="w-full text-center text-[10px] font-bold uppercase tracking-[0.2em] pt-2 hover:underline transition-all"
+              style={{ color: 'var(--store-color-dark)' }}
             >
               Ver Estoque Completo →
             </button>
@@ -655,14 +670,21 @@ export const Dashboard: React.FC = () => {
                       {order.status}
                     </Badge>
                   </div>
-                  <p className="text-sm font-semibold text-slate-900 group-hover:text-red-600 transition-colors">{order.client}</p>
+                  <p 
+                    className="text-sm font-semibold text-slate-900 transition-colors"
+                    onMouseEnter={(e) => e.currentTarget.style.color = storeColor}
+                    onMouseLeave={(e) => e.currentTarget.style.color = ''}
+                  >
+                    {order.client}
+                  </p>
                 </div>
                 <p className="text-sm font-bold text-slate-900">{order.value}</p>
               </div>
             ))}
             <button 
               onClick={() => window.location.hash = '#/pedidos'}
-              className="w-full text-center text-[10px] font-bold text-red-600 uppercase tracking-[0.2em] pt-2 hover:underline transition-all"
+              className="w-full text-center text-[10px] font-bold uppercase tracking-[0.2em] pt-2 hover:underline transition-all"
+              style={{ color: storeColor }}
             >
               Ver Todos os Pedidos →
             </button>

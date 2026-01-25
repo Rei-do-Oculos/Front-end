@@ -1,7 +1,7 @@
 import React from 'react';
 import { ArrowLeft, Award, BadgeDollarSign, Calendar, CheckCircle2, FileText, Target, TrendingUp, User } from 'lucide-react';
 import { Card, Button, Badge } from '../../components/Common';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 
 interface Sale {
   id: string;

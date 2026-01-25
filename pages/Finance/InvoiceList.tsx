@@ -16,7 +16,7 @@ import {
   Building2,
   User
 } from 'lucide-react';
-import { Card, Button, Input, Select, Badge, FilterSection } from '../../components/Common';
+import { Card, Button, Input, Select, Badge, FilterSection, ActiveFiltersBadge } from '../../components/Common';
 
 interface Invoice {
   id: string;
@@ -111,6 +111,13 @@ export const InvoiceList: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [storeFilter, setStoreFilter] = useState('');
+  
+  // Calcular quantidade de filtros ativos usando hook padronizado
+  const activeFilters = useActiveFilters({
+    searchTerm,
+    statusFilter,
+    storeFilter,
+  });
 
   const getStatusVariant = (status: string) => {
     switch (status) {
@@ -149,9 +156,12 @@ export const InvoiceList: React.FC = () => {
     <div className="space-y-8 animate-in fade-in duration-700">
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-        <div>
-          <h1 className="text-3xl font-black text-slate-950 tracking-tight">Notas Fiscais Eletrônicas</h1>
-          <p className="text-gray-500 font-medium mt-1 uppercase text-[9px] tracking-[0.25em]">Fiscal • Emissão • Controle</p>
+        <div className="flex items-center gap-4">
+          <div>
+            <h1 className="text-3xl font-black text-slate-950 tracking-tight">Notas Fiscais Eletrônicas</h1>
+            <p className="text-gray-500 font-medium mt-1 uppercase text-[9px] tracking-[0.25em]">Fiscal • Emissão • Controle</p>
+          </div>
+          <ActiveFiltersBadge count={activeFilters} />
         </div>
         <div className="flex gap-3">
           <Button variant="outline" className="border-slate-200 text-slate-600 bg-white">
