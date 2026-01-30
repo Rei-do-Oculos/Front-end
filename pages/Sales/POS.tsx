@@ -23,6 +23,7 @@ import {
   Calendar
 } from 'lucide-react';
 import { Card, Button, Input, Badge } from '../../components/Common';
+import { useNotification } from '../../hooks/useNotification';
 
 interface CartItem {
   id: string;
@@ -42,6 +43,7 @@ interface Client {
 type ViewMode = 'products' | 'client';
 
 export const POS: React.FC = () => {
+  const { showSuccess, showError } = useNotification();
   const [cart, setCart] = useState<CartItem[]>([]);
   const [search, setSearch] = useState('');
   const [clientSearch, setClientSearch] = useState('');
@@ -169,11 +171,11 @@ export const POS: React.FC = () => {
 
   const handleFinishSale = () => {
     if (cart.length === 0) {
-      alert('Adicione produtos ao carrinho antes de finalizar a venda.');
+      showError('Carrinho vazio', 'Adicione produtos ao carrinho antes de finalizar a venda.');
       return;
     }
     if (!paymentMethod) {
-      alert('Selecione uma forma de pagamento.');
+      showError('Forma de pagamento', 'Selecione uma forma de pagamento.');
       return;
     }
     setShowConfirmModal(true);
@@ -191,7 +193,7 @@ export const POS: React.FC = () => {
       paymentMethod,
       total
     });
-    alert('NF-e emitida com sucesso! Redirecionando para impressão...');
+    showSuccess('NF-e emitida!', 'NF-e emitida com sucesso! Redirecionando para impressão...');
     resetSale();
   };
 
@@ -202,7 +204,7 @@ export const POS: React.FC = () => {
       paymentMethod,
       total
     });
-    alert('Recibo gerado com sucesso! Redirecionando para impressão...');
+    showSuccess('Recibo gerado!', 'Recibo gerado com sucesso! Redirecionando para impressão...');
     resetSale();
   };
 

@@ -32,7 +32,7 @@ import {
 } from 'lucide-react';
 import { useLocation, Link } from 'react-router-dom';
 import { useAuth } from '../services/hooks/useAuth';
-import { hasRoutePermission, getAllUserPermissions, isSuperAdmin, hasAnyModulePermission, routePermissionMap } from '../utils/menuPermissions';
+import { hasRoutePermission, getEffectiveUserPermissions, isSuperAdmin, hasAnyModulePermission, routePermissionMap } from '../utils/menuPermissions';
 import { useStore } from '../contexts/StoreContext';
 import { generateColorVariables } from '../utils/colorUtils';
 
@@ -62,19 +62,14 @@ const menuItems: MenuItem[] = [
     icon: <Users size={20} />, 
     path: '/clients'
   },
-  {
-    title: 'Vendedores',
-    icon: <User size={20} />,
-    path: '/vendedores'
-  },
   { 
     title: 'Estoque', 
     icon: <Package size={20} />, 
     path: '/estoque',
     submenu: [
-      { title: 'Visão Geral', path: '/estoque' },
-      { title: 'Nova Armação', path: '/estoque/create' },
-      { title: 'Lentes e Insumos', path: '/estoque/lentes' }
+      { title: 'Armações', path: '/frames' },
+      { title: 'Tipos de Armação', path: '/frame-types' },
+      { title: 'Transferências', path: '/transferencias' }
     ]
   },
   { 
@@ -199,51 +194,16 @@ export const Layout: React.FC<{ children: React.ReactNode; onLogout: () => void 
   const [storeDropdownOpen, setStoreDropdownOpen] = useState(false);
   const storeDropdownRef = useRef<HTMLDivElement>(null);
 
-  // Filtrar itens do menu baseado nas permissões do usuário
+  // Filtrar itens do menu baseado nas permissões efetivas do backend (all_permissions)
   const filteredMenuItems = useMemo(() => {
-    if (!user) {
-      // Se não há usuário, retornar array vazio
-      console.log('[Layout] ❌ Nenhum usuário encontrado');
-      return [];
-    }
+    if (!user) return [];
 
-    // Debug: Log completo do usuário
-    console.log('[Layout] 🔍 Analisando usuário:', {
-      userId: user.id,
-      userName: user.name,
-      userEmail: user.email,
-      roles: user.roles,
-      permissions: user.permissions,
-      rolesCount: Array.isArray(user.roles) ? user.roles.length : 0,
-      permissionsCount: Array.isArray(user.permissions) ? user.permissions.length : 0,
-    });
+    if (isSuperAdmin(user)) return menuItems;
 
-    // Verificar se é superadmin
-    const userIsSuperAdmin = isSuperAdmin(user);
-    console.log('[Layout] 👤 É superadmin?', userIsSuperAdmin);
+    const allPermissions = getEffectiveUserPermissions(user);
 
-    // Se for superadmin, mostrar TODOS os itens do menu SEM FILTRO
-    if (userIsSuperAdmin) {
-      console.log('[Layout] ✅ Superadmin detectado - mostrando todos os itens do menu');
-      return menuItems;
-    }
-
-    // Obter todas as permissões do usuário (roles + diretas)
-    const allPermissions = getAllUserPermissions(user);
-
-    // Debug: Log das permissões e filtragem
-    console.log('[Layout] 📋 Filtrando menu:', {
-      totalMenuItems: menuItems.length,
-      userPermissions: allPermissions.map(p => p.name),
-      userPermissionsCount: allPermissions.length,
-    });
-
-    // Se o usuário não tem nenhuma permissão coletada, mas tem permissões diretas ou roles,
-    // pode ser um problema na coleta. Vamos mostrar um aviso e permitir acesso temporariamente
-    if (allPermissions.length === 0 && (user.permissions?.length || user.roles?.length)) {
-      console.warn('[Layout] ⚠️ ATENÇÃO: Usuário tem roles/permissions mas nenhuma foi coletada! Permitindo acesso temporário.');
-      console.warn('[Layout] ⚠️ Estrutura do usuário:', JSON.stringify(user, null, 2));
-      // Por segurança, vamos retornar apenas rotas públicas se não conseguirmos coletar permissões
+    // Sem all_permissions não mostramos itens que exigem permissão (apenas públicos)
+    if (allPermissions.length === 0) {
       return menuItems.filter(item => {
         const requiredPermissions = routePermissionMap[item.path];
         return !requiredPermissions || requiredPermissions.length === 0;
@@ -255,6 +215,9 @@ export const Layout: React.FC<{ children: React.ReactNode; onLogout: () => void 
       '/clients': 'clients',
       '/stores': 'stores',
       '/lenses': 'lenses',
+      '/frame-types': 'frame-types',
+      '/frames': 'frames',
+      '/transferencias': 'store-frames',
       '/users': 'users',
       '/permissions': 'roles', // permissions ou roles
       '/audit': 'audits',
@@ -276,55 +239,17 @@ export const Layout: React.FC<{ children: React.ReactNode; onLogout: () => void 
         // Se há um prefixo de módulo mapeado, verificar PRIMEIRO se o usuário tem pelo menos uma permissão desse módulo
         // Isso garante que se o usuário não tem NENHUMA permissão do módulo, o item não aparece
         if (modulePrefix) {
-          const hasAnyPermission = hasAnyModulePermission(allPermissions, modulePrefix);
-          
-          console.log(`[Layout] 🔍 Verificando módulo "${modulePrefix}" para item "${item.title}" (${item.path}):`, {
-            hasAnyPermission,
-            modulePrefix,
-            userPermissions: allPermissions.map(p => typeof p === 'string' ? p : p.name),
-            allPermissionsCount: allPermissions.length,
-          });
-          
-          if (!hasAnyPermission) {
-            console.log(`[Layout] ❌ Item "${item.title}" REMOVIDO do menu (sem nenhuma permissão do módulo ${modulePrefix})`);
-            return false; // REMOVER imediatamente se não tem nenhuma permissão do módulo
-          }
+          if (!hasAnyModulePermission(allPermissions, modulePrefix)) return false;
         }
-        
-        // Se há permissões requeridas para a rota, verificar se o usuário tem permissão específica
         if (requiredPermissions && requiredPermissions.length > 0) {
-          const hasMainPermission = hasRoutePermission(allPermissions, item.path, user);
-          
-          console.log(`[Layout] 🔍 Verificando permissão específica da rota "${item.title}" (${item.path}):`, {
-            hasMainPermission,
-            requiredPermissions,
-          });
-          
-          if (!hasMainPermission) {
-            console.log(`[Layout] ❌ Item "${item.title}" REMOVIDO do menu (sem permissão para rota)`);
-            return false;
-          }
+          if (!hasRoutePermission(allPermissions, item.path, user)) return false;
         }
-        
-        // Se tem submenu, verificar se há pelo menos um subitem com permissão
         if (item.submenu && item.submenu.length > 0) {
-          const hasAnySubmenuPermission = item.submenu.some(sub => {
-            const hasSubPermission = hasRoutePermission(allPermissions, sub.path, user);
-            console.log(`[Layout] 🔍 Submenu "${sub.title}" (${sub.path}):`, {
-              hasSubPermission,
-              requiredPermissions: routePermissionMap[sub.path] || 'Nenhuma (público)',
-            });
-            return hasSubPermission;
-          });
-          
-          if (!hasAnySubmenuPermission) {
-            console.log(`[Layout] ❌ Item "${item.title}" REMOVIDO do menu (nenhum submenu com permissão)`);
-            return false;
-          }
+          const hasAnySubmenuPermission = item.submenu.some(sub =>
+            hasRoutePermission(allPermissions, sub.path, user)
+          );
+          if (!hasAnySubmenuPermission) return false;
         }
-
-        // Se chegou aqui, manter o item
-        console.log(`[Layout] ✅ Item "${item.title}" MANTIDO no menu`);
         return true;
       })
       .map(item => {
@@ -340,12 +265,6 @@ export const Layout: React.FC<{ children: React.ReactNode; onLogout: () => void 
         }
         return item;
       });
-
-    console.log('[Layout] 📊 Resultado final:', {
-      totalItensOriginal: menuItems.length,
-      totalItensFiltrado: filtered.length,
-      itensMantidos: filtered.map(i => i.title),
-    });
 
     return filtered;
   }, [user]);

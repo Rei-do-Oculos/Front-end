@@ -1,16 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import { Edit, Plus, Trash2, Loader2, Save } from 'lucide-react';
-import { Card, Button, Input, FilterSection, Modal, ActiveFiltersBadge, SortableHeader, SortDirection, Pagination, AccessDeniedCard } from '../../components/Common';
-import { useLenses } from '../../services/hooks/useLenses';
-import { Lens, CreateLensDto, UpdateLensDto } from '../../services/api/lenses';
+import { Card, Button, Input, FilterSection, Modal, ActiveFiltersBadge, SortableHeader, SortDirection, Pagination } from '../../components/Common';
+import { useFrameTypes } from '../../services/hooks/useFrameTypes';
+import { FrameType, CreateFrameTypeDto, UpdateFrameTypeDto } from '../../services/api/frameTypes';
 import { useNotification } from '../../hooks/useNotification';
 import { usePermission } from '../../services/hooks/usePermission';
 import { useActiveFilters } from '../../hooks/useActiveFilters';
 
-export const LensList: React.FC = () => {
+export const FrameTypeList: React.FC = () => {
   const { showSuccess, showError } = useNotification();
   const { hasPermission } = usePermission();
-  const { lenses, loading, error, pagination, fetchLenses, deleteLens, createLens, updateLens, getLens } = useLenses({
+  const { frameTypes, loading, error, pagination, fetchFrameTypes, deleteFrameType, createFrameType, updateFrameType, getFrameType } = useFrameTypes({
     autoFetch: false,
   });
 
@@ -24,29 +24,29 @@ export const LensList: React.FC = () => {
   const activeFilters = useActiveFilters({
     searchName,
   });
-  const [lensToDelete, setLensToDelete] = useState<Lens | null>(null);
+  const [frameTypeToDelete, setFrameTypeToDelete] = useState<FrameType | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [formModalOpen, setFormModalOpen] = useState(false);
-  const [editingLens, setEditingLens] = useState<Lens | null>(null);
-  const [formData, setFormData] = useState<CreateLensDto>({ name: '' });
+  const [editingFrameType, setEditingFrameType] = useState<FrameType | null>(null);
+  const [formData, setFormData] = useState<CreateFrameTypeDto>({ name: '' });
   const [formError, setFormError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
-  const [loadingLens, setLoadingLens] = useState(false);
+  const [loadingFrameType, setLoadingFrameType] = useState(false);
 
   // Carregar dados iniciais
   useEffect(() => {
-    const loadLenses = async () => {
+    const loadFrameTypes = async () => {
       try {
-        await fetchLenses(1, {
+        await fetchFrameTypes(1, {
           order_by: sortBy || 'id',
           order_dir: sortDirection || 'desc',
           per_page: perPage,
         });
       } catch (err) {
-        console.error('Erro ao carregar lentes:', err);
+        console.error('Erro ao carregar tipos de armação:', err);
       }
     };
-    loadLenses();
+    loadFrameTypes();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [perPage]);
 
@@ -62,7 +62,7 @@ export const LensList: React.FC = () => {
     params.order_dir = newDirection;
     params.per_page = perPage;
     
-    fetchLenses(pagination?.currentPage || 1, params);
+    fetchFrameTypes(pagination?.currentPage || 1, params);
   };
 
   const handleApplyFilters = async () => {
@@ -76,7 +76,7 @@ export const LensList: React.FC = () => {
       }
       
       params.per_page = perPage;
-      await fetchLenses(1, params);
+      await fetchFrameTypes(1, params);
     } catch (err) {
       console.error('Erro ao aplicar filtros:', err);
     }
@@ -86,7 +86,7 @@ export const LensList: React.FC = () => {
     setSearchName('');
     
     try {
-      await fetchLenses(1, {
+      await fetchFrameTypes(1, {
         order_by: sortBy || 'id',
         order_dir: sortDirection || 'desc',
         per_page: perPage,
@@ -107,36 +107,36 @@ export const LensList: React.FC = () => {
         params.order_by = sortBy;
         params.order_dir = sortDirection || 'desc';
       }
-      await fetchLenses(1, params);
+      await fetchFrameTypes(1, params);
     } catch (err) {
       console.error('Erro ao alterar itens por página:', err);
     }
   };
 
   const handleCreate = () => {
-    setEditingLens(null);
+    setEditingFrameType(null);
     setFormData({ name: '' });
     setFormError(null);
     setFormModalOpen(true);
   };
 
-  const handleEdit = async (lens: Lens) => {
-    setEditingLens(lens);
-    setFormData({ name: lens.name || '' });
+  const handleEdit = async (frameType: FrameType) => {
+    setEditingFrameType(frameType);
+    setFormData({ name: frameType.name || '' });
     setFormError(null);
-    setLoadingLens(true);
+    setLoadingFrameType(true);
     setFormModalOpen(true);
     
     try {
-      const lensData = await getLens(String(lens.id));
-      if (lensData) {
-        setFormData({ name: lensData.name || '' });
+      const frameTypeData = await getFrameType(String(frameType.id));
+      if (frameTypeData) {
+        setFormData({ name: frameTypeData.name || '' });
       }
     } catch (err: any) {
-      console.error('Erro ao carregar lente:', err);
-      showError(err.message || 'Erro ao carregar dados da lente');
+      console.error('Erro ao carregar tipo de armação:', err);
+      showError(err.message || 'Erro ao carregar dados do tipo de armação');
     } finally {
-      setLoadingLens(false);
+      setLoadingFrameType(false);
     }
   };
 
@@ -151,23 +151,23 @@ export const LensList: React.FC = () => {
 
     setSaving(true);
     try {
-      if (editingLens) {
-        await updateLens(String(editingLens.id), formData);
-        showSuccess('Lente atualizada com sucesso!');
+      if (editingFrameType) {
+        await updateFrameType(String(editingFrameType.id), formData);
+        showSuccess('Tipo de armação atualizado com sucesso!');
       } else {
-        await createLens(formData);
-        showSuccess('Lente criada com sucesso!');
+        await createFrameType(formData);
+        showSuccess('Tipo de armação criado com sucesso!');
       }
 
       setFormModalOpen(false);
       setFormData({ name: '' });
-      setEditingLens(null);
-      await fetchLenses(pagination.currentPage, {});
+      setEditingFrameType(null);
+      await fetchFrameTypes(pagination.currentPage, {});
     } catch (err: any) {
-      console.error('Erro ao salvar lente:', err);
+      console.error('Erro ao salvar tipo de armação:', err);
       const errorMessage = err.response?.data?.data?.errors 
         ? Object.values(err.response.data.data.errors).flat().join(', ')
-        : err.message || 'Erro ao salvar lente';
+        : err.message || 'Erro ao salvar tipo de armação';
       setFormError(errorMessage);
       showError(errorMessage);
     } finally {
@@ -175,23 +175,23 @@ export const LensList: React.FC = () => {
     }
   };
 
-  const handleDeleteClick = (lens: Lens) => {
-    setLensToDelete(lens);
+  const handleDeleteClick = (frameType: FrameType) => {
+    setFrameTypeToDelete(frameType);
     setDeleteModalOpen(true);
   };
 
   const handleConfirmDelete = async () => {
-    if (!lensToDelete) return;
+    if (!frameTypeToDelete) return;
 
     setDeleting(true);
     try {
-      await deleteLens(String(lensToDelete.id));
+      await deleteFrameType(String(frameTypeToDelete.id));
       setDeleteModalOpen(false);
-      setLensToDelete(null);
-      await fetchLenses(pagination.currentPage, {});
+      setFrameTypeToDelete(null);
+      await fetchFrameTypes(pagination.currentPage, {});
     } catch (err: any) {
-      console.error('Erro ao excluir lente:', err);
-      showError(err.message || 'Erro ao excluir lente');
+      console.error('Erro ao excluir tipo de armação:', err);
+      showError(err.message || 'Erro ao excluir tipo de armação');
     } finally {
       setDeleting(false);
     }
@@ -236,23 +236,21 @@ export const LensList: React.FC = () => {
     }
   };
 
-  // Garantir que lenses seja sempre um array
-  const lensesList = Array.isArray(lenses) ? lenses : [];
-
-  if (error && (error as any).status === 403) return <AccessDeniedCard />;
+  // Garantir que frameTypes seja sempre um array
+  const frameTypesList = Array.isArray(frameTypes) ? frameTypes : [];
 
   return (
     <div className="space-y-8 animate-in fade-in duration-700">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div className="flex items-center gap-4">
           <div>
-            <h1 className="text-3xl font-black text-slate-950 tracking-tight">Lentes</h1>
-            <p className="text-gray-500 font-medium mt-1">Gerencie o catálogo de lentes disponíveis.</p>
+            <h1 className="text-3xl font-black text-slate-950 tracking-tight">Tipos de Armação</h1>
+            <p className="text-gray-500 font-medium mt-1">Gerencie o catálogo de tipos de armação disponíveis.</p>
           </div>
         </div>
-        {hasPermission('lenses.create') && (
+        {hasPermission('frame-types.create') && (
           <Button onClick={handleCreate}>
-            <Plus size={18} /> Nova Lente
+            <Plus size={18} /> Novo Tipo de Armação
           </Button>
         )}
       </div>
@@ -260,7 +258,7 @@ export const LensList: React.FC = () => {
 
       <FilterSection onClear={handleClearFilters} onApply={handleApplyFilters}>
         <Input 
-          label="Nome da Lente" 
+          label="Nome do Tipo de Armação" 
           placeholder="Buscar por nome..." 
           value={searchName}
           onChange={(e) => setSearchName(e.target.value)}
@@ -338,7 +336,7 @@ export const LensList: React.FC = () => {
                   <td colSpan={4} className="px-6 py-12 text-center">
                     <div className="flex items-center justify-center gap-3">
                       <Loader2 size={20} className="animate-spin" style={{ color: 'var(--store-color)' }} />
-                      <span className="text-sm text-slate-500">Carregando lentes...</span>
+                      <span className="text-sm text-slate-500">Carregando tipos de armação...</span>
                     </div>
                   </td>
                 </tr>
@@ -346,21 +344,21 @@ export const LensList: React.FC = () => {
                 <tr>
                   <td colSpan={5} className="px-6 py-12 text-center">
                     <div className="border rounded-lg p-4" style={{ backgroundColor: 'var(--store-color-light)', borderColor: 'var(--store-color-opacity-20)' }}>
-                      <p className="text-sm font-bold mb-1" style={{ color: 'var(--store-color-dark)' }}>Erro ao carregar lentes</p>
+                      <p className="text-sm font-bold mb-1" style={{ color: 'var(--store-color-dark)' }}>Erro ao carregar tipos de armação</p>
                       <p className="text-xs" style={{ color: 'var(--store-color)' }}>{error.message || 'Erro desconhecido'}</p>
                     </div>
                   </td>
                 </tr>
-              ) : lensesList.length === 0 ? (
+              ) : frameTypesList.length === 0 ? (
                 <tr>
                   <td colSpan={4} className="px-6 py-12 text-center">
-                    <span className="text-sm text-slate-500">Nenhuma lente encontrada</span>
+                    <span className="text-sm text-slate-500">Nenhum tipo de armação encontrado</span>
                   </td>
                 </tr>
               ) : (
-                lensesList.map((lens) => (
-                  <tr key={lens.id} className="group hover:bg-slate-50/50 transition-colors">
-                    <td className="px-6 py-4 text-xs font-bold text-slate-400">#{lens.id}</td>
+                frameTypesList.map((frameType) => (
+                  <tr key={frameType.id} className="group hover:bg-slate-50/50 transition-colors">
+                    <td className="px-6 py-4 text-xs font-bold text-slate-400">#{frameType.id}</td>
                     <td className="px-6 py-4">
                       <p 
                         className="text-sm font-bold text-slate-900 transition-colors"
@@ -371,18 +369,18 @@ export const LensList: React.FC = () => {
                           e.currentTarget.style.color = '';
                         }}
                       >
-                        {lens.name}
+                        {frameType.name}
                       </p>
                     </td>
                     <td className="px-6 py-4 text-[10px] font-medium text-slate-400">
-                      {formatDate(lens.created_at)}
+                      {formatDate(frameType.created_at)}
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex items-center justify-center gap-2">
-                        {hasPermission('lenses.update') && (
+                        {hasPermission('frame-types.update') && (
                           <button 
-                            title="Editar lente"
-                            onClick={() => handleEdit(lens)}
+                            title="Editar tipo de armação"
+                            onClick={() => handleEdit(frameType)}
                             className="p-2 text-slate-400 hover:bg-white rounded-xl shadow-sm border border-transparent hover:border-slate-100 transition-all"
                             onMouseEnter={(e) => {
                               e.currentTarget.style.color = 'var(--store-color-dark)';
@@ -394,10 +392,10 @@ export const LensList: React.FC = () => {
                             <Edit size={16} />
                           </button>
                         )}
-                        {hasPermission('lenses.delete') && (
+                        {hasPermission('frame-types.delete') && (
                           <button 
-                            title="Excluir lente"
-                            onClick={() => handleDeleteClick(lens)}
+                            title="Excluir tipo de armação"
+                            onClick={() => handleDeleteClick(frameType)}
                             className="p-2 text-slate-400 hover:bg-white rounded-xl shadow-sm border border-transparent hover:border-slate-100 transition-all"
                             onMouseEnter={(e) => {
                               e.currentTarget.style.color = 'var(--store-color-dark)';
@@ -431,9 +429,9 @@ export const LensList: React.FC = () => {
                 params.order_dir = sortDirection;
               }
               params.per_page = perPage;
-              fetchLenses(page, params);
+              fetchFrameTypes(page, params);
             }}
-            itemName="lentes"
+            itemName="tipos de armação"
           />
         )}
       </Card>
@@ -442,19 +440,19 @@ export const LensList: React.FC = () => {
       <Modal
         isOpen={formModalOpen}
         onClose={() => {
-          if (!saving && !loadingLens) {
+          if (!saving && !loadingFrameType) {
             setFormModalOpen(false);
             setFormData({ name: '' });
-            setEditingLens(null);
+            setEditingFrameType(null);
             setFormError(null);
           }
         }}
-        title={editingLens ? 'Editar Lente' : 'Nova Lente'}
+        title={editingFrameType ? 'Editar Tipo de Armação' : 'Novo Tipo de Armação'}
       >
-        {loadingLens ? (
+        {loadingFrameType ? (
           <div className="flex items-center justify-center py-12">
             <Loader2 size={24} className="animate-spin" style={{ color: 'var(--store-color)' }} />
-            <span className="ml-3 text-slate-600">Carregando dados da lente...</span>
+            <span className="ml-3 text-slate-600">Carregando dados do tipo de armação...</span>
           </div>
         ) : (
           <form onSubmit={handleFormSubmit} className="space-y-4">
@@ -465,8 +463,8 @@ export const LensList: React.FC = () => {
             )}
 
             <Input
-              label="Nome da Lente *"
-              placeholder="Ex: Varilux Physio 3.0"
+              label="Nome do Tipo de Armação *"
+              placeholder="Ex: Acetato"
               value={formData.name}
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
               required
@@ -480,7 +478,7 @@ export const LensList: React.FC = () => {
                 onClick={() => {
                   setFormModalOpen(false);
                   setFormData({ name: '' });
-                  setEditingLens(null);
+                  setEditingFrameType(null);
                   setFormError(null);
                 }}
                 disabled={saving}
@@ -494,7 +492,7 @@ export const LensList: React.FC = () => {
                   </>
                 ) : (
                   <>
-                    <Save size={18} /> {editingLens ? 'Atualizar' : 'Criar'} Lente
+                    <Save size={18} /> {editingFrameType ? 'Atualizar' : 'Criar'} Tipo de Armação
                   </>
                 )}
               </Button>
@@ -509,14 +507,14 @@ export const LensList: React.FC = () => {
         onClose={() => {
           if (!deleting) {
             setDeleteModalOpen(false);
-            setLensToDelete(null);
+            setFrameTypeToDelete(null);
           }
         }}
         title="Confirmar Exclusão"
       >
         <div className="space-y-4">
           <p className="text-sm text-slate-700">
-            Tem certeza que deseja excluir a lente <strong>{lensToDelete?.name}</strong>?
+            Tem certeza que deseja excluir o tipo de armação <strong>{frameTypeToDelete?.name}</strong>?
           </p>
           <p className="text-xs text-slate-500">
             Esta ação não pode ser desfeita.
@@ -526,7 +524,7 @@ export const LensList: React.FC = () => {
               variant="outline"
               onClick={() => {
                 setDeleteModalOpen(false);
-                setLensToDelete(null);
+                setFrameTypeToDelete(null);
               }}
               disabled={deleting}
             >

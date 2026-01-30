@@ -220,6 +220,20 @@ export const InvoiceList: React.FC = () => {
         />
       </FilterSection>
 
+      {/* Contagem de resultados e badge de filtros ativos */}
+      <div className="flex items-center justify-between gap-4">
+        <div className="flex items-center gap-4">
+          <p className="text-sm font-medium text-slate-600">
+            {invoices.length === 0 ? 'Nenhum resultado encontrado' : 
+             invoices.length === 1 ? '1 resultado encontrado' : 
+             `${invoices.length} resultados encontrados`}
+          </p>
+          {activeFilters > 0 && (
+            <ActiveFiltersBadge count={activeFilters} />
+          )}
+        </div>
+      </div>
+
       <Card className="p-0 overflow-hidden border-none shadow-xl shadow-slate-200/40">
         <div className="overflow-x-auto">
           <table className="w-full">

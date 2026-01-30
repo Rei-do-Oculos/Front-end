@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Edit, Plus, FileText, Eye, Trash2, Smartphone, Loader2, ArrowRight } from 'lucide-react';
-import { Card, Button, Input, FilterSection, Modal, MultiSelect, ActiveFiltersBadge, Badge, SortableHeader, SortDirection, Pagination } from '../../components/Common';
+import { Search, Edit, Plus, FileText, Eye, Trash2, Loader2, ArrowRight } from 'lucide-react';
+import { Card, Button, Input, FilterSection, Modal, MultiSelect, ActiveFiltersBadge, Badge, SortableHeader, SortDirection, Pagination, AccessDeniedCard } from '../../components/Common';
 import { useClients } from '../../services/hooks/useClients';
+import { useStores } from '../../services/hooks/useStores';
 import { Client } from '../../services/api/clients';
 import { useNavigate } from 'react-router-dom';
 import { useStore } from '../../contexts/StoreContext';
@@ -17,6 +18,7 @@ export const ClientList: React.FC = () => {
   const { clients, loading, error, pagination, fetchClients, deleteClient, migrateToStore } = useClients({
     autoFetch: false,
   });
+  const { stores: storesForFilter, fetchStores: fetchStoresForFilter } = useStores({ autoFetch: false });
 
   const [searchName, setSearchName] = useState('');
   const [searchDocument, setSearchDocument] = useState('');
@@ -28,9 +30,9 @@ export const ClientList: React.FC = () => {
   const [clientToDelete, setClientToDelete] = useState<Client | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [migrating, setMigrating] = useState<number | null>(null);
-  const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [sortBy, setSortBy] = useState<string | null>('id');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
+  const [perPage, setPerPage] = useState<number>(15);
   
   // Calcular quantidade de filtros ativos usando hook padronizado
   const activeFilters = useActiveFilters({
@@ -42,14 +44,19 @@ export const ClientList: React.FC = () => {
     selectedStores: selectedStores.filter(s => s !== 'all'),
   });
 
+  // Carregar lojas para o filtro (lista completa da API)
+  useEffect(() => {
+    fetchStoresForFilter(1, { per_page: 500 }).catch(() => {});
+  }, [fetchStoresForFilter]);
+
   // Carregar dados iniciais - SEM filtro de lojas (mostrar todos)
   useEffect(() => {
     const loadClients = async () => {
       try {
-        console.log('[ClientList] Carregando clientes iniciais...');
         await fetchClients(1, {
           order_by: sortBy || 'id',
           order_dir: sortDirection || 'desc',
+          per_page: perPage,
         });
       } catch (err) {
         console.error('[ClientList] Erro ao carregar clientes:', err);
@@ -57,7 +64,7 @@ export const ClientList: React.FC = () => {
     };
     loadClients();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [perPage]);
 
   const handleSort = (key: string, direction: SortDirection) => {
     // Sempre manter uma ordenação ativa (asc ou desc)
@@ -76,12 +83,13 @@ export const ClientList: React.FC = () => {
         .filter(id => id !== 'all' && !isNaN(parseInt(id)))
         .map(id => parseInt(id));
       if (storeIds.length > 0) {
-        params.stores = storeIds;
+        params.stores = storeIds.join(',');
       }
     }
     
     params.order_by = key;
     params.order_dir = newDirection;
+    params.per_page = perPage;
     
     fetchClients(pagination?.currentPage || 1, params);
   };
@@ -100,7 +108,8 @@ export const ClientList: React.FC = () => {
           .map(id => parseInt(id));
         
         if (storeIds.length > 0) {
-          params.stores = storeIds;
+          // Enviar como string para o backend aplicar o filtro corretamente (ex: "5" ou "5,6")
+          params.stores = storeIds.join(',');
         }
       }
       
@@ -109,6 +118,7 @@ export const ClientList: React.FC = () => {
         params.order_dir = sortDirection || 'desc';
       }
       
+      params.per_page = perPage;
       await fetchClients(1, params);
     } catch (err) {
       console.error('Erro ao aplicar filtros:', err);
@@ -127,9 +137,39 @@ export const ClientList: React.FC = () => {
       await fetchClients(1, {
         order_by: sortBy || 'id',
         order_dir: sortDirection || 'desc',
+        per_page: perPage,
       });
     } catch (err) {
       console.error('Erro ao limpar filtros:', err);
+    }
+  };
+
+  const handlePerPageChange = async (newPerPage: number) => {
+    setPerPage(newPerPage);
+    try {
+      const params: any = {
+        per_page: newPerPage,
+      };
+      if (searchName) params.search = searchName;
+      if (searchDocument) params.document = searchDocument;
+      if (searchPhone) params.phone = searchPhone;
+      if (dateFrom) params.date_from = dateFrom;
+      if (dateTo) params.date_to = dateTo;
+      if (selectedStores.length > 0 && !selectedStores.includes('all')) {
+        const storeIds = selectedStores
+          .filter(id => id !== 'all' && !isNaN(parseInt(id)))
+          .map(id => parseInt(id));
+        if (storeIds.length > 0) {
+          params.stores = storeIds.join(',');
+        }
+      }
+      if (sortBy) {
+        params.order_by = sortBy;
+        params.order_dir = sortDirection || 'desc';
+      }
+      await fetchClients(1, params);
+    } catch (err) {
+      console.error('Erro ao alterar itens por página:', err);
     }
   };
 
@@ -175,15 +215,14 @@ export const ClientList: React.FC = () => {
     setDeleting(true);
     try {
       await deleteClient(String(clientToDelete.id));
-      setSuccessMessage(`Cliente "${clientToDelete.name}" excluído com sucesso!`);
+      showSuccess('Cliente excluído!', `O cliente "${clientToDelete.name}" foi excluído com sucesso.`);
       setDeleteModalOpen(false);
       setClientToDelete(null);
       await fetchClients(pagination.currentPage, {});
-      
-      setTimeout(() => setSuccessMessage(null), 3000);
     } catch (err: any) {
       console.error('Erro ao excluir cliente:', err);
-      alert(err.message || 'Erro ao excluir cliente');
+      const errorMessage = err.response?.data?.message || err.message || 'Erro ao excluir cliente';
+      showError('Erro ao excluir cliente', errorMessage);
     } finally {
       setDeleting(false);
     }
@@ -263,6 +302,8 @@ export const ClientList: React.FC = () => {
     });
   }, [clients, clientsList.length, loading, error, pagination]);
 
+  if (error && (error as any).status === 403) return <AccessDeniedCard />;
+
   return (
     <div className="space-y-8 animate-in fade-in duration-700">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
@@ -271,7 +312,6 @@ export const ClientList: React.FC = () => {
             <h1 className="text-3xl font-black text-slate-950 tracking-tight">Clientes</h1>
             <p className="text-gray-500 font-medium mt-1">Gerencie sua base de clientes e histórico de compras.</p>
           </div>
-          <ActiveFiltersBadge count={activeFilters} />
         </div>
         {hasPermission('clients.create') && (
           <Button onClick={() => navigate('/clients/create')}>
@@ -279,12 +319,6 @@ export const ClientList: React.FC = () => {
           </Button>
         )}
       </div>
-
-      {successMessage && (
-        <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 animate-in slide-in-from-top-2">
-          <p className="text-emerald-700 text-sm font-bold">{successMessage}</p>
-        </div>
-      )}
 
       <FilterSection onClear={handleClearFilters} onApply={handleApplyFilters}>
         <Input 
@@ -316,7 +350,7 @@ export const ClientList: React.FC = () => {
           placeholder="Selecione as lojas ou deixe vazio para todas"
           options={[
             { label: 'Todas as Lojas', value: 'all' },
-            ...availableStores.map(store => ({
+            ...(storesForFilter.length > 0 ? storesForFilter : availableStores).map(store => ({
               label: store.name,
               value: String(store.id)
             }))
@@ -331,6 +365,39 @@ export const ClientList: React.FC = () => {
           }}
         />
       </FilterSection>
+
+      {/* Contagem de resultados, badge de filtros ativos e seletor de itens por página */}
+      <div className="flex items-center justify-between gap-4">
+        <div className="flex items-center gap-4">
+          {pagination && (
+            <p className="text-sm font-medium text-slate-600">
+              {pagination.totalItems === 0 ? 'Nenhum resultado encontrado' : 
+               pagination.totalItems === 1 ? '1 resultado encontrado' : 
+               `${pagination.totalItems} resultados encontrados`}
+            </p>
+          )}
+          {activeFilters > 0 && (
+            <ActiveFiltersBadge count={activeFilters} />
+          )}
+        </div>
+        {pagination && (
+          <div className="flex items-center gap-2">
+            <label className="text-[10px] font-semibold text-slate-500 uppercase tracking-widest">
+              Mostrar:
+            </label>
+            <select
+              value={String(perPage)}
+              onChange={(e) => handlePerPageChange(Number(e.target.value))}
+              className="px-3 py-1.5 text-xs font-medium border border-slate-200 rounded-lg bg-white text-slate-700 focus:outline-none focus:border-[var(--store-color)] focus:ring-2 focus:ring-[var(--store-color-opacity-5)]"
+            >
+              <option value="10">10</option>
+              <option value="20">20</option>
+              <option value="50">50</option>
+              <option value="100">100</option>
+            </select>
+          </div>
+        )}
+      </div>
 
       <Card className="p-0 overflow-hidden">
         <div className="overflow-x-auto">
@@ -433,10 +500,25 @@ export const ClientList: React.FC = () => {
                         {formatDocument(client.document)}
                       </td>
                       <td className="px-6 py-4">
-                        {phoneFormatted ? (
-                          <div className="flex items-center gap-2 text-emerald-600 font-bold text-xs">
-                            <Smartphone size={14} /> {phoneFormatted}
-                          </div>
+                        {phoneFormatted && client.phone ? (
+                          <a
+                            href={`https://wa.me/55${client.phone.replace(/\D/g, '')}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center gap-2 text-emerald-600 font-bold text-xs hover:text-emerald-700 transition-colors"
+                            title={`Abrir WhatsApp de ${client.name}`}
+                          >
+                            <svg 
+                              width="14" 
+                              height="14" 
+                              viewBox="0 0 24 24" 
+                              fill="currentColor"
+                              className="shrink-0"
+                            >
+                              <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/>
+                            </svg>
+                            {phoneFormatted}
+                          </a>
                         ) : (
                           <span className="text-slate-300 italic text-xs">Não informado</span>
                         )}
@@ -552,6 +634,8 @@ export const ClientList: React.FC = () => {
         {pagination && (
           <Pagination
             pagination={pagination}
+            perPage={perPage}
+            onPerPageChange={handlePerPageChange}
             onPageChange={(page) => {
               const params: any = {};
               if (searchName) params.search = searchName;
@@ -564,13 +648,14 @@ export const ClientList: React.FC = () => {
                   .filter(id => id !== 'all' && !isNaN(parseInt(id)))
                   .map(id => parseInt(id));
                 if (storeIds.length > 0) {
-                  params.stores = storeIds;
+                  params.stores = storeIds.join(',');
                 }
               }
               if (sortBy && sortDirection) {
                 params.order_by = sortBy;
                 params.order_dir = sortDirection;
               }
+              params.per_page = perPage;
               fetchClients(page, params);
             }}
             itemName="clientes"
@@ -592,9 +677,6 @@ export const ClientList: React.FC = () => {
         <div className="space-y-4">
           <p className="text-sm text-slate-700">
             Tem certeza que deseja excluir o cliente <strong>{clientToDelete?.name}</strong>?
-          </p>
-          <p className="text-xs text-slate-500">
-            Esta ação não pode ser desfeita.
           </p>
           <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-100">
             <Button

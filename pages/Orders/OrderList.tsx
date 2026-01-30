@@ -17,7 +17,8 @@ import {
   ExternalLink,
   FileCheck
 } from 'lucide-react';
-import { Card, Button, Input, Select, Badge, FilterSection } from '../../components/Common';
+import { Card, Button, Input, Select, Badge, FilterSection, ActiveFiltersBadge } from '../../components/Common';
+import { useActiveFilters } from '../../hooks/useActiveFilters';
 
 interface OS {
   id: string;
@@ -164,6 +165,20 @@ export const OrderList: React.FC = () => {
           {label: 'Curitiba Batel', value: 'curitiba'},
         ]} />
       </FilterSection>
+
+      {/* Contagem de resultados e badge de filtros ativos */}
+      <div className="flex items-center justify-between gap-4">
+        <div className="flex items-center gap-4">
+          <p className="text-sm font-medium text-slate-600">
+            {mockOS.length === 0 ? 'Nenhum resultado encontrado' : 
+             mockOS.length === 1 ? '1 resultado encontrado' : 
+             `${mockOS.length} resultados encontrados`}
+          </p>
+          {activeFilters > 0 && (
+            <ActiveFiltersBadge count={activeFilters} />
+          )}
+        </div>
+      </div>
 
       <Card className="p-0 overflow-hidden border-none shadow-xl shadow-slate-200/40">
         <div className="overflow-x-auto">

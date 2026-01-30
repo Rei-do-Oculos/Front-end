@@ -2,51 +2,51 @@ import React, { useState, useEffect } from 'react';
 import { Save, ArrowLeft, Trash2, Loader2 } from 'lucide-react';
 import { Card, Button, Input, Modal } from '../../components/Common';
 import { useParams, useNavigate } from 'react-router-dom';
-import { useLenses } from '../../services/hooks/useLenses';
-import { CreateLensDto, UpdateLensDto } from '../../services/api/lenses';
+import { useFrameTypes } from '../../services/hooks/useFrameTypes';
+import { CreateFrameTypeDto, UpdateFrameTypeDto } from '../../services/api/frameTypes';
 import { useNotification } from '../../hooks/useNotification';
 
-export const LensForm: React.FC = () => {
+export const FrameTypeForm: React.FC = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const { showSuccess, showError } = useNotification();
   const isEditMode = !!id;
   
-  const { getLens, createLens, updateLens, deleteLens, loading } = useLenses({
+  const { getFrameType, createFrameType, updateFrameType, deleteFrameType, loading } = useFrameTypes({
     autoFetch: false,
   });
 
-  const [formData, setFormData] = useState<CreateLensDto>({
+  const [formData, setFormData] = useState<CreateFrameTypeDto>({
     name: '',
   });
 
   const [formError, setFormError] = useState<string | null>(null);
-  const [loadingLens, setLoadingLens] = useState(false);
+  const [loadingFrameType, setLoadingFrameType] = useState(false);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
-  // Carregar dados da lente se estiver editando
+  // Carregar dados do tipo de armação se estiver editando
   useEffect(() => {
     if (isEditMode && id) {
-      const loadLens = async () => {
-        setLoadingLens(true);
+      const loadFrameType = async () => {
+        setLoadingFrameType(true);
         try {
-          const lens = await getLens(id);
-          if (lens) {
+          const frameType = await getFrameType(id);
+          if (frameType) {
             setFormData({
-              name: lens.name || '',
+              name: frameType.name || '',
             });
           }
         } catch (err: any) {
-          console.error('Erro ao carregar lente:', err);
-          setFormError(err.message || 'Erro ao carregar dados da lente');
+          console.error('Erro ao carregar tipo de armação:', err);
+          setFormError(err.message || 'Erro ao carregar dados do tipo de armação');
         } finally {
-          setLoadingLens(false);
+          setLoadingFrameType(false);
         }
       };
-      loadLens();
+      loadFrameType();
     }
-  }, [id, isEditMode, getLens]);
+  }, [id, isEditMode, getFrameType]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -61,24 +61,24 @@ export const LensForm: React.FC = () => {
 
     try {
       if (isEditMode && id) {
-        await updateLens(id, formData);
-        showSuccess('Lente atualizada!', 'A lente foi atualizada com sucesso.');
+        await updateFrameType(id, formData);
+        showSuccess('Tipo de armação atualizado!', 'O tipo de armação foi atualizado com sucesso.');
       } else {
-        await createLens(formData);
-        showSuccess('Lente criada!', 'A lente foi criada com sucesso.');
+        await createFrameType(formData);
+        showSuccess('Tipo de armação criado!', 'O tipo de armação foi criado com sucesso.');
       }
 
       // Redirecionar após um pequeno delay para mostrar a notificação
       setTimeout(() => {
-        navigate('/lenses');
+        navigate('/frame-types');
       }, 1000);
     } catch (err: any) {
-      console.error('Erro ao salvar lente:', err);
+      console.error('Erro ao salvar tipo de armação:', err);
       const errorMessage = err.response?.data?.data?.errors 
         ? Object.values(err.response.data.data.errors).flat().join(', ')
-        : err.message || 'Erro ao salvar lente';
+        : err.message || 'Erro ao salvar tipo de armação';
       setFormError(errorMessage);
-      showError('Erro ao salvar lente', errorMessage);
+      showError('Erro ao salvar tipo de armação', errorMessage);
     }
   };
 
@@ -91,25 +91,25 @@ export const LensForm: React.FC = () => {
 
     setDeleting(true);
     try {
-      await deleteLens(id);
-      showSuccess('Lente excluída com sucesso!');
-      navigate('/lentes');
+      await deleteFrameType(id);
+      showSuccess('Tipo de armação excluído com sucesso!');
+      navigate('/frame-types');
     } catch (err: any) {
-      console.error('Erro ao excluir lente:', err);
-      showError(err.message || 'Erro ao excluir lente');
+      console.error('Erro ao excluir tipo de armação:', err);
+      showError(err.message || 'Erro ao excluir tipo de armação');
     } finally {
       setDeleting(false);
       setDeleteModalOpen(false);
     }
   };
 
-  if (loadingLens) {
+  if (loadingFrameType) {
     return (
       <div className="max-w-6xl mx-auto animate-in fade-in slide-in-from-right-4 duration-500 px-4 lg:px-6">
         <div className="flex items-center justify-center py-24">
           <div className="flex flex-col items-center gap-4">
             <Loader2 size={32} className="animate-spin" style={{ color: 'var(--store-color)' }} />
-            <p className="text-sm text-slate-500">Carregando dados da lente...</p>
+            <p className="text-sm text-slate-500">Carregando dados do tipo de armação...</p>
           </div>
         </div>
       </div>
@@ -121,10 +121,10 @@ export const LensForm: React.FC = () => {
       <div className="mb-6 flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-800">
-            {isEditMode ? 'Editar Lente' : 'Nova Lente'}
+            {isEditMode ? 'Editar Tipo de Armação' : 'Novo Tipo de Armação'}
           </h1>
           <p className="text-gray-500 text-sm">
-            {isEditMode ? 'Atualize os dados da lente' : 'Cadastre uma nova lente no sistema'}
+            {isEditMode ? 'Atualize os dados do tipo de armação' : 'Cadastre um novo tipo de armação no sistema'}
           </p>
         </div>
         <div className="flex gap-3">
@@ -145,7 +145,7 @@ export const LensForm: React.FC = () => {
               <Trash2 size={18} /> Excluir
             </Button>
           )}
-          <Button variant="secondary" onClick={() => navigate('/lentes')}>
+          <Button variant="secondary" onClick={() => navigate('/frame-types')}>
             <ArrowLeft size={18} /> Voltar
           </Button>
         </div>
@@ -161,18 +161,17 @@ export const LensForm: React.FC = () => {
         <form onSubmit={handleSubmit} className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <Input
-              label="Nome da Lente *"
-              placeholder="Ex: Varilux Physio 3.0"
+              label="Nome do Tipo de Armação *"
+              placeholder="Ex: Acetato"
               value={formData.name}
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
               required
             />
           </div>
           
-       
 
           <div className="flex gap-3 pt-6 mt-6 border-t border-slate-200">
-            <Button type="button" onClick={() => navigate('/lentes')} variant="outline">
+            <Button type="button" onClick={() => navigate('/frame-types')} variant="outline">
               Cancelar
             </Button>
             <Button type="submit" disabled={loading}>
@@ -182,7 +181,7 @@ export const LensForm: React.FC = () => {
                 </>
               ) : (
                 <>
-                  <Save size={18} /> {isEditMode ? 'Atualizar' : 'Criar'} Lente
+                  <Save size={18} /> {isEditMode ? 'Atualizar' : 'Criar'} Tipo de Armação
                 </>
               )}
             </Button>
@@ -202,7 +201,7 @@ export const LensForm: React.FC = () => {
       >
         <div className="space-y-4">
           <p className="text-sm text-slate-700">
-            Tem certeza que deseja excluir esta lente?
+            Tem certeza que deseja excluir este tipo de armação?
           </p>
           <p className="text-xs text-slate-500">
             Esta ação não pode ser desfeita.

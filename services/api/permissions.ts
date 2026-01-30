@@ -73,20 +73,11 @@ class PermissionsService extends BaseService<Permission, CreatePermissionDto, Up
   }
 
   async plucks(): Promise<any[]> {
-    console.log('[permissionsService.plucks] Fazendo requisição para:', `${this.endpoint}/plucks`);
     const { data } = await apiClient.get<{ success: boolean; data: { plucks: any[] } }>(`${this.endpoint}/plucks`);
-    console.log('[permissionsService.plucks] Resposta completa da API:', data);
-    console.log('[permissionsService.plucks] data.data.plucks:', data.data?.plucks);
-    
     let plucks = data.data?.plucks || [];
-    
-    // Converter objeto para array se necessário (quando PHP retorna objeto associativo)
     if (!Array.isArray(plucks) && typeof plucks === 'object' && plucks !== null) {
-      console.log('[permissionsService.plucks] Convertendo objeto para array');
       plucks = Object.values(plucks);
     }
-    
-    console.log('[permissionsService.plucks] Plucks retornados:', plucks, 'Count:', plucks.length, 'É array?', Array.isArray(plucks));
     return plucks;
   }
 

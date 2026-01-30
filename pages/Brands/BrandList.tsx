@@ -39,7 +39,6 @@ export const BrandList: React.FC = () => {
             <h1 className="text-3xl font-black text-slate-950 tracking-tight">Marcas de Lentes</h1>
             <p className="text-gray-500 font-medium mt-1">Gerencie as marcas de lentes disponíveis no sistema.</p>
           </div>
-          <ActiveFiltersBadge count={activeFilters} />
         </div>
         <Button onClick={() => window.location.hash = '#/lenses/create'} className="shadow-red-600/20">
           <Plus size={18} /> Nova Marca
@@ -49,6 +48,20 @@ export const BrandList: React.FC = () => {
       <FilterSection>
         <Input label="Nome da Marca" placeholder="Buscar por nome..." value={nameFilter} onChange={(e) => setNameFilter(e.target.value)} />
       </FilterSection>
+
+      {/* Contagem de resultados e badge de filtros ativos */}
+      <div className="flex items-center justify-between gap-4">
+        <div className="flex items-center gap-4">
+          <p className="text-sm font-medium text-slate-600">
+            {brands.length === 0 ? 'Nenhum resultado encontrado' : 
+             brands.length === 1 ? '1 resultado encontrado' : 
+             `${brands.length} resultados encontrados`}
+          </p>
+          {activeFilters > 0 && (
+            <ActiveFiltersBadge count={activeFilters} />
+          )}
+        </div>
+      </div>
 
       <Card className="p-0 overflow-hidden">
         <div className="overflow-x-auto">

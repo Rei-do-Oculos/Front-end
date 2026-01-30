@@ -13,9 +13,7 @@ const resourceTranslations: Record<string, string> = {
   'stores': 'Lojas',
   'lenses': 'Lentes',
   'audits': 'Auditorias',
-  'model-has-permissions': 'Permissões de Modelo',
-  'model-has-roles': 'Perfis de Modelo',
-  'role-has-permissions': 'Permissões de Perfil',
+  'trash': 'Lixeira',
   'orders': 'Pedidos',
   'suppliers': 'Fornecedores',
   'sellers': 'Vendedores',
@@ -23,6 +21,9 @@ const resourceTranslations: Record<string, string> = {
   'dashboard': 'Dashboard',
   'pdv': 'PDV',
   'finance': 'Financeiro',
+  'frames': 'Armações',
+  'frame-types': 'Tipos de Armação',
+  'store-frames': 'Transferências',
 };
 
 /**
@@ -35,6 +36,7 @@ const actionTranslations: Record<string, string> = {
   'delete': 'Excluir',
   'list': 'Listar',
   'plucks': 'Listar Simplificado',
+  'restore': 'Restaurar',
   'permissions.sync': 'Sincronizar Permissões',
   'login': 'Fazer Login',
   'logout': 'Fazer Logout',

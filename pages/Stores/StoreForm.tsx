@@ -5,6 +5,7 @@ import { Card, Button, Input, Select, Modal } from '../../components/Common';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useStores } from '../../services/hooks/useStores';
 import { Store } from '../../services/api/stores';
+import { useNotification } from '../../hooks/useNotification';
 
 const API_BASE_URL = ((import.meta as any).env?.VITE_API_URL || 'http://localhost:8080/api') as string;
 const PUBLIC_BASE_URL = API_BASE_URL.replace(/\/api(\/.*)?$/, '');
@@ -12,6 +13,7 @@ const PUBLIC_BASE_URL = API_BASE_URL.replace(/\/api(\/.*)?$/, '');
 export const StoreForm: React.FC = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { showSuccess, showError } = useNotification();
   const isEditMode = !!id;
   const [selectedColor, setSelectedColor] = useState('#3F4EC6');
   const [logoFile, setLogoFile] = useState<File | null>(null);
@@ -180,15 +182,19 @@ export const StoreForm: React.FC = () => {
       if (isEditMode && id) {
         console.log('Atualizando loja:', id, payload);
         await updateStore(id, payload);
+        showSuccess('Loja atualizada!', 'A loja foi atualizada com sucesso.');
       } else {
         console.log('Criando loja:', payload);
         await createStore(payload);
+        showSuccess('Loja criada!', 'A loja foi criada com sucesso.');
       }
 
       navigate('/stores');
     } catch (err: any) {
       console.error('Erro ao salvar loja:', err);
-      setError(err.response?.data?.message || err.message || 'Erro ao salvar loja');
+      const errorMessage = err.response?.data?.message || err.message || 'Erro ao salvar loja';
+      setError(errorMessage);
+      showError('Erro ao salvar loja', errorMessage);
     } finally {
       setLoading(false);
     }
@@ -202,11 +208,13 @@ export const StoreForm: React.FC = () => {
     try {
       if (id) {
         await deleteStore(id);
+        showSuccess('Loja excluída!', 'A loja foi excluída com sucesso.');
         navigate('/stores');
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('Erro ao excluir loja:', err);
-      alert('Erro ao excluir loja');
+      const errorMessage = err.response?.data?.message || err.message || 'Erro ao excluir loja';
+      showError('Erro ao excluir loja', errorMessage);
     } finally {
       setDeleteModalOpen(false);
     }

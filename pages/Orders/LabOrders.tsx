@@ -101,7 +101,6 @@ export const LabOrders: React.FC = () => {
             <h1 className="text-3xl font-black text-slate-950 tracking-tight">Fluxo de Laboratório</h1>
             <p className="text-gray-500 font-medium mt-1 uppercase text-[9px] tracking-[0.25em]">Triagem de Lentes • Controle de Produção Externa</p>
           </div>
-          <ActiveFiltersBadge count={activeFilters} />
         </div>
         <div className="flex gap-3">
            <Button className="shadow-red-600/20 bg-red-600 rounded-2xl">
@@ -143,6 +142,20 @@ export const LabOrders: React.FC = () => {
         ]} />
         <Input label="Data Solicitação" type="date" value={dateFilter} onChange={(e) => setDateFilter(e.target.value)} />
       </FilterSection>
+
+      {/* Contagem de resultados e badge de filtros ativos */}
+      <div className="flex items-center justify-between gap-4">
+        <div className="flex items-center gap-4">
+          <p className="text-sm font-medium text-slate-600">
+            {orders.length === 0 ? 'Nenhum resultado encontrado' : 
+             orders.length === 1 ? '1 resultado encontrado' : 
+             `${orders.length} resultados encontrados`}
+          </p>
+          {activeFilters > 0 && (
+            <ActiveFiltersBadge count={activeFilters} />
+          )}
+        </div>
+      </div>
 
       <Card className="p-0 overflow-hidden border-none shadow-xl shadow-slate-200/40">
         <div className="overflow-x-auto">

@@ -67,6 +67,11 @@ export const UserForm: React.FC = () => {
         const module = parts[0];
         const action = parts.slice(1).join('.');
         
+        // Filtrar permissões de modelo (são relacionamentos técnicos, não módulos)
+        if (module === 'model-has-permissions' || module === 'model-has-roles' || module === 'role-has-permissions') {
+          return;
+        }
+        
         if (!grouped[module]) {
           grouped[module] = [];
         }

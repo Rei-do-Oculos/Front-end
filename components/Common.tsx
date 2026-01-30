@@ -1,8 +1,35 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { LucideIcon, Filter, ChevronDown, X, Search, ChevronDown as ChevronDownIcon, AlertTriangle, Info, CheckCircle2, Trash2, ArrowUp, ArrowDown, ArrowUpDown } from 'lucide-react';
+import { LucideIcon, Filter, ChevronDown, X, Search, ChevronDown as ChevronDownIcon, AlertTriangle, Info, CheckCircle2, Trash2, ArrowUp, ArrowDown, ArrowUpDown, ShieldCheck } from 'lucide-react';
 import { styles } from '../config/styles';
+
+/**
+ * Card padrão de "Acesso Negado" – exibido quando o usuário não tem permissão
+ * ou quando a API retorna 403. Reutilizado em ProtectedRoute e em listagens.
+ */
+export const AccessDeniedCard: React.FC = () => (
+  <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
+    <Card className="max-w-md w-full">
+      <div className="text-center space-y-6">
+        <div className="flex justify-center">
+          <div className="w-20 h-20 rounded-full flex items-center justify-center" style={{ backgroundColor: 'var(--store-color-light)' }}>
+            <ShieldCheck size={40} style={{ color: 'var(--store-color)' }} />
+          </div>
+        </div>
+        <div>
+          <h1 className="text-2xl font-bold text-slate-900 mb-2">Acesso Negado</h1>
+          <p className="text-slate-600">Você não tem permissão para acessar esta página.</p>
+        </div>
+        <div className="flex justify-center">
+          <Button variant="outline" onClick={() => window.history.back()}>
+            Voltar
+          </Button>
+        </div>
+      </div>
+    </Card>
+  </div>
+);
 
 /**
  * Badge de filtros ativos - Componente padronizado
@@ -99,6 +126,8 @@ export interface PaginationProps {
     totalItems: number;
   };
   onPageChange: (page: number) => void;
+  onPerPageChange?: (perPage: number) => void;
+  perPage?: number;
   itemName?: string;
 }
 
@@ -109,9 +138,11 @@ export interface PaginationProps {
 export const Pagination: React.FC<PaginationProps> = ({
   pagination,
   onPageChange,
+  onPerPageChange,
+  perPage = 15,
   itemName = 'itens',
 }) => {
-  if (!pagination || pagination.totalPages <= 1) {
+  if (!pagination) {
     return null;
   }
 
@@ -120,10 +151,17 @@ export const Pagination: React.FC<PaginationProps> = ({
   const endPage = Math.min(pagination.totalPages, startPage + maxVisiblePages - 1);
   const pages = Array.from({ length: endPage - startPage + 1 }, (_, i) => startPage + i);
 
+  const perPageOptions = [
+    { label: '10', value: '10' },
+    { label: '20', value: '20' },
+    { label: '50', value: '50' },
+    { label: '100', value: '100' },
+  ];
+
   return (
-    <div className="mt-8 flex items-center justify-between border-t border-slate-100 pt-6 px-6">
+    <div className="mt-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-t border-slate-100 pt-6 px-6">
       <div className="flex items-center gap-2">
-        {pages.map((page) => (
+        {pagination.totalPages > 1 && pages.map((page) => (
           <button
             key={page}
             onClick={() => onPageChange(page)}
@@ -141,7 +179,8 @@ export const Pagination: React.FC<PaginationProps> = ({
         ))}
       </div>
       <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-        Página {pagination.currentPage} de {pagination.totalPages} • {pagination.totalItems} {itemName}
+        {pagination.totalPages > 1 && `Página ${pagination.currentPage} de ${pagination.totalPages} • `}
+        {pagination.totalItems} {itemName}
       </p>
     </div>
   );
@@ -454,6 +493,165 @@ export const MultiSelect: React.FC<{
                   </span>
                 ) : null;
               })
+            )}
+          </div>
+          <ChevronDownIcon size={16} className={`text-gray-400 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+        </button>
+        
+        {typeof document !== 'undefined' && createPortal(dropdownContent, document.body)}
+      </div>
+    </div>
+  );
+};
+
+/**
+ * SingleSelect - Baseado no MultiSelect mas permite apenas 1 seleção
+ * Usa as cores do sistema (var(--store-color))
+ */
+export const SingleSelect: React.FC<{
+  label?: string;
+  options: { label: string; value: string }[];
+  value: string;
+  onChange: (value: string) => void;
+  placeholder?: string;
+}> = ({ label, options, value = '', onChange, placeholder = "Selecione..." }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const [position, setPosition] = useState({ top: 0, left: 0, width: 0 });
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  const selectOption = (optionValue: string) => {
+    if (value === optionValue) {
+      onChange(''); // Deselecionar se já está selecionado
+    } else {
+      onChange(optionValue); // Selecionar apenas 1
+    }
+    setIsOpen(false);
+  };
+
+  const removeOption = () => {
+    onChange('');
+  };
+
+  const updatePosition = () => {
+    if (buttonRef.current) {
+      const rect = buttonRef.current.getBoundingClientRect();
+      setPosition({
+        top: rect.bottom + window.scrollY + 4,
+        left: rect.left + window.scrollX,
+        width: rect.width,
+      });
+    }
+  };
+
+  useEffect(() => {
+    if (isOpen) {
+      updatePosition();
+      const handleResize = () => updatePosition();
+      const handleScroll = () => updatePosition();
+      window.addEventListener('resize', handleResize);
+      window.addEventListener('scroll', handleScroll, true);
+      return () => {
+        window.removeEventListener('resize', handleResize);
+        window.removeEventListener('scroll', handleScroll, true);
+      };
+    }
+  }, [isOpen]);
+
+  const selectedOption = options.find(opt => opt.value === value);
+
+  const dropdownContent = isOpen ? (
+    <>
+      <div
+        className="fixed inset-0 z-[100]"
+        onClick={() => setIsOpen(false)}
+      />
+      <div
+        ref={dropdownRef}
+        className="fixed z-[110] bg-white border border-gray-100 rounded-lg shadow-lg max-h-60 overflow-auto"
+        style={{
+          top: `${position.top}px`,
+          left: `${position.left}px`,
+          width: `${position.width}px`,
+        }}
+      >
+        {options.length === 0 ? (
+          <div className="px-4 py-3 text-sm text-gray-400 text-center">
+            Nenhuma opção disponível
+          </div>
+        ) : (
+          options.map(option => (
+            <label
+              key={option.value}
+              className="flex items-center gap-3 px-4 py-2.5 hover:bg-gray-50 cursor-pointer"
+              onClick={() => selectOption(option.value)}
+            >
+              <input
+                type="radio"
+                checked={value === option.value}
+                onChange={() => selectOption(option.value)}
+                className="w-4 h-4 border-gray-300 focus:ring-2"
+                style={{
+                  accentColor: 'var(--store-color)',
+                  color: 'var(--store-color)',
+                } as React.CSSProperties}
+              />
+              <span className="text-sm text-slate-700">{option.label}</span>
+            </label>
+          ))
+        )}
+      </div>
+    </>
+  ) : null;
+
+  return (
+    <div className="space-y-1.5 lg:space-y-2 w-full relative">
+      {label && <label className="text-[10px] lg:text-[11px] font-semibold text-slate-500 uppercase tracking-[0.15em] ml-1">{label}</label>}
+      <div className="relative">
+        <button
+          ref={buttonRef}
+          type="button"
+          onClick={() => setIsOpen(!isOpen)}
+          className={`w-full px-4 py-3 lg:px-5 lg:py-3.5 ${styles.input.default} bg-gray-50 border border-gray-100 text-sm font-medium transition-all outline-none text-left flex items-center justify-between min-h-[48px]`}
+          style={{
+            '--focus-border': 'var(--store-color)',
+            '--focus-ring': 'var(--store-color-opacity-5)',
+          } as React.CSSProperties}
+          onFocus={(e) => {
+            e.currentTarget.style.borderColor = 'var(--store-color)';
+            e.currentTarget.style.boxShadow = '0 0 0 4px var(--store-color-opacity-5)';
+            e.currentTarget.style.backgroundColor = 'white';
+          }}
+          onBlur={(e) => {
+            e.currentTarget.style.borderColor = '';
+            e.currentTarget.style.boxShadow = '';
+            e.currentTarget.style.backgroundColor = '';
+          }}
+        >
+          <div className="flex flex-wrap gap-1.5 flex-1">
+            {!value || !selectedOption ? (
+              <span className="text-gray-400">{placeholder}</span>
+            ) : (
+              <span
+                className="inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium"
+                style={{
+                  backgroundColor: 'var(--store-color-light)',
+                  color: 'var(--store-color-dark)',
+                }}
+              >
+                {selectedOption.label}
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    removeOption();
+                  }}
+                  className="hover:opacity-80"
+                  style={{ color: 'var(--store-color-dark)' }}
+                >
+                  <X size={12} />
+                </button>
+              </span>
             )}
           </div>
           <ChevronDownIcon size={16} className={`text-gray-400 transition-transform ${isOpen ? 'rotate-180' : ''}`} />

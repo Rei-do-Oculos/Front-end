@@ -18,6 +18,7 @@ import {
   QrCode
 } from 'lucide-react';
 import { Card, Button, Badge } from '../../components/Common';
+import { useNotification } from '../../hooks/useNotification';
 
 // Mock de dados - substituir por chamada de API
 const mockInvoice = {
@@ -61,11 +62,12 @@ const mockInvoice = {
 export const InvoiceDetail: React.FC = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { showSuccess } = useNotification();
   const invoice = mockInvoice; // Em produção, buscar por ID
 
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
-    alert('Copiado para a área de transferência!');
+    showSuccess('Copiado!', 'Texto copiado para a área de transferência.');
   };
 
   return (

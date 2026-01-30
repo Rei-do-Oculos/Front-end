@@ -39,7 +39,6 @@ export const StockList: React.FC = () => {
             <h1 className="text-3xl font-black text-slate-950 tracking-tight">Estoque Geral</h1>
             <p className="text-gray-500 font-medium mt-1">Controle de armações, lentes e insumos da unidade.</p>
           </div>
-          <ActiveFiltersBadge count={activeFilters} />
         </div>
         <div className="flex gap-3">
            <Button variant="outline">
@@ -59,6 +58,20 @@ export const StockList: React.FC = () => {
         <Select label="Unidade/Ótica" value={unitFilter} onChange={(e) => setUnitFilter(e.target.value)} options={[{label: 'TODAS', value: ''}, {label: 'MARINGÁ', value: 'maringa'}]} />
         <Input label="Cadastrado após" type="date" value={dateFilter} onChange={(e) => setDateFilter(e.target.value)} />
       </FilterSection>
+
+      {/* Contagem de resultados e badge de filtros ativos */}
+      <div className="flex items-center justify-between gap-4">
+        <div className="flex items-center gap-4">
+          <p className="text-sm font-medium text-slate-600">
+            {stockItems.length === 0 ? 'Nenhum resultado encontrado' : 
+             stockItems.length === 1 ? '1 resultado encontrado' : 
+             `${stockItems.length} resultados encontrados`}
+          </p>
+          {activeFilters > 0 && (
+            <ActiveFiltersBadge count={activeFilters} />
+          )}
+        </div>
+      </div>
 
       <Card>
         <div className="overflow-x-auto">

@@ -150,7 +150,6 @@ export const UsersPermissions: React.FC = () => {
             <h2 className="text-xl font-black text-slate-950">Usuários e Permissões</h2>
             <p className="text-sm text-slate-500 mt-1">Associe usuários a perfis e permissões extras</p>
           </div>
-          <ActiveFiltersBadge count={activeFilters} />
         </div>
         <Button onClick={handleCreate} className="shadow-red-600/20">
           <Plus size={18} /> Novo Usuário
@@ -196,6 +195,20 @@ export const UsersPermissions: React.FC = () => {
           onChange={(e) => setFilterStatus(e.target.value)}
         />
       </FilterSection>
+
+      {/* Contagem de resultados e badge de filtros ativos */}
+      <div className="flex items-center justify-between gap-4">
+        <div className="flex items-center gap-4">
+          <p className="text-sm font-medium text-slate-600">
+            {users.length === 0 ? 'Nenhum resultado encontrado' : 
+             users.length === 1 ? '1 resultado encontrado' : 
+             `${users.length} resultados encontrados`}
+          </p>
+          {activeFilters > 0 && (
+            <ActiveFiltersBadge count={activeFilters} />
+          )}
+        </div>
+      </div>
 
       <Card className="p-0 overflow-hidden">
         <div className="overflow-x-auto">

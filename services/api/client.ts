@@ -44,14 +44,7 @@ class ApiClient {
           }
         });
         
-        const serialized = parts.join('&');
-        
-        // Debug: log da string serializada
-        if (process.env.NODE_ENV === 'development') {
-          console.log('[apiClient] Parâmetros serializados:', serialized);
-        }
-        
-        return serialized;
+        return parts.join('&');
       },
     });
 

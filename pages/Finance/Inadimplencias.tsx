@@ -55,7 +55,6 @@ export const Inadimplencias: React.FC = () => {
             <h1 className="text-3xl font-black text-slate-950 tracking-tight">Inadimplências</h1>
             <p className="text-gray-500 font-medium mt-1">Ordens abertas no laboratório sem retirada e com valores em aberto.</p>
           </div>
-          <ActiveFiltersBadge count={activeFilters} />
         </div>
         <Button className="shadow-red-600/20">
           <AlertTriangle size={18} /> Gerar cobrança
@@ -78,6 +77,20 @@ export const Inadimplencias: React.FC = () => {
           { label: 'Em negociação', value: 'negociacao' },
         ]} />
       </FilterSection>
+
+      {/* Contagem de resultados e badge de filtros ativos */}
+      <div className="flex items-center justify-between gap-4">
+        <div className="flex items-center gap-4">
+          <p className="text-sm font-medium text-slate-600">
+            {delinquencyList.length === 0 ? 'Nenhum resultado encontrado' : 
+             delinquencyList.length === 1 ? '1 resultado encontrado' : 
+             `${delinquencyList.length} resultados encontrados`}
+          </p>
+          {activeFilters > 0 && (
+            <ActiveFiltersBadge count={activeFilters} />
+          )}
+        </div>
+      </div>
 
       <Card>
         <div className="overflow-x-auto">

@@ -1,5 +1,5 @@
 import { useAuth } from './useAuth';
-import { getAllUserPermissions, isSuperAdmin } from '../../utils/menuPermissions';
+import { getEffectiveUserPermissions, isSuperAdmin } from '../../utils/menuPermissions';
 
 /**
  * Hook para verificar permissões do usuário atual
@@ -26,10 +26,9 @@ export const usePermission = () => {
       return true;
     }
 
-    // Obter todas as permissões do usuário
-    const userPermissions = getAllUserPermissions(user);
+    // Usar permissões efetivas do backend (all_permissions)
+    const userPermissions = getEffectiveUserPermissions(user);
     
-    // Verificar se o usuário tem a permissão específica
     return userPermissions.some(perm => perm.name === permission);
   };
 

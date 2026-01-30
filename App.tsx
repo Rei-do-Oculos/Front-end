@@ -13,7 +13,8 @@ import { SupplierList } from './pages/Suppliers/SupplierList';
 import { SupplierForm } from './pages/Suppliers/SupplierForm';
 import { StoreList } from './pages/Stores/StoreList';
 import { StoreForm } from './pages/Stores/StoreForm';
-import { StoreDetail } from './pages/Stores/StoreDetail';
+import { TrashList } from './pages/Trash/TrashList';
+import { TrashDetail } from './pages/Trash/TrashDetail';
 import { SellerList } from './pages/Sellers/SellerList';
 import { SellerForm } from './pages/Sellers/SellerForm';
 import { SellerDetail } from './pages/Sellers/SellerDetail';
@@ -29,6 +30,11 @@ import { UserForm } from './pages/Users/UserForm';
 import { BrandList } from './pages/Brands/BrandList';
 import { BrandForm } from './pages/Brands/BrandForm';
 import { LensList } from './pages/Lenses/LensList';
+import { FrameTypeList } from './pages/FrameTypes/FrameTypeList';
+import { FrameTypeForm } from './pages/FrameTypes/FrameTypeForm';
+import { FrameList } from './pages/Frames/FrameList';
+import { FrameForm } from './pages/Frames/FrameForm';
+import { StoreFrameList } from './pages/StoreFrames/StoreFrameList';
 import { Chat } from './pages/Chat';
 import { Login } from './pages/Login';
 import { PWAUpdatePrompt } from './components/PWAUpdatePrompt';
@@ -150,7 +156,6 @@ const StoreSelectorWrapper: React.FC<{ onLogout: () => void }> = ({ onLogout }) 
         <Route path="/stores" element={<ProtectedRoute><StoreList /></ProtectedRoute>} />
         <Route path="/stores/create" element={<ProtectedRoute><StoreForm /></ProtectedRoute>} />
         <Route path="/stores/:id/edit" element={<ProtectedRoute><StoreForm /></ProtectedRoute>} />
-        <Route path="/stores/:id" element={<ProtectedRoute><StoreDetail /></ProtectedRoute>} />
         <Route path="/chat" element={<ProtectedRoute><Chat /></ProtectedRoute>} />
         <Route path="/clients" element={<ProtectedRoute><ClientList /></ProtectedRoute>} />
         <Route path="/clients/create" element={<ProtectedRoute><ClientForm /></ProtectedRoute>} />
@@ -165,6 +170,13 @@ const StoreSelectorWrapper: React.FC<{ onLogout: () => void }> = ({ onLogout }) 
         <Route path="/fornecedores/create" element={<ProtectedRoute><SupplierForm /></ProtectedRoute>} />
         <Route path="/fornecedores/:id/editar" element={<ProtectedRoute><SupplierForm /></ProtectedRoute>} />
         <Route path="/lenses" element={<ProtectedRoute><LensList /></ProtectedRoute>} />
+        <Route path="/frame-types" element={<ProtectedRoute><FrameTypeList /></ProtectedRoute>} />
+        <Route path="/frame-types/create" element={<ProtectedRoute><FrameTypeForm /></ProtectedRoute>} />
+        <Route path="/frame-types/:id/edit" element={<ProtectedRoute><FrameTypeForm /></ProtectedRoute>} />
+        <Route path="/frames" element={<ProtectedRoute><FrameList /></ProtectedRoute>} />
+        <Route path="/frames/create" element={<ProtectedRoute><FrameForm /></ProtectedRoute>} />
+        <Route path="/frames/:id/edit" element={<ProtectedRoute><FrameForm /></ProtectedRoute>} />
+        <Route path="/transferencias" element={<ProtectedRoute><StoreFrameList /></ProtectedRoute>} />
         <Route path="/financeiro" element={<ProtectedRoute><CashFlow /></ProtectedRoute>} />
         <Route path="/financeiro/inadimplencias" element={<ProtectedRoute><Inadimplencias /></ProtectedRoute>} />
         <Route path="/notas-fiscais" element={<ProtectedRoute><InvoiceList /></ProtectedRoute>} />
@@ -178,7 +190,8 @@ const StoreSelectorWrapper: React.FC<{ onLogout: () => void }> = ({ onLogout }) 
         <Route path="/users/create" element={<ProtectedRoute><UserForm /></ProtectedRoute>} />
         <Route path="/users/:id/edit" element={<ProtectedRoute><UserForm /></ProtectedRoute>} />
         <Route path="/audit" element={<ProtectedRoute><AuditList /></ProtectedRoute>} />
-        <Route path="/trash" element={<ProtectedRoute><PlaceholderPage title="Lixeira" /></ProtectedRoute>} />
+        <Route path="/trash" element={<ProtectedRoute><TrashList /></ProtectedRoute>} />
+        <Route path="/trash/item/:model/:id" element={<ProtectedRoute><TrashDetail /></ProtectedRoute>} />
         <Route path="*" element={<Navigate to="/" />} />
       </Routes>
     </Layout>

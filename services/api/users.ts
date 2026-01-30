@@ -151,18 +151,6 @@ class UsersService extends BaseService<User, CreateUserDto, UpdateUserDto, Users
       
       return user;
     });
-    
-    // Log para debug
-    console.log('[usersService.getAll] Usuários recebidos:', usersData.length);
-    usersData.forEach((user, index) => {
-      console.log(`[usersService.getAll] Usuário ${index + 1}:`, {
-        id: user.id,
-        email: user.email,
-        rolesCount: Array.isArray(user.roles) ? user.roles.length : 0,
-        roles: Array.isArray(user.roles) ? user.roles.map(r => r.name) : [],
-      });
-    });
-    
     return {
       data: usersData,
       meta: {
@@ -175,53 +163,15 @@ class UsersService extends BaseService<User, CreateUserDto, UpdateUserDto, Users
 
   async plucks(): Promise<any[]> {
     try {
-      console.log('[usersService.plucks] Fazendo requisição para:', `${this.endpoint}/plucks`);
       const response = await apiClient.get<{ success: boolean; data: { plucks: any[] } }>(`${this.endpoint}/plucks`);
-      console.log('[usersService.plucks] Resposta completa:', response);
-      console.log('[usersService.plucks] response.data:', response.data);
-      console.log('[usersService.plucks] response.data.data:', response.data?.data);
-      console.log('[usersService.plucks] response.data.data.plucks:', response.data?.data?.plucks);
-      
       const { data } = response;
-      
-      if (!data.success) {
-        console.error('[usersService.plucks] Resposta não teve sucesso:', data);
-        return [];
-      }
-      
-      if (!data.data) {
-        console.error('[usersService.plucks] data.data não existe:', data);
-        return [];
-      }
-      
-      if (!data.data.plucks) {
-        console.error('[usersService.plucks] data.data.plucks não existe:', data.data);
-        return [];
-      }
-      
-      // O backend pode retornar como objeto { 0: {...}, 1: {...} } em vez de array
+      if (!data.success || !data.data?.plucks) return [];
       let plucks = data.data.plucks;
-      
-      // Se for objeto (não array), converter para array
       if (!Array.isArray(plucks) && typeof plucks === 'object' && plucks !== null) {
-        console.log('[usersService.plucks] Convertendo objeto para array...');
         plucks = Object.values(plucks);
-        console.log('[usersService.plucks] Convertido de objeto para array:', plucks.length);
       }
-      
-      // Garantir que seja um array
-      if (!Array.isArray(plucks)) {
-        console.error('[usersService.plucks] Não conseguiu converter para array:', plucks);
-        return [];
-      }
-      
-      console.log('[usersService.plucks] Plucks recebidos:', plucks.length, plucks);
-      return plucks;
-    } catch (error: any) {
-      console.error('[usersService.plucks] Erro ao buscar plucks:', error);
-      console.error('[usersService.plucks] Erro response:', error.response);
-      console.error('[usersService.plucks] Erro status:', error.response?.status);
-      console.error('[usersService.plucks] Erro data:', error.response?.data);
+      return Array.isArray(plucks) ? plucks : [];
+    } catch {
       return [];
     }
   }

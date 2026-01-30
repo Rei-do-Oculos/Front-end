@@ -28,6 +28,9 @@ export const AuditList: React.FC = () => {
   const [storeFilter, setStoreFilter] = useState<string[]>([]);
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
+  const [perPage, setPerPage] = useState<number>(15);
+  const [sortBy, setSortBy] = useState<string | null>('created_at');
+  const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
   
   const { audits, loading, error, pagination, fetchAudits } = useAudits({
     autoFetch: false,
@@ -76,6 +79,7 @@ export const AuditList: React.FC = () => {
         await fetchAudits(1, {
           order_by: sortBy || 'created_at',
           order_dir: sortDirection || 'desc',
+          per_page: perPage,
         });
       } catch (err) {
         console.error('Erro ao carregar auditorias:', err);
@@ -83,7 +87,7 @@ export const AuditList: React.FC = () => {
     };
     loadAudits();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [perPage]);
 
   const handleSort = (key: string, direction: SortDirection) => {
     const newDirection = direction || 'asc';
@@ -104,6 +108,7 @@ export const AuditList: React.FC = () => {
     
     params.order_by = key;
     params.order_dir = newDirection;
+    params.per_page = perPage;
     
     fetchAudits(pagination?.currentPage || 1, params);
   };
@@ -127,6 +132,7 @@ export const AuditList: React.FC = () => {
         params.order_dir = sortDirection || 'desc';
       }
       
+      params.per_page = perPage;
       await fetchAudits(1, params);
     } catch (err) {
       console.error('Erro ao aplicar filtros:', err);
@@ -145,9 +151,36 @@ export const AuditList: React.FC = () => {
       await fetchAudits(1, {
         order_by: sortBy || 'created_at',
         order_dir: sortDirection || 'desc',
+        per_page: perPage,
       });
     } catch (err) {
       console.error('Erro ao limpar filtros:', err);
+    }
+  };
+
+  const handlePerPageChange = async (newPerPage: number) => {
+    setPerPage(newPerPage);
+    try {
+      const params: any = {
+        per_page: newPerPage,
+      };
+      if (eventFilter.length > 0) params.event = eventFilter.join(',');
+      if (auditableTypeFilter.length > 0) params.auditable_type = auditableTypeFilter.join(',');
+      if (userFilter.length > 0) params.user_id = userFilter.join(',');
+      if (storeFilter.length > 0 && !storeFilter.includes('all')) {
+        params.store_id = storeFilter
+          .filter(id => id !== 'all' && !isNaN(parseInt(id)))
+          .join(',');
+      }
+      if (dateFrom) params.date_from = dateFrom;
+      if (dateTo) params.date_to = dateTo;
+      if (sortBy) {
+        params.order_by = sortBy;
+        params.order_dir = sortDirection || 'desc';
+      }
+      await fetchAudits(1, params);
+    } catch (err) {
+      console.error('Erro ao alterar itens por página:', err);
     }
   };
 
@@ -242,7 +275,6 @@ export const AuditList: React.FC = () => {
             <h1 className="text-3xl font-black text-slate-950 tracking-tight">Auditoria do Sistema</h1>
             <p className="text-gray-500 font-medium mt-1 uppercase text-[9px] tracking-[0.25em]">Histórico de Alterações • Logs de Dados</p>
           </div>
-          <ActiveFiltersBadge count={activeFilters} />
         </div>
         <div className="flex gap-3">
            <div className="px-4 py-2 bg-red-50 text-red-600 rounded-xl border border-red-100 flex items-center gap-2">
@@ -317,6 +349,39 @@ export const AuditList: React.FC = () => {
           onChange={(e) => setDateTo(e.target.value)}
         />
       </FilterSection>
+
+      {/* Contagem de resultados, badge de filtros ativos e seletor de itens por página */}
+      <div className="flex items-center justify-between gap-4">
+        <div className="flex items-center gap-4">
+          {pagination && (
+            <p className="text-sm font-medium text-slate-600">
+              {pagination.totalItems === 0 ? 'Nenhum resultado encontrado' : 
+               pagination.totalItems === 1 ? '1 resultado encontrado' : 
+               `${pagination.totalItems} resultados encontrados`}
+            </p>
+          )}
+          {activeFilters > 0 && (
+            <ActiveFiltersBadge count={activeFilters} />
+          )}
+        </div>
+        {pagination && (
+          <div className="flex items-center gap-2">
+            <label className="text-[10px] font-semibold text-slate-500 uppercase tracking-widest">
+              Mostrar:
+            </label>
+            <select
+              value={String(perPage)}
+              onChange={(e) => handlePerPageChange(Number(e.target.value))}
+              className="px-3 py-1.5 text-xs font-medium border border-slate-200 rounded-lg bg-white text-slate-700 focus:outline-none focus:border-[var(--store-color)] focus:ring-2 focus:ring-[var(--store-color-opacity-5)]"
+            >
+              <option value="10">10</option>
+              <option value="20">20</option>
+              <option value="50">50</option>
+              <option value="100">100</option>
+            </select>
+          </div>
+        )}
+      </div>
 
       <Card className="p-0 overflow-hidden border-none shadow-xl shadow-slate-200/40">
         <div className="overflow-x-auto">
@@ -535,6 +600,8 @@ export const AuditList: React.FC = () => {
       {pagination && (
         <Pagination
           pagination={pagination}
+          perPage={perPage}
+          onPerPageChange={handlePerPageChange}
           onPageChange={(page) => {
             const params: any = {};
             if (eventFilter.length > 0) params.event = eventFilter.join(',');
@@ -551,6 +618,7 @@ export const AuditList: React.FC = () => {
               params.order_by = sortBy;
               params.order_dir = sortDirection || 'desc';
             }
+            params.per_page = perPage;
             fetchAudits(page, params);
           }}
           itemName="logs"

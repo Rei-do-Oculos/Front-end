@@ -61,6 +61,8 @@ export interface StoresQueryParams {
   page?: number;
   per_page?: number;
   search?: string;
+  order_by?: string;
+  order_dir?: 'asc' | 'desc' | null;
 }
 
 export interface LaravelPaginatedResponse<T> {
@@ -231,53 +233,15 @@ class StoresService extends BaseService<Store, CreateStoreDto, UpdateStoreDto, S
 
   async plucks(): Promise<any[]> {
     try {
-      console.log('[storesService.plucks] Fazendo requisição para:', `${this.endpoint}/plucks`);
       const response = await apiClient.get<{ success: boolean; data: { plucks: any[] } }>(`${this.endpoint}/plucks`);
-      console.log('[storesService.plucks] Resposta completa:', response);
-      console.log('[storesService.plucks] response.data:', response.data);
-      console.log('[storesService.plucks] response.data.data:', response.data?.data);
-      console.log('[storesService.plucks] response.data.data.plucks:', response.data?.data?.plucks);
-      
       const { data } = response;
-      
-      if (!data.success) {
-        console.error('[storesService.plucks] Resposta não teve sucesso:', data);
-        return [];
-      }
-      
-      if (!data.data) {
-        console.error('[storesService.plucks] data.data não existe:', data);
-        return [];
-      }
-      
-      if (!data.data.plucks) {
-        console.error('[storesService.plucks] data.data.plucks não existe:', data.data);
-        return [];
-      }
-      
-      // O backend pode retornar como objeto { 0: {...}, 1: {...} } em vez de array
+      if (!data.success || !data.data?.plucks) return [];
       let plucks = data.data.plucks;
-      
-      // Se for objeto (não array), converter para array
       if (!Array.isArray(plucks) && typeof plucks === 'object' && plucks !== null) {
-        console.log('[storesService.plucks] Convertendo objeto para array...');
         plucks = Object.values(plucks);
-        console.log('[storesService.plucks] Convertido de objeto para array:', plucks.length);
       }
-      
-      // Garantir que seja um array
-      if (!Array.isArray(plucks)) {
-        console.error('[storesService.plucks] Não conseguiu converter para array:', plucks);
-        return [];
-      }
-      
-      console.log('[storesService.plucks] Plucks recebidos:', plucks.length, plucks);
-      return plucks;
-    } catch (error: any) {
-      console.error('[storesService.plucks] Erro ao buscar plucks:', error);
-      console.error('[storesService.plucks] Erro response:', error.response);
-      console.error('[storesService.plucks] Erro status:', error.response?.status);
-      console.error('[storesService.plucks] Erro data:', error.response?.data);
+      return Array.isArray(plucks) ? plucks : [];
+    } catch {
       return [];
     }
   }

@@ -123,20 +123,11 @@ class RolesService extends BaseService<Role, CreateRoleDto, UpdateRoleDto, Roles
   }
 
   async plucks(): Promise<any[]> {
-    console.log('[rolesService.plucks] Fazendo requisição para:', `${this.endpoint}/plucks`);
     const { data } = await apiClient.get<{ success: boolean; data: { plucks: any[] } }>(`${this.endpoint}/plucks`);
-    console.log('[rolesService.plucks] Resposta completa da API:', data);
-    console.log('[rolesService.plucks] data.data.plucks:', data.data?.plucks);
-    
     let plucks = data.data?.plucks || [];
-    
-    // Converter objeto para array se necessário (quando PHP retorna objeto associativo)
     if (!Array.isArray(plucks) && typeof plucks === 'object' && plucks !== null) {
-      console.log('[rolesService.plucks] Convertendo objeto para array');
       plucks = Object.values(plucks);
     }
-    
-    console.log('[rolesService.plucks] Plucks retornados:', plucks, 'Count:', plucks.length, 'É array?', Array.isArray(plucks));
     return plucks;
   }
 

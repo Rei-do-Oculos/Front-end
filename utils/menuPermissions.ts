@@ -23,19 +23,31 @@ export const routePermissionMap: Record<string, string[]> = {
   '/audit': ['audits.list', 'audits.read'],
   
   // Lojas
-  '/stores': ['stores.list', 'stores.read'],
+  '/stores': ['stores.list'],
   '/stores/create': ['stores.create'],
   '/stores/:id/edit': ['stores.update'],
-  '/stores/:id': ['stores.read'],
   
   // Sistema - rotas públicas por padrão (mas podem ter permissões específicas)
-  '/trash': [], // Público por enquanto
+  '/trash': ['trash.list'],
   
   // Lentes
   '/lenses': ['lenses.list', 'lenses.read'],
   '/lenses/create': ['lenses.create'],
   '/lenses/:id/edit': ['lenses.update'],
   '/lenses/:id': ['lenses.read'],
+  
+  // Tipos de Armação
+  '/frame-types': ['frame-types.list', 'frame-types.read'],
+  '/frame-types/create': ['frame-types.create'],
+  '/frame-types/:id/edit': ['frame-types.update'],
+  
+  // Armações
+  '/frames': ['frames.list', 'frames.read'],
+  '/frames/create': ['frames.create'],
+  '/frames/:id/edit': ['frames.update'],
+  
+  // Transferências
+  '/transferencias': ['store-frames.list', 'store-frames.read'],
   
   // Outros módulos - por enquanto sem permissões específicas (públicos)
   // Quando as permissões forem criadas no backend, adicionar aqui
@@ -61,7 +73,6 @@ export function isSuperAdmin(user: {
   email?: string;
 }): boolean {
   if (!user) {
-    console.log('[isSuperAdmin] ❌ Usuário não fornecido');
     return false;
   }
 
@@ -75,20 +86,10 @@ export function isSuperAdmin(user: {
     roles = Object.values(user.roles);
   }
   
-  console.log('[isSuperAdmin] Verificando roles:', {
-    rolesCount: roles.length,
-    roles: roles.map(r => ({ name: r?.name, id: r?.id })),
-  });
-  
   // Verificar se algum role tem o nome 'superadmin'
   const hasSuperAdminRole = roles.some(role => {
-    // Tentar diferentes formas de acessar o nome do role
     const roleName = role?.name || (role as any)?.name || null;
-    const isSuperAdmin = roleName?.toLowerCase() === 'superadmin';
-    if (isSuperAdmin) {
-      console.log(`[isSuperAdmin] ✅ Role superadmin encontrado: ${roleName}`);
-    }
-    return isSuperAdmin;
+    return roleName?.toLowerCase() === 'superadmin';
   });
   
   if (hasSuperAdminRole) {
@@ -102,38 +103,26 @@ export function isSuperAdmin(user: {
     'roles.list', 'roles.create', 'roles.read', 'roles.update', 'roles.delete',
     'permissions.list', 'permissions.create', 'permissions.read', 'permissions.update', 'permissions.delete',
     'clients.list', 'clients.create', 'clients.read', 'clients.update', 'clients.delete',
-    'stores.list', 'stores.create', 'stores.read', 'stores.update', 'stores.delete',
+    'stores.list', 'stores.create', 'stores.update', 'stores.delete',
     'audits.list', 'audits.read',
     'lenses.list', 'lenses.create', 'lenses.read', 'lenses.update', 'lenses.delete',
+    'trash.list', 'trash.restore',
   ];
   
   // Obter todas as permissões do usuário
   const allUserPermissions = getAllUserPermissions(user);
   const userPermNames = allUserPermissions.map(p => p.name);
-  
-  console.log('[isSuperAdmin] Verificando permissões principais:', {
-    mainPermissionsCount: mainPermissions.length,
-    userPermissionsCount: userPermNames.length,
-    userPermissions: userPermNames,
-  });
-  
-  // Verificar se o usuário tem todas as permissões principais
+
   const hasAllMainPermissions = mainPermissions.every(perm => userPermNames.includes(perm));
-  
-  // Se tem todas as permissões principais, considerar como superadmin equivalente
   if (hasAllMainPermissions && mainPermissions.length > 0) {
-    console.log('[isSuperAdmin] ✅ Usuário tem todas as permissões principais - considerado superadmin');
     return true;
   }
-  
-  // Se tem muitas permissões (mais de 80% das principais), também considerar como superadmin
+
   const hasMostPermissions = (userPermNames.length / mainPermissions.length) >= 0.8;
   if (hasMostPermissions && userPermNames.length >= 20) {
-    console.log('[isSuperAdmin] ✅ Usuário tem mais de 80% das permissões principais - considerado superadmin');
     return true;
   }
-  
-  console.log('[isSuperAdmin] ❌ Usuário não é superadmin');
+
   return false;
 }
 
@@ -150,9 +139,7 @@ export function hasRoutePermission(
   route: string,
   user?: { roles?: Array<{ name: string }> }
 ): boolean {
-  // Superadmin tem acesso a tudo
   if (user && isSuperAdmin(user)) {
-    console.log(`[hasRoutePermission] ✅ Superadmin - acesso liberado para: ${route}`);
     return true;
   }
 
@@ -185,16 +172,12 @@ export function hasRoutePermission(
     }
   }
   
-  // Se não há mapeamento para a rota, permite acesso (rota pública)
   if (!requiredPermissions || requiredPermissions.length === 0) {
-    console.log(`[hasRoutePermission] ✅ Rota pública - acesso liberado para: ${normalizedRoute} (original: ${route})`);
-    return true; // Rotas sem mapeamento são públicas
+    return true;
   }
 
-  // Se o usuário não tem permissões, nega acesso apenas para rotas que requerem permissão
   if (!userPermissions || userPermissions.length === 0) {
-    console.log(`[hasRoutePermission] ❌ Usuário sem permissões - acesso negado para: ${normalizedRoute} (requer: ${requiredPermissions.join(', ')})`);
-    return false; // Rotas com mapeamento requerem permissão
+    return false;
   }
 
   // Normalizar permissões do usuário para array de strings
@@ -202,23 +185,39 @@ export function hasRoutePermission(
     typeof perm === 'string' ? perm : (perm.name || perm)
   );
 
-  // Verificar se o usuário tem pelo menos uma das permissões necessárias
-  const hasPermission = requiredPermissions.some(requiredPerm => 
-    userPermNames.includes(requiredPerm)
-  );
+  return requiredPermissions.some(requiredPerm => userPermNames.includes(requiredPerm));
+}
 
-  console.log(`[hasRoutePermission] Verificando rota "${normalizedRoute}" (original: ${route}):`, {
-    requiredPermissions,
-    userPermNames,
-    hasPermission,
+/**
+ * Obtém as permissões efetivas do usuário (fonte de verdade do backend).
+ * Usar esta função para menu e proteção de rotas, pois reflete exatamente
+ * o que o backend considera (inclui bloqueios por perfil).
+ *
+ * @param user Usuário com all_permissions (enviado por /me e login)
+ * @returns Array com as permissões efetivas; [] se all_permissions não existir
+ */
+export function getEffectiveUserPermissions(user: {
+  all_permissions?: Array<{ name: string; slug?: string }>;
+}): Array<{ name: string }> {
+  if (!user.all_permissions || !Array.isArray(user.all_permissions)) {
+    return [];
+  }
+  const out: Array<{ name: string }> = [];
+  const seen = new Set<string>();
+  user.all_permissions.forEach(perm => {
+    const name = perm.name || perm.slug;
+    if (name && !seen.has(name)) {
+      seen.add(name);
+      out.push({ name });
+    }
   });
-
-  return hasPermission;
+  return out;
 }
 
 /**
  * Obtém todas as permissões do usuário (incluindo as dos roles)
- * 
+ * Preferência: all_permissions (backend) > roles[].permissions + user.permissions
+ *
  * @param user Usuário com roles e permissions
  * @returns Array com todas as permissões (do role + diretas)
  */
@@ -230,85 +229,38 @@ export function getAllUserPermissions(user: {
   const allPermissions: Array<{ name: string }> = [];
   const permissionNames = new Set<string>();
 
-  // Debug: Log da estrutura do usuário
-  console.log('[getAllUserPermissions] Estrutura do usuário:', {
-    hasRoles: !!user.roles,
-    rolesIsArray: Array.isArray(user.roles),
-    rolesLength: Array.isArray(user.roles) ? user.roles.length : 0,
-    hasPermissions: !!user.permissions,
-    permissionsIsArray: Array.isArray(user.permissions),
-    permissionsLength: Array.isArray(user.permissions) ? user.permissions.length : 0,
-    hasAllPermissions: !!user.all_permissions,
-    allPermissionsIsArray: Array.isArray(user.all_permissions),
-    allPermissionsLength: Array.isArray(user.all_permissions) ? user.all_permissions.length : 0,
-    userRoles: user.roles,
-    userPermissions: user.permissions,
-    userAllPermissions: user.all_permissions,
-  });
-
-  // PRIORIDADE 1: Se o backend forneceu all_permissions, usar isso (mais confiável)
   if (user.all_permissions && Array.isArray(user.all_permissions) && user.all_permissions.length > 0) {
-    console.log('[getAllUserPermissions] ✅ Usando all_permissions do backend (método mais confiável)', {
-      totalAllPermissions: user.all_permissions.length,
-      allPermissions: user.all_permissions.map(p => p.name || p.slug),
-    });
     user.all_permissions.forEach(perm => {
       const permName = perm.name || perm.slug;
       if (permName && !permissionNames.has(permName)) {
         permissionNames.add(permName);
         allPermissions.push({ name: permName });
-        console.log(`[getAllUserPermissions] ✅ Adicionada permissão de all_permissions: ${permName}`);
       }
     });
   } else {
-    console.warn('[getAllUserPermissions] ⚠️ all_permissions não disponível ou vazio, usando fallback (roles + diretas)');
-    // FALLBACK: Adicionar permissões dos roles
     if (user.roles && Array.isArray(user.roles)) {
-      user.roles.forEach((role, roleIndex) => {
-        console.log(`[getAllUserPermissions] Processando role ${roleIndex}:`, {
-          roleName: role.name || role.id,
-          role,
-          hasPermissions: !!role.permissions,
-          permissionsIsArray: Array.isArray(role.permissions),
-          permissionsLength: Array.isArray(role.permissions) ? role.permissions.length : 0,
-          permissions: role.permissions,
-        });
-
+      user.roles.forEach((role) => {
         if (role.permissions && Array.isArray(role.permissions)) {
           role.permissions.forEach(perm => {
-            // Usar name ou slug como identificador
             const permName = perm.name || perm.slug;
             if (permName && !permissionNames.has(permName)) {
               permissionNames.add(permName);
               allPermissions.push({ name: permName });
-              console.log(`[getAllUserPermissions] ✅ Adicionada permissão do role "${role.name || role.id}": ${permName}`);
             }
           });
-        } else {
-          console.warn(`[getAllUserPermissions] ⚠️ Role "${role.name || role.id}" não tem permissões ou não está no formato esperado`);
         }
       });
     }
-
-    // Adicionar permissões diretas do usuário
     if (user.permissions && Array.isArray(user.permissions)) {
       user.permissions.forEach(perm => {
-        // Usar name ou slug como identificador
         const permName = perm.name || perm.slug;
         if (permName && !permissionNames.has(permName)) {
           permissionNames.add(permName);
           allPermissions.push({ name: permName });
-          console.log(`[getAllUserPermissions] ✅ Adicionada permissão direta: ${permName}`);
         }
       });
     }
   }
-
-  console.log('[getAllUserPermissions] 📊 Resumo:', {
-    totalPermissoes: allPermissions.length,
-    permissoes: allPermissions.map(p => p.name),
-    usandoAllPermissions: !!(user.all_permissions && Array.isArray(user.all_permissions) && user.all_permissions.length > 0),
-  });
 
   return allPermissions;
 }
@@ -321,39 +273,23 @@ export function getAllUserPermissions(user: {
  * @returns true se o usuário tem pelo menos uma permissão do módulo, false caso contrário
  */
 export function hasAnyModulePermission(
-  userPermissions: Array<{ name: string } | string>,
+  userPermissions: Array<{ name: string; slug?: string } | string>,
   modulePrefix: string
 ): boolean {
-  // Se não há permissões, retornar false imediatamente
   if (!userPermissions || userPermissions.length === 0) {
-    console.log(`[hasAnyModulePermission] ❌ Nenhuma permissão fornecida para módulo "${modulePrefix}"`);
     return false;
   }
 
-  // Normalizar permissões do usuário para array de strings
   const userPermNames = userPermissions.map(perm => {
-    if (typeof perm === 'string') {
-      return perm;
-    }
-    // Tentar name primeiro, depois slug, depois qualquer propriedade que possa ser string
-    return perm.name || perm.slug || (typeof perm === 'object' && perm !== null ? String(perm) : '');
-  }).filter(name => name && name.length > 0); // Remover strings vazias
+    if (typeof perm === 'string') return perm;
+    const p = perm as { name?: string; slug?: string };
+    return p.name || p.slug || '';
+  }).filter(name => name && name.length > 0);
 
   // Verificar se há pelo menos uma permissão que comece com o prefixo do módulo
   const matchingPermissions = userPermNames.filter(p => 
     p && typeof p === 'string' && p.startsWith(`${modulePrefix}.`)
   );
   
-  const hasPermission = matchingPermissions.length > 0;
-
-  console.log(`[hasAnyModulePermission] Verificando módulo "${modulePrefix}":`, {
-    totalPermissions: userPermNames.length,
-    userPermNames,
-    hasPermission,
-    matchingPermissions,
-    modulePrefix,
-    searchPattern: `${modulePrefix}.`,
-  });
-
-  return hasPermission;
+  return matchingPermissions.length > 0;
 }

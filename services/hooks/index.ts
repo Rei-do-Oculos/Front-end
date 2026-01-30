@@ -7,4 +7,5 @@ export * from './usePermissions';
 export * from './usePlucks';
 export * from './useRoles';
 export * from './useStores';
+export * from './useTrash';
 export * from './useUsers';

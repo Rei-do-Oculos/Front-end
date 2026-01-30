@@ -1,9 +1,8 @@
 import React from 'react';
 import { useLocation, Navigate } from 'react-router-dom';
 import { useAuth } from '../services/hooks/useAuth';
-import { routePermissionMap, hasRoutePermission, getAllUserPermissions, isSuperAdmin } from '../utils/menuPermissions';
-import { ShieldCheck } from 'lucide-react';
-import { Card, Button } from './Common';
+import { routePermissionMap, hasRoutePermission, getEffectiveUserPermissions, isSuperAdmin } from '../utils/menuPermissions';
+import { AccessDeniedCard } from './Common';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -41,8 +40,8 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
     return <>{children}</>;
   }
 
-  // Obter todas as permissões do usuário
-  const userPermissions = getAllUserPermissions(user);
+  // Usar apenas permissões efetivas do backend (all_permissions)
+  const userPermissions = getEffectiveUserPermissions(user);
 
   // Se não foram passadas permissões específicas, tentar obter do mapeamento de rotas
   // Com HashRouter, a rota real está em location.hash (sem o #)
@@ -94,38 +93,7 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
       userId: user.id,
     });
 
-    // Mostrar página de acesso negado
-    return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
-        <Card className="max-w-md w-full">
-          <div className="text-center space-y-6">
-            <div className="flex justify-center">
-              <div className="w-20 h-20 rounded-full flex items-center justify-center" style={{ backgroundColor: 'var(--store-color-light)' }}>
-                <ShieldCheck size={40} style={{ color: 'var(--store-color)' }} />
-              </div>
-            </div>
-            
-            <div>
-              <h1 className="text-2xl font-bold text-slate-900 mb-2">
-                Acesso Negado
-              </h1>
-              <p className="text-slate-600">
-                Você não tem permissão para acessar esta página.
-              </p>
-            </div>
-
-            <div className="flex justify-center">
-              <Button
-                variant="outline"
-                onClick={() => window.history.back()}
-              >
-                Voltar
-              </Button>
-            </div>
-          </div>
-        </Card>
-      </div>
-    );
+    return <AccessDeniedCard />;
   }
 
   // Usuário tem permissão, renderizar conteúdo

@@ -8,6 +8,7 @@ import { Role } from '../../services/api/roles';
 import { usePlucks } from '../../services/hooks/usePlucks';
 import { permissionsService } from '../../services/api/permissions';
 import { translatePermission, translateResource } from '../../utils/translations';
+import { useNotification } from '../../hooks/useNotification';
 
 const getProfileColor = (roleName: string): string => {
   const name = roleName.toLowerCase();
@@ -19,6 +20,7 @@ const getProfileColor = (roleName: string): string => {
 };
 
 export const Profiles: React.FC = () => {
+  const { showSuccess, showError } = useNotification();
   const { roles, loading, error, fetchRoles, createRole, updateRole, deleteRole, getRole } = useRoles({
     autoFetch: false,
   });
@@ -39,28 +41,16 @@ export const Profiles: React.FC = () => {
   const usersCountByRole = useMemo(() => {
     const count: Record<number, number> = {};
     
-    console.log('[Profiles] Contando usuários por perfil...');
-    console.log('[Profiles] Total de usuários:', users?.length || 0);
-    
     if (users && Array.isArray(users)) {
       users.forEach((user) => {
-        // Garantir que roles seja sempre um array
         const userRoles = Array.isArray(user.roles) ? user.roles : [];
-        
-        if (userRoles.length > 0) {
-          console.log(`[Profiles] Usuário ${user.email} tem ${userRoles.length} roles:`, userRoles.map(r => r.name));
-        }
-        
         userRoles.forEach((role) => {
           if (role && role.id) {
             count[role.id] = (count[role.id] || 0) + 1;
-            console.log(`[Profiles] Role ${role.id} (${role.name}) agora tem ${count[role.id]} usuários`);
           }
         });
       });
     }
-    
-    console.log('[Profiles] Contagem final por role:', count);
     return count;
   }, [users]);
 
@@ -75,7 +65,6 @@ export const Profiles: React.FC = () => {
   });
   const [formError, setFormError] = useState<string | null>(null);
   const [expandedModules, setExpandedModules] = useState<Set<string>>(new Set());
-  const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [loadingRole, setLoadingRole] = useState(false);
 
   // Agrupar permissões por módulo
@@ -87,6 +76,11 @@ export const Profiles: React.FC = () => {
       if (parts.length >= 2) {
         const module = parts[0];
         const action = parts.slice(1).join('.');
+        
+        // Filtrar permissões de modelo (são relacionamentos técnicos, não módulos)
+        if (module === 'model-has-permissions' || module === 'model-has-roles' || module === 'role-has-permissions') {
+          return;
+        }
         
         if (!grouped[module]) {
           grouped[module] = [];
@@ -178,10 +172,9 @@ export const Profiles: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Limpar mensagem de sucesso quando fechar o modal
+  // Limpar erro quando fechar o modal
   useEffect(() => {
     if (!isCreating && !editingId) {
-      setSuccessMessage(null);
       setFormError(null);
     }
   }, [isCreating, editingId]);
@@ -212,8 +205,6 @@ export const Profiles: React.FC = () => {
     }
     
     if (editingId) {
-      console.log('[Profiles] useEffect: editingId mudou, iniciando carregamento', { editingId, roles: !!roles, rolesLength: Array.isArray(roles) ? roles.length : 0 });
-      
       loadingRef.current = true;
       currentEditingIdRef.current = editingId;
       setLoadingRole(true);
@@ -225,7 +216,6 @@ export const Profiles: React.FC = () => {
         // Timeout de segurança (10 segundos)
         const timeoutId = setTimeout(() => {
           if (currentEditingIdRef.current === targetId && loadingRef.current) {
-            console.warn('[Profiles] Timeout ao carregar role, usando dados básicos');
             setLoadingRole(false);
             loadingRef.current = false;
             
@@ -249,10 +239,6 @@ export const Profiles: React.FC = () => {
           let role = Array.isArray(roles) ? roles.find(r => r && r.id === targetId) : null;
           
           if (role) {
-            console.log('[Profiles] Role encontrado na lista, preenchendo dados básicos');
-            console.log('[Profiles] Role da lista:', role);
-            console.log('[Profiles] Permissões do role da lista:', role.permissions);
-            
             // Extrair IDs das permissões de forma segura
             let permissionIds: number[] = [];
             if (role.permissions && Array.isArray(role.permissions)) {
@@ -265,30 +251,15 @@ export const Profiles: React.FC = () => {
                 return null;
               }).filter((id: any): id is number => id !== null);
             }
-            
-            console.log('[Profiles] IDs de permissões da lista:', permissionIds);
-            
-            // Preencher com dados básicos primeiro para mostrar o formulário rapidamente
             setFormData({
               name: role.name || '',
               guard_name: role.guard_name || 'web',
               permissions: permissionIds,
             });
-            console.log('[Profiles] FormData preenchido com dados básicos');
-            // Parar o loading para mostrar o formulário
             setLoadingRole(false);
             // Continuar carregando em background para buscar dados completos
-          } else {
-            console.log('[Profiles] Role não encontrado na lista, buscando diretamente da API');
           }
-          
-          // Sempre buscar o role completo com permissões da API
-          console.log('[Profiles] Buscando role completo da API com ID:', targetId);
           const fullRole = await getRole(String(targetId));
-          console.log('[Profiles] Role completo recebido:', fullRole);
-          console.log('[Profiles] Permissões do role:', fullRole.permissions);
-          console.log('[Profiles] Tipo de permissions:', typeof fullRole.permissions, 'É array?', Array.isArray(fullRole.permissions));
-          
           clearTimeout(timeoutId);
           
           // Verificar se ainda estamos editando o mesmo role (pode ter mudado durante o carregamento)
@@ -306,42 +277,20 @@ export const Profiles: React.FC = () => {
                   }
                   return null;
                 }).filter((id: any): id is number => id !== null);
-              } else {
-                console.warn('[Profiles] Permissions não é um array:', fullRole.permissions);
               }
-            } else {
-              console.warn('[Profiles] Permissions é null ou undefined');
             }
-            
-            console.log('[Profiles] IDs de permissões extraídos:', permissionIds);
-            
+
             const newFormData = {
               name: fullRole.name || '',
               guard_name: fullRole.guard_name || 'web',
               permissions: permissionIds,
             };
             
-            console.log('[Profiles] FormData que será atualizado:', newFormData);
-            
             setFormData(newFormData);
-            console.log('[Profiles] FormData atualizado com dados completos');
             setFormError(null);
-          } else {
-            console.warn('[Profiles] Role não corresponde ao ID atual ou não foi encontrado', {
-              currentEditingId: currentEditingIdRef.current,
-              targetId,
-              fullRoleId: fullRole?.id,
-            });
           }
         } catch (err: any) {
           clearTimeout(timeoutId);
-          console.error('[Profiles] Erro ao carregar perfil completo:', err);
-          console.error('[Profiles] Detalhes do erro:', {
-            message: err.message,
-            response: err.response?.data,
-            status: err.response?.status,
-          });
-          
           // Tentar usar dados básicos se disponíveis
           const role = Array.isArray(roles) ? roles.find(r => r && r.id === targetId) : null;
           if (role && currentEditingIdRef.current === targetId) {
@@ -365,7 +314,6 @@ export const Profiles: React.FC = () => {
           if (currentEditingIdRef.current === targetId) {
             setLoadingRole(false);
             loadingRef.current = false;
-            console.log('[Profiles] Carregamento finalizado para role:', targetId);
           }
         }
       };
@@ -385,24 +333,17 @@ export const Profiles: React.FC = () => {
   const handleEdit = (role: Role) => {
     console.log('[Profiles] handleEdit chamado para role:', role);
     setFormError(null);
-    setSuccessMessage(null);
     setEditingId(role.id);
     setIsCreating(false);
     // O useEffect vai carregar os dados completos
   };
 
   const handleCancel = () => {
-    console.log('[Profiles] handleCancel chamado', { loadingRole, editingId, isCreating });
-    // Não fechar se estiver carregando dados
-    if (loadingRole) {
-      console.log('[Profiles] Cancelando fechamento porque está carregando');
-      return;
-    }
+    if (loadingRole) return;
     setIsCreating(false);
     setEditingId(null);
     setFormData({ name: '', guard_name: 'web', permissions: [] });
     setFormError(null);
-    setSuccessMessage(null);
     setExpandedModules(new Set());
     setLoadingRole(false);
   };
@@ -410,7 +351,6 @@ export const Profiles: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setFormError(null);
-    setSuccessMessage(null);
 
     if (!formData.name.trim()) {
       setFormError('Nome do perfil é obrigatório');
@@ -426,22 +366,18 @@ export const Profiles: React.FC = () => {
 
       if (editingId) {
         await updateRole(String(editingId), payload);
-        setSuccessMessage('Perfil atualizado com sucesso!');
+        showSuccess('Perfil atualizado com sucesso!');
       } else {
         await createRole(payload);
-        setSuccessMessage('Perfil criado com sucesso!');
+        showSuccess('Perfil criado com sucesso!');
       }
 
       await fetchRoles(1, {});
-      
-      // Limpar mensagem de sucesso e fechar modal após 2 segundos
-      setTimeout(() => {
-        setSuccessMessage(null);
-        handleCancel();
-      }, 2000);
+      handleCancel();
     } catch (err: any) {
       console.error('Erro ao salvar perfil:', err);
-      setFormError(err.response?.data?.message || err.message || 'Erro ao salvar perfil');
+      const errorMessage = err.response?.data?.message || err.response?.data?.data?.message || err.message || 'Erro ao salvar perfil';
+      showError('Erro ao salvar perfil', errorMessage);
     }
   };
 
@@ -454,12 +390,14 @@ export const Profiles: React.FC = () => {
     if (roleToDelete) {
       try {
         await deleteRole(String(roleToDelete));
+        showSuccess('Perfil excluído!', 'O perfil foi excluído com sucesso.');
         await fetchRoles(1, {});
         setDeleteModalOpen(false);
         setRoleToDelete(null);
       } catch (err: any) {
         console.error('Erro ao excluir perfil:', err);
-        alert(err.response?.data?.message || err.message || 'Erro ao excluir perfil');
+        const errorMessage = err.response?.data?.message || err.message || 'Erro ao excluir perfil';
+        showError('Erro ao excluir perfil', errorMessage);
       }
     }
   };
@@ -527,7 +465,6 @@ export const Profiles: React.FC = () => {
                       onClick={(e) => {
                         e.preventDefault();
                         e.stopPropagation();
-                        console.log('[Profiles] Botão editar clicado para role:', role);
                         handleEdit(role);
                       }}
                     >
@@ -598,11 +535,7 @@ export const Profiles: React.FC = () => {
       <Modal
         isOpen={isCreating || !!editingId}
         onClose={() => {
-          console.log('[Profiles] Modal onClose chamado', { loadingRole });
-          // Não fechar se estiver carregando
-          if (!loadingRole) {
-            handleCancel();
-          }
+          if (!loadingRole) handleCancel();
         }}
         title={editingId ? 'Editar Perfil' : 'Criar Novo Perfil'}
         message={editingId ? 'Edite as informações do perfil' : 'Preencha os dados para criar um novo perfil'}
@@ -619,19 +552,6 @@ export const Profiles: React.FC = () => {
           </div>
         ) : (
           <>
-            {successMessage && (
-              <div className="mb-4 bg-emerald-50 border border-emerald-200 rounded-xl p-3 flex items-center gap-2">
-                <CheckCircle2 size={18} className="text-emerald-600 shrink-0" />
-                <p className="text-emerald-600 text-sm font-medium">{successMessage}</p>
-              </div>
-            )}
-            
-            {formError && (
-              <div className="mb-4 border rounded-xl p-3" style={{ backgroundColor: 'var(--store-color-light)', borderColor: 'var(--store-color-opacity-20)' }}>
-                <p className="text-sm font-medium" style={{ color: 'var(--store-color-dark)' }}>{formError}</p>
-              </div>
-            )}
-
             <form onSubmit={handleSubmit} className="space-y-4">
           <Input
             label="Nome do Perfil *"
