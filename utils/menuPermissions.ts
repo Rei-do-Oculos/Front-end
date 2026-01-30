@@ -49,6 +49,11 @@ export const routePermissionMap: Record<string, string[]> = {
   // Transferências
   '/transferencias': ['store-frames.list', 'store-frames.read'],
   
+  // Laboratórios
+  '/laboratories': ['laboratories.list', 'laboratories.read'],
+  '/laboratories/create': ['laboratories.create'],
+  '/laboratories/:id/edit': ['laboratories.update'],
+  
   // Outros módulos - por enquanto sem permissões específicas (públicos)
   // Quando as permissões forem criadas no backend, adicionar aqui
   '/pdv': [], // Público por enquanto
@@ -106,6 +111,7 @@ export function isSuperAdmin(user: {
     'stores.list', 'stores.create', 'stores.update', 'stores.delete',
     'audits.list', 'audits.read',
     'lenses.list', 'lenses.create', 'lenses.read', 'lenses.update', 'lenses.delete',
+    'laboratories.list', 'laboratories.create', 'laboratories.read', 'laboratories.update', 'laboratories.delete',
     'trash.list', 'trash.restore',
   ];
   

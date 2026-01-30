@@ -73,14 +73,14 @@ const menuItems: MenuItem[] = [
     ]
   },
   { 
-    title: 'Fornecedores', 
-    icon: <Truck size={20} />, 
-    path: '/fornecedores'
-  },
-  { 
     title: 'Lentes', 
     icon: <Sparkles size={20} />, 
     path: '/lenses'
+  },
+  { 
+    title: 'Laboratórios', 
+    icon: <FlaskConical size={20} />, 
+    path: '/laboratories'
   },
   { 
     title: 'Financeiro', 
