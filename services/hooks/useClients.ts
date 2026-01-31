@@ -1,3 +1,4 @@
+import { useCallback } from 'react';
 import { useApi } from './useApi';
 import { clientsService, CreateClientDto, UpdateClientDto, ClientsQueryParams, Client } from '../api/clients';
 
@@ -21,6 +22,16 @@ export const useClients = (options: UseClientsOptions = {}) => {
     return await clientsService.migrateToStore(id, storeId);
   };
 
+  // Método para buscar histórico do cliente
+  const getHistory = useCallback(async (clientId: string, params?: {
+    page?: number;
+    per_page?: number;
+    order_by?: string;
+    order_dir?: 'asc' | 'desc';
+  }) => {
+    return clientsService.getHistory(clientId, params);
+  }, []);
+
   return {
     clients: api.data,
     loading: api.loading,
@@ -32,6 +43,7 @@ export const useClients = (options: UseClientsOptions = {}) => {
     updateClient: api.update,
     deleteClient: api.delete,
     migrateToStore,
+    getHistory,
     reset: api.reset,
   };
 };

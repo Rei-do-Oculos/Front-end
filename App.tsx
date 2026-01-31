@@ -39,6 +39,7 @@ import { LaboratoryForm } from './pages/Laboratories/LaboratoryForm';
 import { LaboratoryDetail } from './pages/Laboratories/LaboratoryDetail';
 import { LaboratoryLensList } from './pages/LaboratoryLenses/LaboratoryLensList';
 import { LaboratoryLensForm } from './pages/LaboratoryLenses/LaboratoryLensForm';
+import { ServiceOrderList, ServiceOrderForm, ServiceOrderLabList } from './pages/ServiceOrders';
 import { Chat } from './pages/Chat';
 import { Login } from './pages/Login';
 import { PWAUpdatePrompt } from './components/PWAUpdatePrompt';
@@ -185,8 +186,13 @@ const StoreSelectorWrapper: React.FC<{ onLogout: () => void }> = ({ onLogout }) 
         <Route path="/laboratory-lenses" element={<ProtectedRoute><LaboratoryLensList /></ProtectedRoute>} />
         <Route path="/laboratory-lenses/create" element={<ProtectedRoute><LaboratoryLensForm /></ProtectedRoute>} />
         <Route path="/laboratory-lenses/:id/edit" element={<ProtectedRoute><LaboratoryLensForm /></ProtectedRoute>} />
-        <Route path="/financeiro" element={<ProtectedRoute><CashFlow /></ProtectedRoute>} />
-        <Route path="/financeiro/inadimplencias" element={<ProtectedRoute><Inadimplencias /></ProtectedRoute>} />
+        <Route path="/service-orders" element={<ProtectedRoute><ServiceOrderList /></ProtectedRoute>} />
+        <Route path="/service-orders/create" element={<ProtectedRoute><ServiceOrderForm /></ProtectedRoute>} />
+        <Route path="/service-orders/lab" element={<ProtectedRoute><ServiceOrderLabList /></ProtectedRoute>} />
+        <Route path="/service-orders/:id" element={<ProtectedRoute><ServiceOrderForm /></ProtectedRoute>} />
+        <Route path="/service-orders/:id/edit" element={<ProtectedRoute><ServiceOrderForm /></ProtectedRoute>} />
+        <Route path="/finance" element={<ProtectedRoute><CashFlow /></ProtectedRoute>} />
+        <Route path="/finance/overdue" element={<ProtectedRoute><Inadimplencias /></ProtectedRoute>} />
         <Route path="/notas-fiscais" element={<ProtectedRoute><InvoiceList /></ProtectedRoute>} />
         <Route path="/notas-fiscais/:id" element={<ProtectedRoute><InvoiceDetail /></ProtectedRoute>} />
         <Route path="/pedidos" element={<ProtectedRoute><OrderList /></ProtectedRoute>} />

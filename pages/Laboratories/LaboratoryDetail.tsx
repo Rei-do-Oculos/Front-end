@@ -1,10 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { 
   ArrowLeft, 
   FlaskConical, 
   Package,
-  ShoppingCart,
+  History,
   Edit,
   Plus,
   Trash2,
@@ -15,13 +15,18 @@ import {
   User,
   Clock,
   FileText,
-  Building2
+  Building2,
+  Eye,
+  DollarSign,
+  TrendingUp,
+  Calendar
 } from 'lucide-react';
-import { Card, Button, Badge, Modal, Pagination, SortableHeader, SortDirection } from '../../components/Common';
+import { Card, Button, Badge, Modal, Pagination, SortableHeader, SortDirection, MultiSelect } from '../../components/Common';
 import { useLaboratories } from '../../services/hooks/useLaboratories';
 import { useLaboratoryLenses } from '../../services/hooks/useLaboratoryLenses';
 import { Laboratory } from '../../services/api/laboratories';
 import { LaboratoryLens } from '../../services/api/laboratoryLenses';
+import { ServiceOrder } from '../../services/api/serviceOrders';
 import { useNotification } from '../../hooks/useNotification';
 import { usePermission } from '../../services/hooks/usePermission';
 
@@ -31,7 +36,7 @@ export const LaboratoryDetail: React.FC = () => {
   const { showSuccess, showError } = useNotification();
   const { hasPermission } = usePermission();
   
-  const [activeTab, setActiveTab] = useState<'overview' | 'lenses' | 'sales'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'lenses' | 'history'>('overview');
   const [laboratory, setLaboratory] = useState<Laboratory | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -44,7 +49,18 @@ export const LaboratoryDetail: React.FC = () => {
   const [lensToDelete, setLensToDelete] = useState<LaboratoryLens | null>(null);
   const [deleting, setDeleting] = useState(false);
   
-  const { getLaboratory } = useLaboratories({ autoFetch: false });
+  // Para a aba de histórico
+  const [historyOrders, setHistoryOrders] = useState<ServiceOrder[]>([]);
+  const [historyPagination, setHistoryPagination] = useState<{ currentPage: number; totalPages: number; totalItems: number } | null>(null);
+  const [loadingHistory, setLoadingHistory] = useState(false);
+  const [historyDateFrom, setHistoryDateFrom] = useState('');
+  const [historyDateTo, setHistoryDateTo] = useState('');
+  const [historyProductFilter, setHistoryProductFilter] = useState<string[]>([]);
+  const [historySortBy, setHistorySortBy] = useState<string | null>('completed_at');
+  const [historySortDirection, setHistorySortDirection] = useState<SortDirection>('desc');
+  const [historyPerPage, setHistoryPerPage] = useState<number>(10);
+  
+  const { getLaboratory, getHistory } = useLaboratories({ autoFetch: false });
   const { 
     laboratoryLenses, 
     loading: loadingLenses, 
@@ -56,13 +72,30 @@ export const LaboratoryDetail: React.FC = () => {
   useEffect(() => {
     if (id) {
       loadLaboratory();
+      // Carrega histórico para mostrar total no card da visão geral
+      loadHistoryStats();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
+  const loadHistoryStats = async () => {
+    try {
+      const result = await getHistory(Number(id), {
+        page: 1,
+        per_page: 1, // Só precisamos do meta.totalItems
+      });
+      setHistoryPagination(result.meta);
+    } catch (err) {
+      console.error('Erro ao carregar estatísticas do histórico:', err);
+    }
+  };
+
   useEffect(() => {
     if (id && activeTab === 'lenses') {
       loadLenses(1);
+    }
+    if (id && activeTab === 'history') {
+      loadHistory(1);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, activeTab]);
@@ -90,6 +123,53 @@ export const LaboratoryDetail: React.FC = () => {
     } catch (err) {
       console.error('Erro ao carregar lentes:', err);
     }
+  };
+
+  const loadHistory = useCallback(async (page = 1, params: any = {}) => {
+    setLoadingHistory(true);
+    try {
+      const finalParams: any = {
+        page,
+        order_by: params.order_by || historySortBy || 'completed_at',
+        order_dir: params.order_dir || historySortDirection || 'desc',
+        per_page: params.per_page || historyPerPage,
+      };
+      
+      if (historyDateFrom || params.date_from) finalParams.date_from = params.date_from ?? historyDateFrom;
+      if (historyDateTo || params.date_to) finalParams.date_to = params.date_to ?? historyDateTo;
+      
+      const result = await getHistory(Number(id), finalParams);
+      setHistoryOrders(result.data);
+      setHistoryPagination(result.meta);
+    } catch (err) {
+      console.error('Erro ao carregar histórico:', err);
+    } finally {
+      setLoadingHistory(false);
+    }
+  }, [id, getHistory, historySortBy, historySortDirection, historyPerPage, historyDateFrom, historyDateTo]);
+
+  const handleHistoryApplyFilters = async () => {
+    await loadHistory(1);
+  };
+
+  const handleHistoryClearFilters = async () => {
+    setHistoryDateFrom('');
+    setHistoryDateTo('');
+    setHistoryProductFilter([]);
+    await loadHistory(1, {
+      date_from: undefined,
+      date_to: undefined,
+    });
+  };
+
+  const handleHistorySort = (key: string, direction: SortDirection) => {
+    const newDirection = direction || 'desc';
+    setHistorySortBy(key);
+    setHistorySortDirection(newDirection);
+    loadHistory(historyPagination?.currentPage || 1, {
+      order_by: key,
+      order_dir: newDirection,
+    });
   };
 
   const handleSort = (key: string, direction: SortDirection) => {
@@ -287,10 +367,10 @@ export const LaboratoryDetail: React.FC = () => {
           {/* Navegação de Abas */}
           <div className="flex items-center gap-2 p-1.5 bg-white rounded-2xl border border-slate-100 shadow-sm w-fit">
             {[
-              { id: 'overview', label: 'Visão Geral', icon: Building2 },
-              { id: 'lenses', label: 'Lentes', icon: Package },
-              { id: 'sales', label: 'Vendas', icon: ShoppingCart },
-            ].map((tab) => (
+              { id: 'overview', label: 'Visão Geral', icon: Building2, permission: null },
+              { id: 'lenses', label: 'Lentes', icon: Package, permission: 'laboratory-lenses.list' },
+              { id: 'history', label: 'Histórico', icon: History, permission: 'laboratories.history' },
+            ].filter(tab => !tab.permission || hasPermission(tab.permission)).map((tab) => (
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id as any)}
@@ -335,19 +415,19 @@ export const LaboratoryDetail: React.FC = () => {
                 <Card className="border-none shadow-lg">
                   <div className="flex items-center gap-3 mb-6">
                     <div className="p-3 rounded-xl" style={{ backgroundColor: 'var(--store-color-light)' }}>
-                      <ShoppingCart size={24} style={{ color: 'var(--store-color)' }} />
+                      <History size={24} style={{ color: 'var(--store-color)' }} />
                     </div>
                     <div>
-                      <h3 className="text-2xl font-black text-slate-900">0</h3>
-                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Vendas com Produtos</p>
+                      <h3 className="text-2xl font-black text-slate-900">{historyPagination?.totalItems || 0}</h3>
+                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">OS Finalizadas</p>
                     </div>
                   </div>
                   <Button 
                     variant="outline" 
                     className="w-full" 
-                    onClick={() => setActiveTab('sales')}
+                    onClick={() => setActiveTab('history')}
                   >
-                    Ver Histórico de Vendas
+                    Ver Histórico
                   </Button>
                 </Card>
 
@@ -562,19 +642,195 @@ export const LaboratoryDetail: React.FC = () => {
               </Card>
             )}
 
-            {activeTab === 'sales' && (
-              <Card className="border-none shadow-lg">
-                <div className="flex flex-col items-center justify-center py-16 gap-4">
-                  <div className="w-24 h-24 rounded-3xl flex items-center justify-center" style={{ backgroundColor: 'var(--store-color-light)' }}>
-                    <ShoppingCart size={48} style={{ color: 'var(--store-color)' }} />
-                  </div>
-                  <h3 className="text-lg font-black text-slate-900 tracking-tight">Histórico de Vendas</h3>
-                  <p className="text-sm text-slate-500 text-center max-w-md">
-                    Esta seção mostrará todas as Ordens de Serviço (OS) onde os produtos deste laboratório foram utilizados.
-                  </p>
-                  <Badge variant="info">Em breve</Badge>
+            {activeTab === 'history' && (
+              <div className="space-y-6">
+                {/* Cards de estatísticas */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <Card className="border-none shadow-lg">
+                    <div className="flex items-center gap-4">
+                      <div className="p-4 rounded-2xl" style={{ backgroundColor: 'var(--store-color-light)' }}>
+                        <TrendingUp size={28} style={{ color: 'var(--store-color)' }} />
+                      </div>
+                      <div>
+                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Total de OS</p>
+                        <h3 className="text-3xl font-black text-slate-900">{historyPagination?.totalItems || 0}</h3>
+                      </div>
+                    </div>
+                  </Card>
+                  <Card className="border-none shadow-lg">
+                    <div className="flex items-center gap-4">
+                      <div className="p-4 rounded-2xl bg-emerald-50">
+                        <DollarSign size={28} className="text-emerald-600" />
+                      </div>
+                      <div>
+                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Valor Total</p>
+                        <h3 className="text-3xl font-black text-emerald-600">
+                          {formatCurrency(historyOrders.reduce((acc, order) => acc + (order.price || 0), 0))}
+                        </h3>
+                      </div>
+                    </div>
+                  </Card>
                 </div>
-              </Card>
+
+                {/* Filtros */}
+                <Card className="border-none shadow-lg">
+                  <div className="flex flex-wrap items-end gap-4">
+                    <div className="flex-1 min-w-[150px]">
+                      <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">
+                        Data Início
+                      </label>
+                      <input
+                        type="date"
+                        value={historyDateFrom}
+                        onChange={(e) => setHistoryDateFrom(e.target.value)}
+                        className="w-full px-4 py-2.5 text-sm border border-slate-200 rounded-xl focus:outline-none focus:border-[var(--store-color)] focus:ring-2 focus:ring-[var(--store-color-opacity-5)]"
+                      />
+                    </div>
+                    <div className="flex-1 min-w-[150px]">
+                      <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">
+                        Data Fim
+                      </label>
+                      <input
+                        type="date"
+                        value={historyDateTo}
+                        onChange={(e) => setHistoryDateTo(e.target.value)}
+                        className="w-full px-4 py-2.5 text-sm border border-slate-200 rounded-xl focus:outline-none focus:border-[var(--store-color)] focus:ring-2 focus:ring-[var(--store-color-opacity-5)]"
+                      />
+                    </div>
+                    <div className="flex-1 min-w-[250px]">
+                      <MultiSelect
+                        label="Produtos"
+                        value={historyProductFilter}
+                        onChange={setHistoryProductFilter}
+                        options={lensesList.map((lens) => ({ value: String(lens.id), label: lens.name }))}
+                        placeholder="Selecione os produtos..."
+                      />
+                    </div>
+                    <div className="flex gap-2">
+                      <Button variant="outline" onClick={handleHistoryClearFilters}>
+                        Limpar
+                      </Button>
+                      <Button onClick={handleHistoryApplyFilters}>
+                        Filtrar
+                      </Button>
+                    </div>
+                  </div>
+                </Card>
+
+                {/* Lista de OS */}
+                <Card className="p-0 overflow-hidden border-none shadow-lg">
+                  <div className="p-6 border-b border-slate-50">
+                    <h3 className="text-sm font-black text-slate-900 uppercase tracking-tight">Histórico de OS</h3>
+                    <p className="text-xs text-slate-500 mt-1">
+                      Ordens de serviço finalizadas com produtos deste laboratório
+                    </p>
+                  </div>
+
+                  <div className="overflow-x-auto">
+                    <table className="w-full">
+                      <thead>
+                        <tr className="border-b border-slate-100">
+                          <SortableHeader
+                            label="Nº OS"
+                            sortKey="os_number"
+                            currentSort={historySortBy}
+                            currentDirection={historySortDirection}
+                            onSort={handleHistorySort}
+                            className="px-6 py-4"
+                          />
+                          <th className="px-6 py-4 text-left text-[10px] font-black uppercase text-slate-400 tracking-widest">Cliente</th>
+                          <th className="px-6 py-4 text-left text-[10px] font-black uppercase text-slate-400 tracking-widest">Ótica</th>
+                          <SortableHeader
+                            label="Finalizado em"
+                            sortKey="completed_at"
+                            currentSort={historySortBy}
+                            currentDirection={historySortDirection}
+                            onSort={handleHistorySort}
+                            className="px-6 py-4"
+                          />
+                          <th className="px-6 py-4 text-right text-[10px] font-black uppercase text-slate-400 tracking-widest">Valor</th>
+                          <th className="px-6 py-4 text-center text-[10px] font-black uppercase text-slate-400 tracking-widest">Ações</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-50">
+                        {loadingHistory ? (
+                          <tr>
+                            <td colSpan={6} className="px-6 py-12 text-center">
+                              <div className="flex items-center justify-center gap-3">
+                                <Loader2 size={20} className="animate-spin" style={{ color: 'var(--store-color)' }} />
+                                <span className="text-sm text-slate-500">Carregando histórico...</span>
+                              </div>
+                            </td>
+                          </tr>
+                        ) : historyOrders.length === 0 ? (
+                          <tr>
+                            <td colSpan={6} className="px-6 py-12 text-center">
+                              <div className="flex flex-col items-center gap-4">
+                                <History size={48} className="text-slate-200" />
+                                <p className="text-sm text-slate-500">Nenhuma OS finalizada encontrada para este laboratório</p>
+                              </div>
+                            </td>
+                          </tr>
+                        ) : (
+                          historyOrders.map((order) => (
+                            <tr key={order.id} className="group hover:bg-slate-50/50 transition-colors">
+                              <td className="px-6 py-4">
+                                <span className="text-sm font-bold" style={{ color: 'var(--store-color)' }}>
+                                  {String(order.os_number).padStart(4, '0')}
+                                </span>
+                              </td>
+                              <td className="px-6 py-4">
+                                <p className="text-sm font-bold text-slate-900">{order.client?.name || '-'}</p>
+                              </td>
+                              <td className="px-6 py-4">
+                                <p className="text-sm text-slate-600">{order.store?.name || '-'}</p>
+                              </td>
+                              <td className="px-6 py-4 text-sm text-slate-500">
+                                {order.completed_at ? formatDate(order.completed_at) : '-'}
+                              </td>
+                              <td className="px-6 py-4 text-right">
+                                <span className="text-sm font-bold" style={{ color: 'var(--store-color)' }}>
+                                  {formatCurrency(order.price || 0)}
+                                </span>
+                              </td>
+                              <td className="px-6 py-4">
+                                <div className="flex items-center justify-center">
+                                  <button 
+                                    title="Visualizar OS"
+                                    onClick={() => navigate(`/service-orders/${order.id}`)}
+                                    className="p-2 text-slate-400 hover:bg-white rounded-xl shadow-sm border border-transparent hover:border-slate-100 transition-all"
+                                    onMouseEnter={(e) => {
+                                      e.currentTarget.style.color = 'var(--store-color-dark)';
+                                    }}
+                                    onMouseLeave={(e) => {
+                                      e.currentTarget.style.color = '';
+                                    }}
+                                  >
+                                    <Eye size={16} />
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          ))
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {historyPagination && historyPagination.totalPages > 1 && (
+                    <Pagination
+                      pagination={historyPagination}
+                      perPage={historyPerPage}
+                      onPerPageChange={(newPerPage) => {
+                        setHistoryPerPage(newPerPage);
+                        loadHistory(1, { per_page: newPerPage });
+                      }}
+                      onPageChange={(page) => loadHistory(page)}
+                      itemName="ordens de serviço"
+                    />
+                  )}
+                </Card>
+              </div>
             )}
           </div>
         </div>

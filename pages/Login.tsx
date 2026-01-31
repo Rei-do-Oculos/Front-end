@@ -70,9 +70,6 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
     <div className="min-h-screen bg-white flex items-center justify-center p-6">
       <div className="w-full max-w-sm">
         <div className="text-center mb-12">
-          <div className="inline-flex items-center justify-center w-12 h-12 bg-red-600 rounded-xl mb-4">
-            <span className="text-white font-black text-lg">RÓ</span>
-          </div>
           <h1 className="text-2xl font-bold text-gray-900 mb-1">
             REI DO <span className="text-red-600">ÓCULOS</span>
           </h1>
@@ -128,18 +125,7 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
             </div>
           </div>
 
-          <div className="flex items-center justify-between text-sm">
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input
-                type="checkbox"
-                className="w-4 h-4 rounded border-gray-300 text-red-600 focus:ring-red-500 cursor-pointer"
-              />
-              <span className="text-gray-600">Lembrar de mim</span>
-            </label>
-            <a href="#" className="text-red-600 hover:text-red-700 font-medium">
-              Esqueceu a senha?
-            </a>
-          </div>
+
 
           <button
             type="submit"

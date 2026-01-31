@@ -296,6 +296,80 @@ export const Input: React.FC<React.InputHTMLAttributes<HTMLInputElement> & { lab
   );
 };
 
+// NumberInput - Campo numérico com setas para incrementar/decrementar
+export const NumberInput: React.FC<{
+  label?: string;
+  value: string;
+  onChange: (value: string) => void;
+  onBlur?: (value: string) => void;
+  min?: number;
+  max?: number;
+  step?: number;
+  placeholder?: string;
+  error?: string;
+  className?: string;
+}> = ({ label, value, onChange, onBlur, min, max, step = 0.25, placeholder, error, className = "" }) => {
+  const [isFocused, setIsFocused] = React.useState(false);
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    // Permitir apenas caracteres válidos para números decimais
+    let val = e.target.value;
+    // Substituir ponto por vírgula para manter formato brasileiro
+    val = val.replace('.', ',');
+    // Filtrar caracteres inválidos: permitir números, vírgula e sinal no início
+    let filtered = '';
+    for (let i = 0; i < val.length; i++) {
+      const char = val[i];
+      if (i === 0 && (char === '-' || char === '+')) {
+        filtered += char;
+      } else if (/[\d,]/.test(char)) {
+        // Só permite uma vírgula
+        if (char === ',' && filtered.includes(',')) continue;
+        filtered += char;
+      }
+    }
+    onChange(filtered);
+  };
+
+  const handleBlur = () => {
+    setIsFocused(false);
+    if (onBlur) {
+      // Passar o valor atual do state (props), não do input
+      onBlur(value);
+    }
+  };
+
+  return (
+    <div className={`space-y-1.5 lg:space-y-2 w-full ${className}`}>
+      {label && (
+        <label className="text-[10px] lg:text-[11px] font-semibold text-slate-500 uppercase tracking-[0.15em] ml-1">
+          {label}
+        </label>
+      )}
+      <input
+        type="text"
+        inputMode="decimal"
+        value={value}
+        onChange={handleChange}
+        onBlur={handleBlur}
+        onFocus={() => setIsFocused(true)}
+        placeholder={placeholder}
+        className={`w-full px-4 py-3 lg:px-5 lg:py-3.5 ${styles.input.default} bg-gray-50 border text-sm font-medium transition-all outline-none`}
+        style={{
+          borderColor: error 
+            ? 'var(--store-color)' 
+            : isFocused 
+              ? 'var(--store-color)' 
+              : '#f1f5f9',
+          backgroundColor: isFocused ? 'white' : undefined,
+          boxShadow: isFocused && !error ? '0 0 0 4px var(--store-color-opacity-5)' : undefined,
+        }}
+      />
+      {error && <p className="text-[10px] font-medium ml-1" style={{ color: 'var(--store-color)' }}>{error}</p>}
+    </div>
+  );
+};
+
 export const Select: React.FC<React.SelectHTMLAttributes<HTMLSelectElement> & { label?: string; options: { label: string; value: string }[] }> = ({ label, options, className = "", ...props }) => (
   <div className="space-y-1.5 lg:space-y-2 w-full">
     {label && <label className="text-[10px] lg:text-[11px] font-semibold text-slate-500 uppercase tracking-[0.15em] ml-1">{label}</label>}
@@ -351,15 +425,15 @@ export const StatCard: React.FC<{ title: string; value: string | number; icon: L
 
 export const Badge: React.FC<{ children: React.ReactNode; variant?: 'primary' | 'danger' | 'success' | 'warning' | 'info' }> = ({ children, variant = 'primary' }) => {
   const variants = {
-    primary: "bg-blue-50 text-blue-600",
-    danger: "bg-red-50 text-red-600",
-    success: "bg-emerald-50 text-emerald-600",
-    warning: "bg-amber-50 text-amber-600",
-    info: "bg-slate-50 text-slate-600",
+    primary: "bg-indigo-100 text-indigo-700",
+    danger: "bg-red-100 text-red-700",
+    success: "bg-emerald-100 text-emerald-700",
+    warning: "bg-amber-100 text-amber-700",
+    info: "bg-sky-100 text-sky-700",
   };
 
   return (
-    <span className={`px-2.5 py-0.5 ${styles.badge.default} text-[9px] font-bold uppercase tracking-wider ${variants[variant]}`}>
+    <span className={`px-2.5 py-1 ${styles.badge.default} text-[10px] font-bold uppercase tracking-wider ${variants[variant]}`}>
       {children}
     </span>
   );
@@ -371,11 +445,16 @@ export const MultiSelect: React.FC<{
   value: string[];
   onChange: (values: string[]) => void;
   placeholder?: string;
-}> = ({ label, options, value = [], onChange, placeholder = "Selecione..." }) => {
+  searchable?: boolean;
+  disabled?: boolean;
+  disabledMessage?: string;
+}> = ({ label, options, value = [], onChange, placeholder = "Selecione...", searchable = true, disabled = false, disabledMessage }) => {
   const [isOpen, setIsOpen] = useState(false);
+  const [search, setSearch] = useState('');
   const [position, setPosition] = useState({ top: 0, left: 0, width: 0 });
-  const buttonRef = useRef<HTMLButtonElement>(null);
+  const buttonRef = useRef<HTMLDivElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
 
   const toggleOption = (optionValue: string) => {
     if (value.includes(optionValue)) {
@@ -403,6 +482,8 @@ export const MultiSelect: React.FC<{
   useEffect(() => {
     if (isOpen) {
       updatePosition();
+      setSearch('');
+      setTimeout(() => searchInputRef.current?.focus(), 50);
       const handleResize = () => updatePosition();
       const handleScroll = () => updatePosition();
       window.addEventListener('resize', handleResize);
@@ -414,6 +495,10 @@ export const MultiSelect: React.FC<{
     }
   }, [isOpen]);
 
+  const filteredOptions = searchable && search
+    ? options.filter(opt => opt.label.toLowerCase().includes(search.toLowerCase()))
+    : options;
+
   const dropdownContent = isOpen ? (
     <>
       <div
@@ -422,36 +507,53 @@ export const MultiSelect: React.FC<{
       />
       <div
         ref={dropdownRef}
-        className="fixed z-[110] bg-white border border-gray-100 rounded-lg shadow-lg max-h-60 overflow-auto"
+        className="fixed z-[110] bg-white border border-gray-100 rounded-lg shadow-lg max-h-72 overflow-auto"
         style={{
           top: `${position.top}px`,
           left: `${position.left}px`,
           width: `${position.width}px`,
         }}
+        onClick={(e) => e.stopPropagation()}
       >
-        {options.length === 0 ? (
+        {filteredOptions.length === 0 ? (
           <div className="px-4 py-3 text-sm text-gray-400 text-center">
-            Nenhuma opção disponível
+            {search ? 'Nenhum resultado encontrado' : 'Nenhuma opção disponível'}
           </div>
         ) : (
-          options.map(option => (
-            <label
+          filteredOptions.map(option => (
+            <div
               key={option.value}
-              className="flex items-center gap-3 px-4 py-2.5 hover:bg-gray-50 cursor-pointer"
-              onClick={() => toggleOption(option.value)}
+              className="flex items-center gap-3 px-4 py-2.5 cursor-pointer transition-colors"
+              style={{
+                backgroundColor: value.includes(option.value) ? 'var(--store-color-light)' : undefined,
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = 'var(--store-color-light)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = value.includes(option.value) ? 'var(--store-color-light)' : '';
+              }}
+              onMouseDown={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                toggleOption(option.value);
+              }}
             >
-              <input
-                type="checkbox"
-                checked={value.includes(option.value)}
-                onChange={() => toggleOption(option.value)}
-                className="w-4 h-4 rounded border-gray-300 focus:ring-2"
+              <div 
+                className="w-4 h-4 rounded border-2 flex items-center justify-center flex-shrink-0"
                 style={{
-                  accentColor: 'var(--store-color)',
-                  color: 'var(--store-color)',
-                } as React.CSSProperties}
-              />
+                  borderColor: value.includes(option.value) ? 'var(--store-color)' : '#d1d5db',
+                  backgroundColor: value.includes(option.value) ? 'var(--store-color)' : 'transparent',
+                }}
+              >
+                {value.includes(option.value) && (
+                  <svg className="w-2.5 h-2.5 text-white" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                  </svg>
+                )}
+              </div>
               <span className="text-sm text-slate-700">{option.label}</span>
-            </label>
+            </div>
           ))
         )}
       </div>
@@ -462,14 +564,57 @@ export const MultiSelect: React.FC<{
     <div className="space-y-1.5 lg:space-y-2 w-full relative">
       {label && <label className="text-[10px] lg:text-[11px] font-semibold text-slate-500 uppercase tracking-[0.15em] ml-1">{label}</label>}
       <div className="relative">
-        <button
+        <div
           ref={buttonRef}
-          type="button"
-          onClick={() => setIsOpen(!isOpen)}
-          className={`w-full px-4 py-3 lg:px-5 lg:py-3.5 ${styles.input.default} bg-gray-50 border border-gray-100 text-sm font-medium focus:bg-white focus:border-red-500 focus:ring-4 focus:ring-red-500/5 transition-all outline-none text-left flex items-center justify-between min-h-[48px]`}
+          onClick={() => !disabled && !isOpen && setIsOpen(true)}
+          className={`w-full px-4 py-3 lg:px-5 lg:py-3.5 ${styles.input.default} bg-gray-50 border border-gray-100 text-sm font-medium transition-all outline-none text-left flex items-center justify-between min-h-[48px] ${disabled ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'} ${isOpen ? 'bg-white ring-2' : ''}`}
+          style={{
+            borderColor: isOpen ? 'var(--store-color)' : undefined,
+            '--tw-ring-color': 'var(--store-color-opacity-20)',
+          } as React.CSSProperties}
         >
-          <div className="flex flex-wrap gap-1.5 flex-1">
-            {value.length === 0 ? (
+          <div className="flex flex-wrap gap-1.5 flex-1 items-center">
+            {disabled && disabledMessage ? (
+              <span className="text-gray-400 italic">{disabledMessage}</span>
+            ) : isOpen && searchable ? (
+              <>
+                {value.map(val => {
+                  const option = options.find(opt => opt.value === val);
+                  return option ? (
+                    <span
+                      key={val}
+                      className="inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium"
+                      style={{
+                        backgroundColor: 'var(--store-color-light)',
+                        color: 'var(--store-color-dark)',
+                      }}
+                    >
+                      {option.label}
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          removeOption(val);
+                        }}
+                        className="hover:opacity-80"
+                        style={{ color: 'var(--store-color-dark)' }}
+                      >
+                        <X size={12} />
+                      </button>
+                    </span>
+                  ) : null;
+                })}
+                <input
+                  ref={searchInputRef}
+                  type="text"
+                  placeholder={value.length === 0 ? "Buscar..." : ""}
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  className="flex-1 min-w-[100px] bg-transparent outline-none text-sm text-slate-700 placeholder-gray-400"
+                  onClick={(e) => e.stopPropagation()}
+                />
+              </>
+            ) : value.length === 0 ? (
               <span className="text-gray-400">{placeholder}</span>
             ) : (
               value.map(val => {
@@ -477,26 +622,42 @@ export const MultiSelect: React.FC<{
                 return option ? (
                   <span
                     key={val}
-                    className="inline-flex items-center gap-1 px-2 py-1 bg-red-50 text-red-600 rounded text-xs font-medium"
+                    className="inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium"
+                    style={{
+                      backgroundColor: 'var(--store-color-light)',
+                      color: 'var(--store-color-dark)',
+                    }}
                   >
                     {option.label}
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        removeOption(val);
-                      }}
-                      className="hover:text-red-800"
-                    >
-                      <X size={12} />
-                    </button>
+                    {!disabled && (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          removeOption(val);
+                        }}
+                        className="hover:opacity-80"
+                        style={{ color: 'var(--store-color-dark)' }}
+                      >
+                        <X size={12} />
+                      </button>
+                    )}
                   </span>
                 ) : null;
               })
             )}
           </div>
-          <ChevronDownIcon size={16} className={`text-gray-400 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
-        </button>
+          {!disabled && (
+            <ChevronDownIcon 
+              size={16} 
+              className={`text-gray-400 transition-transform flex-shrink-0 cursor-pointer ${isOpen ? 'rotate-180' : ''}`}
+              onClick={(e) => {
+                e.stopPropagation();
+                setIsOpen(!isOpen);
+              }}
+            />
+          )}
+        </div>
         
         {typeof document !== 'undefined' && createPortal(dropdownContent, document.body)}
       </div>
@@ -514,19 +675,21 @@ export const SingleSelect: React.FC<{
   value: string;
   onChange: (value: string) => void;
   placeholder?: string;
-}> = ({ label, options, value = '', onChange, placeholder = "Selecione..." }) => {
+  searchable?: boolean;
+  error?: string;
+  disabled?: boolean;
+}> = ({ label, options, value = '', onChange, placeholder = "Selecione...", searchable = false, error, disabled = false }) => {
   const [isOpen, setIsOpen] = useState(false);
+  const [search, setSearch] = useState('');
   const [position, setPosition] = useState({ top: 0, left: 0, width: 0 });
-  const buttonRef = useRef<HTMLButtonElement>(null);
+  const buttonRef = useRef<HTMLDivElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
 
   const selectOption = (optionValue: string) => {
-    if (value === optionValue) {
-      onChange(''); // Deselecionar se já está selecionado
-    } else {
-      onChange(optionValue); // Selecionar apenas 1
-    }
+    onChange(value === optionValue ? '' : optionValue);
     setIsOpen(false);
+    setSearch('');
   };
 
   const removeOption = () => {
@@ -547,6 +710,10 @@ export const SingleSelect: React.FC<{
   useEffect(() => {
     if (isOpen) {
       updatePosition();
+      setSearch('');
+      if (searchable) {
+        setTimeout(() => searchInputRef.current?.focus(), 50);
+      }
       const handleResize = () => updatePosition();
       const handleScroll = () => updatePosition();
       window.addEventListener('resize', handleResize);
@@ -556,9 +723,13 @@ export const SingleSelect: React.FC<{
         window.removeEventListener('scroll', handleScroll, true);
       };
     }
-  }, [isOpen]);
+  }, [isOpen, searchable]);
 
   const selectedOption = options.find(opt => opt.value === value);
+
+  const filteredOptions = searchable && search
+    ? options.filter(opt => opt.label.toLowerCase().includes(search.toLowerCase()))
+    : options;
 
   const dropdownContent = isOpen ? (
     <>
@@ -568,36 +739,40 @@ export const SingleSelect: React.FC<{
       />
       <div
         ref={dropdownRef}
-        className="fixed z-[110] bg-white border border-gray-100 rounded-lg shadow-lg max-h-60 overflow-auto"
+        className="fixed z-[110] bg-white border border-gray-100 rounded-lg shadow-lg max-h-72 overflow-auto"
         style={{
           top: `${position.top}px`,
           left: `${position.left}px`,
           width: `${position.width}px`,
         }}
+        onClick={(e) => e.stopPropagation()}
       >
-        {options.length === 0 ? (
+        {filteredOptions.length === 0 ? (
           <div className="px-4 py-3 text-sm text-gray-400 text-center">
-            Nenhuma opção disponível
+            {search ? 'Nenhum resultado encontrado' : 'Nenhuma opção disponível'}
           </div>
         ) : (
-          options.map(option => (
-            <label
+          filteredOptions.map(option => (
+            <div
               key={option.value}
-              className="flex items-center gap-3 px-4 py-2.5 hover:bg-gray-50 cursor-pointer"
-              onClick={() => selectOption(option.value)}
+              className="px-4 py-2.5 cursor-pointer transition-colors"
+              style={{
+                backgroundColor: value === option.value ? 'var(--store-color-light)' : undefined,
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = 'var(--store-color-light)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = value === option.value ? 'var(--store-color-light)' : '';
+              }}
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                selectOption(option.value);
+              }}
             >
-              <input
-                type="radio"
-                checked={value === option.value}
-                onChange={() => selectOption(option.value)}
-                className="w-4 h-4 border-gray-300 focus:ring-2"
-                style={{
-                  accentColor: 'var(--store-color)',
-                  color: 'var(--store-color)',
-                } as React.CSSProperties}
-              />
               <span className="text-sm text-slate-700">{option.label}</span>
-            </label>
+            </div>
           ))
         )}
       </div>
@@ -608,28 +783,51 @@ export const SingleSelect: React.FC<{
     <div className="space-y-1.5 lg:space-y-2 w-full relative">
       {label && <label className="text-[10px] lg:text-[11px] font-semibold text-slate-500 uppercase tracking-[0.15em] ml-1">{label}</label>}
       <div className="relative">
-        <button
+        <div
           ref={buttonRef}
-          type="button"
-          onClick={() => setIsOpen(!isOpen)}
-          className={`w-full px-4 py-3 lg:px-5 lg:py-3.5 ${styles.input.default} bg-gray-50 border border-gray-100 text-sm font-medium transition-all outline-none text-left flex items-center justify-between min-h-[48px]`}
+          onClick={() => !disabled && setIsOpen(!isOpen)}
+          className={`w-full px-4 py-3 lg:px-5 lg:py-3.5 ${styles.input.default} bg-gray-50 border text-sm font-medium transition-all outline-none text-left flex items-center justify-between min-h-[48px] ${disabled ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'} ${isOpen ? 'bg-white ring-2' : ''} ${error ? 'border-red-500' : 'border-gray-100'}`}
           style={{
-            '--focus-border': 'var(--store-color)',
-            '--focus-ring': 'var(--store-color-opacity-5)',
+            borderColor: error ? '#ef4444' : (isOpen ? 'var(--store-color)' : undefined),
+            '--tw-ring-color': 'var(--store-color-opacity-20)',
           } as React.CSSProperties}
-          onFocus={(e) => {
-            e.currentTarget.style.borderColor = 'var(--store-color)';
-            e.currentTarget.style.boxShadow = '0 0 0 4px var(--store-color-opacity-5)';
-            e.currentTarget.style.backgroundColor = 'white';
-          }}
-          onBlur={(e) => {
-            e.currentTarget.style.borderColor = '';
-            e.currentTarget.style.boxShadow = '';
-            e.currentTarget.style.backgroundColor = '';
-          }}
         >
-          <div className="flex flex-wrap gap-1.5 flex-1">
-            {!value || !selectedOption ? (
+          <div className="flex flex-wrap gap-1.5 flex-1 items-center">
+            {isOpen && searchable ? (
+              <>
+                {selectedOption && (
+                  <span
+                    className="inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium"
+                    style={{
+                      backgroundColor: 'var(--store-color-light)',
+                      color: 'var(--store-color-dark)',
+                    }}
+                  >
+                    {selectedOption.label}
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        removeOption();
+                      }}
+                      className="hover:opacity-80"
+                      style={{ color: 'var(--store-color-dark)' }}
+                    >
+                      <X size={12} />
+                    </button>
+                  </span>
+                )}
+                <input
+                  ref={searchInputRef}
+                  type="text"
+                  placeholder={!selectedOption ? "Buscar..." : ""}
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  className="flex-1 min-w-[100px] bg-transparent outline-none text-sm text-slate-700 placeholder-gray-400"
+                  onClick={(e) => e.stopPropagation()}
+                />
+              </>
+            ) : !value || !selectedOption ? (
               <span className="text-gray-400">{placeholder}</span>
             ) : (
               <span
@@ -640,25 +838,37 @@ export const SingleSelect: React.FC<{
                 }}
               >
                 {selectedOption.label}
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    removeOption();
-                  }}
-                  className="hover:opacity-80"
-                  style={{ color: 'var(--store-color-dark)' }}
-                >
-                  <X size={12} />
-                </button>
+                {!disabled && (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      removeOption();
+                    }}
+                    className="hover:opacity-80"
+                    style={{ color: 'var(--store-color-dark)' }}
+                  >
+                    <X size={12} />
+                  </button>
+                )}
               </span>
             )}
           </div>
-          <ChevronDownIcon size={16} className={`text-gray-400 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
-        </button>
+          {!disabled && (
+            <ChevronDownIcon 
+              size={16} 
+              className={`text-gray-400 transition-transform flex-shrink-0 cursor-pointer ${isOpen ? 'rotate-180' : ''}`}
+              onClick={(e) => {
+                e.stopPropagation();
+                setIsOpen(!isOpen);
+              }}
+            />
+          )}
+        </div>
         
         {typeof document !== 'undefined' && createPortal(dropdownContent, document.body)}
       </div>
+      {error && <p className="text-xs text-red-500 font-medium mt-1">{error}</p>}
     </div>
   );
 };
@@ -797,21 +1007,21 @@ export const Modal: React.FC<ModalProps> = ({
     },
   };
 
-  return (
+  const modalContent = (
     <div 
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      className="fixed inset-0 z-[100] flex items-center justify-center p-4"
       onClick={(e) => {
         if (e.target === e.currentTarget) {
           handleCancel();
         }
       }}
     >
-      {/* Backdrop */}
-      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
+      {/* Backdrop - cobre toda a viewport incluindo header */}
+      <div className="fixed inset-0 bg-black/50 backdrop-blur-sm" aria-hidden />
       
       {/* Modal */}
       <div 
-        className={`relative bg-white rounded-2xl shadow-2xl w-full ${sizeClasses[size]} overflow-hidden`}
+        className={`relative z-[101] bg-white rounded-2xl shadow-2xl w-full ${sizeClasses[size]} overflow-hidden`}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
@@ -876,6 +1086,8 @@ export const Modal: React.FC<ModalProps> = ({
       </div>
     </div>
   );
+
+  return typeof document !== 'undefined' ? createPortal(modalContent, document.body) : null;
 };
 
 export const FilterSection: React.FC<{ children: React.ReactNode; onApply?: () => void; onClear?: () => void }> = ({ children, onApply, onClear }) => {

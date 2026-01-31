@@ -197,6 +197,54 @@ class LaboratoriesService {
       return [];
     }
   }
+
+  /**
+   * Get history of completed service orders for a laboratory
+   */
+  async getHistory(laboratoryId: number, params?: {
+    page?: number;
+    per_page?: number;
+    date_from?: string;
+    date_to?: string;
+    order_by?: string;
+    order_dir?: 'asc' | 'desc';
+  }): Promise<PaginatedResponse<any>> {
+    const response = await apiClient.get<{
+      success: boolean;
+      data: {
+        service_orders: {
+          current_page: number;
+          data: any[];
+          last_page: number;
+          total: number;
+        };
+      };
+    }>(`${this.endpoint}/${laboratoryId}/history`, { params });
+
+    const responseData = response.data;
+
+    if (!responseData.success || !responseData.data?.service_orders) {
+      throw new Error('Resposta inválida da API');
+    }
+
+    const pagination = responseData.data.service_orders;
+
+    let ordersData: any[] = [];
+    if (Array.isArray(pagination.data)) {
+      ordersData = pagination.data;
+    } else if (pagination.data && typeof pagination.data === 'object') {
+      ordersData = Object.values(pagination.data);
+    }
+
+    return {
+      data: ordersData,
+      meta: {
+        currentPage: pagination.current_page || 1,
+        totalPages: pagination.last_page || 1,
+        totalItems: pagination.total || 0,
+      },
+    };
+  }
 }
 
 export const laboratoriesService = new LaboratoriesService();
