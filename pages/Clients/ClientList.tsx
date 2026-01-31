@@ -536,16 +536,26 @@ export const ClientList: React.FC = () => {
                             return (
                               <div className="flex flex-col gap-1">
                                 {storesArray.map((store: any, index: number) => (
-                                  <span 
-                                    key={store?.id || index}
-                                    className="inline-flex items-center px-2 py-1 rounded text-xs font-medium"
-                                    style={{
-                                      backgroundColor: 'var(--store-color-light)',
-                                      color: 'var(--store-color-dark)',
-                                    }}
-                                  >
-                                    {store?.name || 'Loja sem nome'}
-                                  </span>
+                                  <div key={store?.id || index} className="flex flex-col">
+                                    <span 
+                                      className={`inline-flex items-center px-2 py-1 rounded text-xs font-medium ${
+                                        store?.deleted 
+                                          ? 'bg-red-50 text-red-600 border border-red-200' 
+                                          : ''
+                                      }`}
+                                      style={!store?.deleted ? {
+                                        backgroundColor: 'var(--store-color-light)',
+                                        color: 'var(--store-color-dark)',
+                                      } : undefined}
+                                    >
+                                      {store?.name || 'Loja sem nome'}
+                                    </span>
+                                    {store?.deleted && (
+                                      <span className="text-[9px] font-bold text-red-500 uppercase tracking-wider mt-0.5">
+                                        Excluída
+                                      </span>
+                                    )}
+                                  </div>
                                 ))}
                               </div>
                             );

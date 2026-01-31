@@ -42,6 +42,18 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
 
   // Usar apenas permissões efetivas do backend (all_permissions)
   const userPermissions = getEffectiveUserPermissions(user);
+  
+  // Debug detalhado
+  console.log('[ProtectedRoute] DEBUG:', {
+    route: location.pathname,
+    userId: user.id,
+    userEmail: user.email,
+    hasAllPermissions: !!user.all_permissions,
+    allPermissionsCount: user.all_permissions?.length || 0,
+    allPermissions: user.all_permissions?.map(p => p.name),
+    effectivePermissionsCount: userPermissions.length,
+    effectivePermissions: userPermissions.map(p => p.name),
+  });
 
   // Se não foram passadas permissões específicas, tentar obter do mapeamento de rotas
   // Com HashRouter, a rota real está em location.hash (sem o #)

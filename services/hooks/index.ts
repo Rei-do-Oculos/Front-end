@@ -3,6 +3,7 @@ export * from './useAuth';
 export * from './useAudits';
 export * from './useClients';
 export * from './useLaboratories';
+export * from './useLaboratoryLenses';
 export * from './useOrders';
 export * from './usePermissions';
 export * from './usePlucks';

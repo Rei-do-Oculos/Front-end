@@ -143,12 +143,46 @@ class LaboratoriesService {
     return data.data.laboratory;
   }
 
-  async delete(id: string): Promise<void> {
-    const { data } = await apiClient.delete<{ success: boolean; action: string; data: any }>(`${this.endpoint}/${id}`);
+  async delete(id: string, confirmDeleteLenses: boolean = false): Promise<{
+    success: boolean;
+    requires_confirmation?: boolean;
+    lenses_count?: number;
+    message?: string;
+    lenses_deleted?: number;
+  }> {
+    const { data } = await apiClient.delete<{ 
+      success: boolean; 
+      action: string; 
+      data: {
+        requires_confirmation?: boolean;
+        lenses_count?: number;
+        message?: string;
+        lenses_deleted?: number;
+        laboratory?: Laboratory;
+      } 
+    }>(`${this.endpoint}/${id}`, {
+      data: { confirm_delete_lenses: confirmDeleteLenses }
+    });
     
     if (!data.success) {
       throw new Error('Erro ao excluir laboratório');
     }
+
+    // Se precisa de confirmação
+    if (data.action === 'delete_confirmation_required' && data.data?.requires_confirmation) {
+      return {
+        success: true,
+        requires_confirmation: true,
+        lenses_count: data.data.lenses_count,
+        message: data.data.message,
+      };
+    }
+
+    return {
+      success: true,
+      requires_confirmation: false,
+      lenses_deleted: data.data?.lenses_deleted || 0,
+    };
   }
 
   async plucks(): Promise<any[]> {

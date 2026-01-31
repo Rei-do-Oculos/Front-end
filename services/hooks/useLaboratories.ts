@@ -17,6 +17,11 @@ export const useLaboratories = (options: UseLaboratoriesOptions = {}) => {
     initialParams,
   });
 
+  // Método especial para deletar com verificação de lentes
+  const deleteLaboratoryWithCheck = async (id: string, confirmDeleteLenses: boolean = false) => {
+    return laboratoriesService.delete(id, confirmDeleteLenses);
+  };
+
   return {
     laboratories: api.data,
     loading: api.loading,
@@ -26,7 +31,7 @@ export const useLaboratories = (options: UseLaboratoriesOptions = {}) => {
     getLaboratory: api.getById,
     createLaboratory: api.create,
     updateLaboratory: api.update,
-    deleteLaboratory: api.delete,
+    deleteLaboratory: deleteLaboratoryWithCheck,
     reset: api.reset,
   };
 };

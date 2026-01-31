@@ -1,22 +1,25 @@
 import React, { useState, useEffect } from 'react';
-import { Edit, Plus, Trash2, Loader2, Building2, Phone, Mail, Clock, Eye } from 'lucide-react';
-import { Card, Button, Input, FilterSection, Modal, ActiveFiltersBadge, SortableHeader, SortDirection, Pagination, AccessDeniedCard, Badge } from '../../components/Common';
+import { Edit, Plus, Trash2, Loader2, Glasses, Building2 } from 'lucide-react';
+import { Card, Button, Input, SingleSelect, FilterSection, Modal, ActiveFiltersBadge, SortableHeader, SortDirection, Pagination, AccessDeniedCard, Badge } from '../../components/Common';
+import { useLaboratoryLenses } from '../../services/hooks/useLaboratoryLenses';
 import { useLaboratories } from '../../services/hooks/useLaboratories';
-import { Laboratory } from '../../services/api/laboratories';
+import { LaboratoryLens } from '../../services/api/laboratoryLenses';
 import { useNotification } from '../../hooks/useNotification';
 import { usePermission } from '../../services/hooks/usePermission';
 import { useActiveFilters } from '../../hooks/useActiveFilters';
 import { useNavigate } from 'react-router-dom';
 
-export const LaboratoryList: React.FC = () => {
+export const LaboratoryLensList: React.FC = () => {
   const navigate = useNavigate();
   const { showSuccess, showError } = useNotification();
   const { hasPermission } = usePermission();
-  const { laboratories, loading, error, pagination, fetchLaboratories, deleteLaboratory } = useLaboratories({
+  const { laboratoryLenses, loading, error, pagination, fetchLaboratoryLenses, deleteLaboratoryLens } = useLaboratoryLenses({
     autoFetch: false,
   });
+  const { laboratories, fetchLaboratories } = useLaboratories({ autoFetch: false });
 
   const [searchName, setSearchName] = useState('');
+  const [filterLaboratory, setFilterLaboratory] = useState('');
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [sortBy, setSortBy] = useState<string | null>('id');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
@@ -24,25 +27,29 @@ export const LaboratoryList: React.FC = () => {
   
   const activeFilters = useActiveFilters({
     searchName,
+    filterLaboratory,
   });
-  const [laboratoryToDelete, setLaboratoryToDelete] = useState<Laboratory | null>(null);
+  const [lensToDelete, setLensToDelete] = useState<LaboratoryLens | null>(null);
   const [deleting, setDeleting] = useState(false);
-  const [lensesCount, setLensesCount] = useState<number>(0);
-  const [confirmWithLenses, setConfirmWithLenses] = useState(false);
 
   useEffect(() => {
-    const loadLaboratories = async () => {
+    fetchLaboratories(1, { per_page: 100 });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    const loadLenses = async () => {
       try {
-        await fetchLaboratories(1, {
+        await fetchLaboratoryLenses(1, {
           order_by: sortBy || 'id',
           order_dir: sortDirection || 'desc',
           per_page: perPage,
         });
       } catch (err) {
-        console.error('Erro ao carregar laboratórios:', err);
+        console.error('Erro ao carregar lentes:', err);
       }
     };
-    loadLaboratories();
+    loadLenses();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [perPage]);
 
@@ -53,18 +60,20 @@ export const LaboratoryList: React.FC = () => {
     
     const params: any = {};
     if (searchName) params.search = searchName;
+    if (filterLaboratory) params.laboratory_id = filterLaboratory;
     
     params.order_by = key;
     params.order_dir = newDirection;
     params.per_page = perPage;
     
-    fetchLaboratories(pagination?.currentPage || 1, params);
+    fetchLaboratoryLenses(pagination?.currentPage || 1, params);
   };
 
   const handleApplyFilters = async () => {
     try {
       const params: any = {};
       if (searchName) params.search = searchName;
+      if (filterLaboratory) params.laboratory_id = filterLaboratory;
       
       if (sortBy) {
         params.order_by = sortBy;
@@ -72,7 +81,7 @@ export const LaboratoryList: React.FC = () => {
       }
       
       params.per_page = perPage;
-      await fetchLaboratories(1, params);
+      await fetchLaboratoryLenses(1, params);
     } catch (err) {
       console.error('Erro ao aplicar filtros:', err);
     }
@@ -80,9 +89,10 @@ export const LaboratoryList: React.FC = () => {
 
   const handleClearFilters = async () => {
     setSearchName('');
+    setFilterLaboratory('');
     
     try {
-      await fetchLaboratories(1, {
+      await fetchLaboratoryLenses(1, {
         order_by: sortBy || 'id',
         order_dir: sortDirection || 'desc',
         per_page: perPage,
@@ -99,90 +109,45 @@ export const LaboratoryList: React.FC = () => {
         per_page: newPerPage,
       };
       if (searchName) params.search = searchName;
+      if (filterLaboratory) params.laboratory_id = filterLaboratory;
       if (sortBy) {
         params.order_by = sortBy;
         params.order_dir = sortDirection || 'desc';
       }
-      await fetchLaboratories(1, params);
+      await fetchLaboratoryLenses(1, params);
     } catch (err) {
       console.error('Erro ao alterar itens por página:', err);
     }
   };
 
-  const handleDeleteClick = (laboratory: Laboratory) => {
-    setLaboratoryToDelete(laboratory);
-    setLensesCount(0);
-    setConfirmWithLenses(false);
+  const handleDeleteClick = (lens: LaboratoryLens) => {
+    setLensToDelete(lens);
     setDeleteModalOpen(true);
   };
 
   const handleConfirmDelete = async () => {
-    if (!laboratoryToDelete) return;
+    if (!lensToDelete) return;
 
     setDeleting(true);
     try {
-      const result = await deleteLaboratory(String(laboratoryToDelete.id), confirmWithLenses);
-      
-      // Se precisa de confirmação (tem lentes vinculadas)
-      if (result.requires_confirmation) {
-        setLensesCount(result.lenses_count || 0);
-        setDeleting(false);
-        return;
-      }
-
-      // Exclusão realizada com sucesso
+      await deleteLaboratoryLens(String(lensToDelete.id));
       setDeleteModalOpen(false);
-      setLaboratoryToDelete(null);
-      setLensesCount(0);
-      setConfirmWithLenses(false);
-      
-      const lensesDeleted = result.lenses_deleted || 0;
-      if (lensesDeleted > 0) {
-        showSuccess(`Laboratório e ${lensesDeleted} lente(s) excluídos com sucesso!`);
-      } else {
-        showSuccess('Laboratório excluído com sucesso!');
-      }
-      
-      await fetchLaboratories(pagination.currentPage, {});
+      setLensToDelete(null);
+      showSuccess('Lente excluída com sucesso!');
+      await fetchLaboratoryLenses(pagination.currentPage, {});
     } catch (err: any) {
-      console.error('Erro ao excluir laboratório:', err);
-      showError(err.message || 'Erro ao excluir laboratório');
+      console.error('Erro ao excluir lente:', err);
+      showError(err.message || 'Erro ao excluir lente');
     } finally {
       setDeleting(false);
     }
   };
 
-  const handleConfirmDeleteWithLenses = async () => {
-    setConfirmWithLenses(true);
-    // Chamar novamente com confirmação
-    if (!laboratoryToDelete) return;
-
-    setDeleting(true);
-    try {
-      const result = await deleteLaboratory(String(laboratoryToDelete.id), true);
-      
-      setDeleteModalOpen(false);
-      setLaboratoryToDelete(null);
-      setLensesCount(0);
-      setConfirmWithLenses(false);
-      
-      const lensesDeleted = result.lenses_deleted || 0;
-      showSuccess(`Laboratório e ${lensesDeleted} lente(s) excluídos com sucesso!`);
-      
-      await fetchLaboratories(pagination.currentPage, {});
-    } catch (err: any) {
-      console.error('Erro ao excluir laboratório:', err);
-      showError(err.message || 'Erro ao excluir laboratório');
-    } finally {
-      setDeleting(false);
-    }
-  };
-
-  const handleCancelDelete = () => {
-    setDeleteModalOpen(false);
-    setLaboratoryToDelete(null);
-    setLensesCount(0);
-    setConfirmWithLenses(false);
+  const formatCurrency = (value: number) => {
+    return new Intl.NumberFormat('pt-BR', {
+      style: 'currency',
+      currency: 'BRL',
+    }).format(value);
   };
 
   const formatDate = (dateString: string) => {
@@ -202,6 +167,7 @@ export const LaboratoryList: React.FC = () => {
     }
   };
 
+  const lensesList = Array.isArray(laboratoryLenses) ? laboratoryLenses : [];
   const laboratoriesList = Array.isArray(laboratories) ? laboratories : [];
 
   if (error && (error as any).status === 403) return <AccessDeniedCard />;
@@ -211,23 +177,30 @@ export const LaboratoryList: React.FC = () => {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div className="flex items-center gap-4">
           <div>
-            <h1 className="text-3xl font-black text-slate-950 tracking-tight">Laboratórios</h1>
-            <p className="text-gray-500 font-medium mt-1">Gerencie os laboratórios parceiros.</p>
+            <h1 className="text-3xl font-black text-slate-950 tracking-tight">Lentes de Laboratório</h1>
+            <p className="text-gray-500 font-medium mt-1">Gerencie os produtos/lentes de cada laboratório.</p>
           </div>
         </div>
-        {hasPermission('laboratories.create') && (
-          <Button onClick={() => navigate('/laboratories/create')}>
-            <Plus size={18} /> Novo Laboratório
+        {hasPermission('laboratory-lenses.create') && (
+          <Button onClick={() => navigate('/laboratory-lenses/create')}>
+            <Plus size={18} /> Nova Lente
           </Button>
         )}
       </div>
 
       <FilterSection onClear={handleClearFilters} onApply={handleApplyFilters}>
         <Input 
-          label="Nome do Laboratório" 
+          label="Nome da Lente" 
           placeholder="Buscar por nome..." 
           value={searchName}
           onChange={(e) => setSearchName(e.target.value)}
+        />
+        <SingleSelect
+          label="Laboratório"
+          value={filterLaboratory}
+          onChange={(val) => setFilterLaboratory(val)}
+          options={laboratoriesList.map((lab) => ({ value: String(lab.id), label: lab.name }))}
+          placeholder="Todos os laboratórios"
         />
       </FilterSection>
 
@@ -284,8 +257,23 @@ export const LaboratoryList: React.FC = () => {
                   onSort={handleSort}
                   className="px-6 py-4"
                 />
-                <th className="px-6 py-4 text-left text-[10px] font-black uppercase text-slate-400 tracking-widest">Contato</th>
-                <th className="px-6 py-4 text-center text-[10px] font-black uppercase text-slate-400 tracking-widest">Prazo</th>
+                <th className="px-6 py-4 text-left text-[10px] font-black uppercase text-slate-400 tracking-widest">Laboratório</th>
+                <SortableHeader
+                  label="Preço Custo"
+                  sortKey="cost_price"
+                  currentSort={sortBy}
+                  currentDirection={sortDirection}
+                  onSort={handleSort}
+                  className="px-6 py-4"
+                />
+                <SortableHeader
+                  label="Preço Venda"
+                  sortKey="sale_price"
+                  currentSort={sortBy}
+                  currentDirection={sortDirection}
+                  onSort={handleSort}
+                  className="px-6 py-4"
+                />
                 <th className="px-6 py-4 text-center text-[10px] font-black uppercase text-slate-400 tracking-widest">Status</th>
                 <SortableHeader
                   label="Cadastro"
@@ -301,41 +289,41 @@ export const LaboratoryList: React.FC = () => {
             <tbody className="divide-y divide-slate-50">
               {loading ? (
                 <tr>
-                  <td colSpan={7} className="px-6 py-12 text-center">
+                  <td colSpan={8} className="px-6 py-12 text-center">
                     <div className="flex items-center justify-center gap-3">
                       <Loader2 size={20} className="animate-spin" style={{ color: 'var(--store-color)' }} />
-                      <span className="text-sm text-slate-500">Carregando laboratórios...</span>
+                      <span className="text-sm text-slate-500">Carregando lentes...</span>
                     </div>
                   </td>
                 </tr>
               ) : error ? (
                 <tr>
-                  <td colSpan={7} className="px-6 py-12 text-center">
+                  <td colSpan={8} className="px-6 py-12 text-center">
                     <div className="border rounded-lg p-4" style={{ backgroundColor: 'var(--store-color-light)', borderColor: 'var(--store-color-opacity-20)' }}>
-                      <p className="text-sm font-bold mb-1" style={{ color: 'var(--store-color-dark)' }}>Erro ao carregar laboratórios</p>
+                      <p className="text-sm font-bold mb-1" style={{ color: 'var(--store-color-dark)' }}>Erro ao carregar lentes</p>
                       <p className="text-xs" style={{ color: 'var(--store-color)' }}>{error.message || 'Erro desconhecido'}</p>
                     </div>
                   </td>
                 </tr>
-              ) : laboratoriesList.length === 0 ? (
+              ) : lensesList.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="px-6 py-12 text-center">
-                    <span className="text-sm text-slate-500">Nenhum laboratório encontrado</span>
+                  <td colSpan={8} className="px-6 py-12 text-center">
+                    <span className="text-sm text-slate-500">Nenhuma lente encontrada</span>
                   </td>
                 </tr>
               ) : (
-                laboratoriesList.map((laboratory) => (
-                  <tr key={laboratory.id} className="group hover:bg-slate-50/50 transition-colors">
-                    <td className="px-6 py-4 text-xs font-bold text-slate-400">#{laboratory.id}</td>
+                lensesList.map((lens) => (
+                  <tr key={lens.id} className="group hover:bg-slate-50/50 transition-colors">
+                    <td className="px-6 py-4 text-xs font-bold text-slate-400">#{lens.id}</td>
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-3">
                         <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ backgroundColor: 'var(--store-color-light)' }}>
-                          <Building2 size={18} style={{ color: 'var(--store-color)' }} />
+                          <Glasses size={18} style={{ color: 'var(--store-color)' }} />
                         </div>
                         <div>
                           <p 
                             className="text-sm font-bold text-slate-900 transition-colors cursor-pointer"
-                            onClick={() => navigate(`/laboratories/${laboratory.id}`)}
+                            onClick={() => navigate(`/laboratory-lenses/${lens.id}/edit`)}
                             onMouseEnter={(e) => {
                               e.currentTarget.style.color = 'var(--store-color-dark)';
                             }}
@@ -343,72 +331,44 @@ export const LaboratoryList: React.FC = () => {
                               e.currentTarget.style.color = '';
                             }}
                           >
-                            {laboratory.name}
+                            {lens.name}
                           </p>
-                          {laboratory.cnpj && (
-                            <p className="text-xs text-slate-400">{laboratory.cnpj}</p>
+                          {lens.description && (
+                            <p className="text-xs text-slate-400 truncate max-w-[200px]">{lens.description}</p>
                           )}
                         </div>
                       </div>
                     </td>
                     <td className="px-6 py-4">
-                      <div className="space-y-1">
-                        {laboratory.phone && (
-                          <div className="flex items-center gap-2 text-xs text-slate-500">
-                            <Phone size={12} />
-                            <span>{laboratory.phone}</span>
-                          </div>
-                        )}
-                        {laboratory.email && (
-                          <div className="flex items-center gap-2 text-xs text-slate-500">
-                            <Mail size={12} />
-                            <span>{laboratory.email}</span>
-                          </div>
-                        )}
-                        {!laboratory.phone && !laboratory.email && (
-                          <span className="text-xs text-slate-400">-</span>
-                        )}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 text-center">
-                      {laboratory.delivery_days ? (
-                        <div className="flex items-center justify-center gap-1 text-xs text-slate-600">
-                          <Clock size={12} />
-                          <span>{laboratory.delivery_days} dias</span>
+                      {lens.laboratory ? (
+                        <div className="flex items-center gap-2">
+                          <Building2 size={14} className="text-slate-400" />
+                          <span className="text-sm text-slate-600">{lens.laboratory.name}</span>
                         </div>
                       ) : (
                         <span className="text-xs text-slate-400">-</span>
                       )}
                     </td>
+                    <td className="px-6 py-4 text-sm font-medium text-slate-600">
+                      {formatCurrency(lens.cost_price)}
+                    </td>
+                    <td className="px-6 py-4 text-sm font-bold" style={{ color: 'var(--store-color)' }}>
+                      {formatCurrency(lens.sale_price)}
+                    </td>
                     <td className="px-6 py-4 text-center">
-                      <Badge variant={laboratory.active ? 'success' : 'danger'}>
-                        {laboratory.active ? 'Ativo' : 'Inativo'}
+                      <Badge variant={lens.active ? 'success' : 'danger'}>
+                        {lens.active ? 'Ativo' : 'Inativo'}
                       </Badge>
                     </td>
                     <td className="px-6 py-4 text-[10px] font-medium text-slate-400">
-                      {formatDate(laboratory.created_at)}
+                      {formatDate(lens.created_at)}
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex items-center justify-center gap-2">
-                        {hasPermission('laboratories.read') && (
+                        {hasPermission('laboratory-lenses.update') && (
                           <button 
-                            title="Ver detalhes"
-                            onClick={() => navigate(`/laboratories/${laboratory.id}`)}
-                            className="p-2 text-slate-400 hover:bg-white rounded-xl shadow-sm border border-transparent hover:border-slate-100 transition-all"
-                            onMouseEnter={(e) => {
-                              e.currentTarget.style.color = 'var(--store-color-dark)';
-                            }}
-                            onMouseLeave={(e) => {
-                              e.currentTarget.style.color = '';
-                            }}
-                          >
-                            <Eye size={16} />
-                          </button>
-                        )}
-                        {hasPermission('laboratories.update') && (
-                          <button 
-                            title="Editar laboratório"
-                            onClick={() => navigate(`/laboratories/${laboratory.id}/edit`)}
+                            title="Editar lente"
+                            onClick={() => navigate(`/laboratory-lenses/${lens.id}/edit`)}
                             className="p-2 text-slate-400 hover:bg-white rounded-xl shadow-sm border border-transparent hover:border-slate-100 transition-all"
                             onMouseEnter={(e) => {
                               e.currentTarget.style.color = 'var(--store-color-dark)';
@@ -420,10 +380,10 @@ export const LaboratoryList: React.FC = () => {
                             <Edit size={16} />
                           </button>
                         )}
-                        {hasPermission('laboratories.delete') && (
+                        {hasPermission('laboratory-lenses.delete') && (
                           <button 
-                            title="Excluir laboratório"
-                            onClick={() => handleDeleteClick(laboratory)}
+                            title="Excluir lente"
+                            onClick={() => handleDeleteClick(lens)}
                             className="p-2 text-slate-400 hover:bg-white rounded-xl shadow-sm border border-transparent hover:border-slate-100 transition-all"
                             onMouseEnter={(e) => {
                               e.currentTarget.style.color = 'var(--store-color-dark)';
@@ -452,14 +412,15 @@ export const LaboratoryList: React.FC = () => {
             onPageChange={(page) => {
               const params: any = {};
               if (searchName) params.search = searchName;
+              if (filterLaboratory) params.laboratory_id = filterLaboratory;
               if (sortBy && sortDirection) {
                 params.order_by = sortBy;
                 params.order_dir = sortDirection;
               }
               params.per_page = perPage;
-              fetchLaboratories(page, params);
+              fetchLaboratoryLenses(page, params);
             }}
-            itemName="laboratórios"
+            itemName="lentes"
           />
         )}
       </Card>
@@ -469,77 +430,45 @@ export const LaboratoryList: React.FC = () => {
         isOpen={deleteModalOpen}
         onClose={() => {
           if (!deleting) {
-            handleCancelDelete();
+            setDeleteModalOpen(false);
+            setLensToDelete(null);
           }
         }}
-        title={lensesCount > 0 ? "Atenção: Laboratório com Lentes Vinculadas" : "Confirmar Exclusão"}
+        title="Confirmar Exclusão"
       >
         <div className="space-y-4">
-          {lensesCount > 0 ? (
-            <>
-              <div className="p-4 rounded-xl bg-amber-50 border border-amber-200">
-                <p className="text-sm font-bold text-amber-800 mb-2">
-                  ⚠️ Este laboratório possui {lensesCount} lente(s) cadastrada(s)
-                </p>
-                <p className="text-xs text-amber-700">
-                  Ao excluir o laboratório <strong>{laboratoryToDelete?.name}</strong>, todas as {lensesCount} lentes vinculadas também serão movidas para a lixeira.
-                </p>
-              </div>
-              <p className="text-sm text-slate-700">
-                Deseja continuar com a exclusão do laboratório e de todas as suas lentes?
-              </p>
-            </>
-          ) : (
-            <>
-              <p className="text-sm text-slate-700">
-                Tem certeza que deseja excluir o laboratório <strong>{laboratoryToDelete?.name}</strong>?
-              </p>
-              <p className="text-xs text-slate-500">
-                O laboratório será movido para a lixeira e poderá ser restaurado posteriormente.
-              </p>
-            </>
-          )}
+          <p className="text-sm text-slate-700">
+            Tem certeza que deseja excluir a lente <strong>{lensToDelete?.name}</strong>?
+          </p>
+          <p className="text-xs text-slate-500">
+            Esta ação não pode ser desfeita.
+          </p>
           <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-100">
             <Button
               variant="outline"
-              onClick={handleCancelDelete}
+              onClick={() => {
+                setDeleteModalOpen(false);
+                setLensToDelete(null);
+              }}
               disabled={deleting}
             >
               Cancelar
             </Button>
-            {lensesCount > 0 ? (
-              <Button
-                variant="danger"
-                onClick={handleConfirmDeleteWithLenses}
-                disabled={deleting}
-              >
-                {deleting ? (
-                  <>
-                    <Loader2 size={16} className="animate-spin" /> Excluindo...
-                  </>
-                ) : (
-                  <>
-                    <Trash2 size={16} /> Excluir Laboratório e Lentes
-                  </>
-                )}
-              </Button>
-            ) : (
-              <Button
-                variant="danger"
-                onClick={handleConfirmDelete}
-                disabled={deleting}
-              >
-                {deleting ? (
-                  <>
-                    <Loader2 size={16} className="animate-spin" /> Verificando...
-                  </>
-                ) : (
-                  <>
-                    <Trash2 size={16} /> Excluir
-                  </>
-                )}
-              </Button>
-            )}
+            <Button
+              variant="danger"
+              onClick={handleConfirmDelete}
+              disabled={deleting}
+            >
+              {deleting ? (
+                <>
+                  <Loader2 size={16} className="animate-spin" /> Excluindo...
+                </>
+              ) : (
+                <>
+                  <Trash2 size={16} /> Excluir
+                </>
+              )}
+            </Button>
           </div>
         </div>
       </Modal>

@@ -23,9 +23,9 @@ import {
   Building2,
   ShieldCheck,
   FlaskConical,
+  Glasses,
   User,
   KeyRound,
-  Sparkles,
   Home,
   Clock,
   Calendar
@@ -74,13 +74,17 @@ const menuItems: MenuItem[] = [
   },
   { 
     title: 'Lentes', 
-    icon: <Sparkles size={20} />, 
+    icon: <Glasses size={20} />, 
     path: '/lenses'
   },
   { 
     title: 'Laboratórios', 
     icon: <FlaskConical size={20} />, 
-    path: '/laboratories'
+    path: '/laboratories',
+    submenu: [
+      { title: 'Laboratórios', path: '/laboratories' },
+      { title: 'Lentes/Produtos', path: '/laboratory-lenses' }
+    ]
   },
   { 
     title: 'Financeiro', 
@@ -211,7 +215,8 @@ export const Layout: React.FC<{ children: React.ReactNode; onLogout: () => void 
     }
 
     // Mapeamento de rotas para prefixos de módulos
-    const routeToModuleMap: Record<string, string> = {
+    // Para itens com submenu, usar array de prefixos para verificar qualquer um deles
+    const routeToModuleMap: Record<string, string | string[]> = {
       '/clients': 'clients',
       '/stores': 'stores',
       '/lenses': 'lenses',
@@ -219,15 +224,18 @@ export const Layout: React.FC<{ children: React.ReactNode; onLogout: () => void 
       '/frames': 'frames',
       '/transferencias': 'store-frames',
       '/users': 'users',
-      '/permissions': 'roles', // permissions ou roles
       '/audit': 'audits',
       '/vendedores': 'sellers',
       '/fornecedores': 'suppliers',
-      '/pedidos': 'orders',
-      '/estoque': 'stock',
-      '/financeiro': 'finance',
-      '/pdv': 'pos',
-      '/chat': 'chat',
+      // Itens com submenu que têm múltiplos módulos
+      '/estoque': ['frames', 'frame-types', 'store-frames'],
+      '/laboratories': ['laboratories', 'laboratory-lenses'],
+      '/permissions': ['roles', 'permissions', 'users', 'audits', 'trash'], // Sistema
+      // Módulos ainda sem permissões específicas (públicos por enquanto)
+      '/financeiro': [], 
+      '/pdv': [],
+      '/pedidos': [],
+      '/chat': [],
     };
 
     // Filtrar e mapear itens do menu
@@ -235,21 +243,41 @@ export const Layout: React.FC<{ children: React.ReactNode; onLogout: () => void 
       .filter(item => {
         const requiredPermissions = routePermissionMap[item.path];
         const modulePrefix = routeToModuleMap[item.path];
+        const hasSubmenu = item.submenu && item.submenu.length > 0;
         
         // Se há um prefixo de módulo mapeado, verificar PRIMEIRO se o usuário tem pelo menos uma permissão desse módulo
         // Isso garante que se o usuário não tem NENHUMA permissão do módulo, o item não aparece
         if (modulePrefix) {
-          if (!hasAnyModulePermission(allPermissions, modulePrefix)) return false;
+          // Suporte para múltiplos prefixos (ex: Estoque pode ter frames, frame-types, store-frames)
+          if (Array.isArray(modulePrefix)) {
+            // Array vazio significa público (sem verificação de módulo)
+            if (modulePrefix.length > 0) {
+              // Se é um array com prefixos, verificar se o usuário tem permissão em QUALQUER um dos módulos
+              const hasAnyModule = modulePrefix.some(prefix => 
+                hasAnyModulePermission(allPermissions, prefix)
+              );
+              if (!hasAnyModule) return false;
+            }
+            // Se array vazio, não faz verificação (público)
+          } else {
+            if (!hasAnyModulePermission(allPermissions, modulePrefix)) return false;
+          }
         }
-        if (requiredPermissions && requiredPermissions.length > 0) {
-          if (!hasRoutePermission(allPermissions, item.path, user)) return false;
-        }
-        if (item.submenu && item.submenu.length > 0) {
-          const hasAnySubmenuPermission = item.submenu.some(sub =>
+        
+        // Para itens COM submenu: verificar se tem acesso a pelo menos um subitem
+        // NÃO verificar requiredPermissions do item pai - o pai aparece se algum filho tiver permissão
+        if (hasSubmenu) {
+          const hasAnySubmenuPermission = item.submenu!.some(sub =>
             hasRoutePermission(allPermissions, sub.path, user)
           );
           if (!hasAnySubmenuPermission) return false;
+        } else {
+          // Para itens SEM submenu: verificar requiredPermissions normalmente
+          if (requiredPermissions && requiredPermissions.length > 0) {
+            if (!hasRoutePermission(allPermissions, item.path, user)) return false;
+          }
         }
+        
         return true;
       })
       .map(item => {
@@ -700,17 +728,27 @@ export const Layout: React.FC<{ children: React.ReactNode; onLogout: () => void 
                 </div>
               )}
               
-              {/* Mostrar loja única */}
+              {/* Mostrar loja única - mesmo estilo visual do seletor */}
               {availableStores.length === 1 && selectedStore && (
                 <div className="flex items-center gap-2 px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg">
                   <div 
-                    className="w-8 h-8 rounded-lg flex items-center justify-center text-white shadow-sm shrink-0"
+                    className="w-3 h-3 rounded-full shadow-sm"
                     style={{ backgroundColor: storeColor }}
-                  >
-                    <Store size={16} />
-                  </div>
-                  <span className="text-xs font-semibold text-slate-700 hidden sm:block">
+                  ></div>
+                  <span className="text-xs font-semibold text-slate-700">
                     {selectedStore.fancy_name || selectedStore.name}
+                  </span>
+                  {/* Ícone de loja no lugar do chevron para indicar que é única */}
+                  <Store size={14} className="text-slate-400" />
+                </div>
+              )}
+              
+              {/* Fallback: Se não tem lojas disponíveis mas está logado, mostrar indicador */}
+              {availableStores.length === 0 && user && (
+                <div className="flex items-center gap-2 px-3 py-2 bg-amber-50 border border-amber-200 rounded-lg">
+                  <Store size={14} className="text-amber-500" />
+                  <span className="text-xs font-semibold text-amber-700">
+                    Sem loja vinculada
                   </span>
                 </div>
               )}

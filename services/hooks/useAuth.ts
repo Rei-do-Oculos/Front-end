@@ -37,6 +37,8 @@ export const useAuth = (): UseAuthReturn => {
           email: userData.email,
           roles: userData.roles,
           permissions: userData.permissions,
+          stores: userData.stores,
+          storesCount: Array.isArray(userData.stores) ? userData.stores.length : 0,
           rolesStructure: Array.isArray(userData.roles) ? userData.roles.map(r => ({
             id: r.id,
             name: r.name,

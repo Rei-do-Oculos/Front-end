@@ -277,16 +277,32 @@ export const LaboratoryForm: React.FC = () => {
             )}
           </div>
 
-          <div className="mt-6 flex items-center gap-3">
-            <input
-              type="checkbox"
-              id="active"
-              checked={formData.active}
-              onChange={(e) => handleFieldChange('active', e.target.checked)}
-              className="w-4 h-4 rounded border-slate-300 text-[var(--store-color)] focus:ring-[var(--store-color)]"
-            />
-            <label htmlFor="active" className="text-sm font-medium text-slate-700">
-              Laboratório ativo
+          <div className="mt-6">
+            <label className="block text-[10px] font-semibold text-slate-500 uppercase tracking-widest mb-2">
+              Status
+            </label>
+            <label 
+              htmlFor="active" 
+              className="inline-flex items-center gap-3 cursor-pointer select-none"
+            >
+              <div className="relative">
+                <input
+                  type="checkbox"
+                  id="active"
+                  checked={formData.active}
+                  onChange={(e) => handleFieldChange('active', e.target.checked)}
+                  className="sr-only peer"
+                />
+                <div 
+                  className="w-11 h-6 bg-slate-200 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[var(--store-color)]"
+                />
+              </div>
+              <span 
+                className="text-sm font-medium"
+                style={{ color: formData.active ? 'var(--store-color)' : '#94a3b8' }}
+              >
+                {formData.active ? 'Ativo' : 'Inativo'}
+              </span>
             </label>
           </div>
 

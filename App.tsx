@@ -23,6 +23,7 @@ import { Inadimplencias } from './pages/Finance/Inadimplencias';
 import { InvoiceList } from './pages/Finance/InvoiceList';
 import { InvoiceDetail } from './pages/Finance/InvoiceDetail';
 import { Permissions } from './pages/Permissions/Permissions';
+import { ProfileForm } from './pages/Permissions/ProfileForm';
 import { Users } from './pages/Users/Users';
 import { UserForm } from './pages/Users/UserForm';
 import { BrandList } from './pages/Brands/BrandList';
@@ -35,6 +36,9 @@ import { FrameForm } from './pages/Frames/FrameForm';
 import { StoreFrameList } from './pages/StoreFrames/StoreFrameList';
 import { LaboratoryList } from './pages/Laboratories/LaboratoryList';
 import { LaboratoryForm } from './pages/Laboratories/LaboratoryForm';
+import { LaboratoryDetail } from './pages/Laboratories/LaboratoryDetail';
+import { LaboratoryLensList } from './pages/LaboratoryLenses/LaboratoryLensList';
+import { LaboratoryLensForm } from './pages/LaboratoryLenses/LaboratoryLensForm';
 import { Chat } from './pages/Chat';
 import { Login } from './pages/Login';
 import { PWAUpdatePrompt } from './components/PWAUpdatePrompt';
@@ -176,7 +180,11 @@ const StoreSelectorWrapper: React.FC<{ onLogout: () => void }> = ({ onLogout }) 
         <Route path="/transferencias" element={<ProtectedRoute><StoreFrameList /></ProtectedRoute>} />
         <Route path="/laboratories" element={<ProtectedRoute><LaboratoryList /></ProtectedRoute>} />
         <Route path="/laboratories/create" element={<ProtectedRoute><LaboratoryForm /></ProtectedRoute>} />
+        <Route path="/laboratories/:id" element={<ProtectedRoute><LaboratoryDetail /></ProtectedRoute>} />
         <Route path="/laboratories/:id/edit" element={<ProtectedRoute><LaboratoryForm /></ProtectedRoute>} />
+        <Route path="/laboratory-lenses" element={<ProtectedRoute><LaboratoryLensList /></ProtectedRoute>} />
+        <Route path="/laboratory-lenses/create" element={<ProtectedRoute><LaboratoryLensForm /></ProtectedRoute>} />
+        <Route path="/laboratory-lenses/:id/edit" element={<ProtectedRoute><LaboratoryLensForm /></ProtectedRoute>} />
         <Route path="/financeiro" element={<ProtectedRoute><CashFlow /></ProtectedRoute>} />
         <Route path="/financeiro/inadimplencias" element={<ProtectedRoute><Inadimplencias /></ProtectedRoute>} />
         <Route path="/notas-fiscais" element={<ProtectedRoute><InvoiceList /></ProtectedRoute>} />
@@ -186,6 +194,8 @@ const StoreSelectorWrapper: React.FC<{ onLogout: () => void }> = ({ onLogout }) 
         <Route path="/pedidos/create" element={<ProtectedRoute><OrderForm /></ProtectedRoute>} />
         <Route path="/pedidos/:id/editar" element={<ProtectedRoute><OrderForm /></ProtectedRoute>} />
         <Route path="/permissions" element={<ProtectedRoute><Permissions /></ProtectedRoute>} />
+        <Route path="/profiles/create" element={<ProtectedRoute><ProfileForm /></ProtectedRoute>} />
+        <Route path="/profiles/:id/edit" element={<ProtectedRoute><ProfileForm /></ProtectedRoute>} />
         <Route path="/users" element={<ProtectedRoute><Users /></ProtectedRoute>} />
         <Route path="/users/create" element={<ProtectedRoute><UserForm /></ProtectedRoute>} />
         <Route path="/users/:id/edit" element={<ProtectedRoute><UserForm /></ProtectedRoute>} />
