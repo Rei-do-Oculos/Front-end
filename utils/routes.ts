@@ -63,9 +63,9 @@ export const getAppModules = (): AppModule[] => {
       description: 'Gestão de lentes e insumos',
     },
     {
-      id: 'financeiro',
+      id: 'finance',
       name: 'Financeiro',
-      route: '/financeiro',
+      route: '/finance',
       description: 'Fluxo de caixa e inadimplências',
     },
     {

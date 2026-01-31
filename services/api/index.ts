@@ -8,5 +8,6 @@ export * from './laboratoryLenses';
 export * from './orders';
 export * from './permissions';
 export * from './roles';
+export * from './serviceOrders';
 export * from './stores';
 export * from './users';

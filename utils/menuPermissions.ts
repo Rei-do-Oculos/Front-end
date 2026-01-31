@@ -65,7 +65,7 @@ export const routePermissionMap: Record<string, string[]> = {
   '/vendedores': [], // Público por enquanto
   '/estoque': [], // Público por enquanto
   '/fornecedores': [], // Público por enquanto
-  '/financeiro': [], // Público por enquanto
+  '/finance': [], // Público por enquanto
   '/pedidos': [], // Público por enquanto
   '/chat': [], // Público por enquanto
 };

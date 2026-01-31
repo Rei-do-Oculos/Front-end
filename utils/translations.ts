@@ -26,6 +26,10 @@ const resourceTranslations: Record<string, string> = {
   'store-frames': 'Transferências',
   'laboratories': 'Laboratórios',
   'laboratory-lenses': 'Lentes de Laboratório',
+  'service-orders': 'Ordens de Serviço',
+  'service-orders-lab': 'OS Laboratório',
+  'service-orders-overdue': 'Inadimplências',
+  'finance': 'Financeiro',
 };
 
 /**
@@ -43,6 +47,15 @@ const actionTranslations: Record<string, string> = {
   'login': 'Fazer Login',
   'logout': 'Fazer Logout',
   'me': 'Visualizar Perfil',
+  'send': 'Enviar ao Lab',
+  'arrived': 'Marcar Chegada',
+  'completed': 'Marcar Retirada',
+  'migrate': 'Migrar',
+  'history': 'Histórico',
+  'dashboard': 'Dashboard',
+  'revenue-by-store': 'Faturamento por Loja',
+  'top-sellers': 'Ranking de Vendedores',
+  'overdue-summary': 'Resumo de Inadimplências',
 };
 
 /**

@@ -1,3 +1,4 @@
+import { useCallback } from 'react';
 import { useApi } from './useApi';
 import { laboratoriesService, CreateLaboratoryDto, UpdateLaboratoryDto, LaboratoriesQueryParams, Laboratory } from '../api/laboratories';
 
@@ -22,6 +23,18 @@ export const useLaboratories = (options: UseLaboratoriesOptions = {}) => {
     return laboratoriesService.delete(id, confirmDeleteLenses);
   };
 
+  // Método para buscar histórico de OS finalizadas do laboratório
+  const getHistory = useCallback(async (laboratoryId: number, params?: {
+    page?: number;
+    per_page?: number;
+    date_from?: string;
+    date_to?: string;
+    order_by?: string;
+    order_dir?: 'asc' | 'desc';
+  }) => {
+    return laboratoriesService.getHistory(laboratoryId, params);
+  }, []);
+
   return {
     laboratories: api.data,
     loading: api.loading,
@@ -32,6 +45,7 @@ export const useLaboratories = (options: UseLaboratoriesOptions = {}) => {
     createLaboratory: api.create,
     updateLaboratory: api.update,
     deleteLaboratory: deleteLaboratoryWithCheck,
+    getHistory,
     reset: api.reset,
   };
 };

@@ -242,6 +242,12 @@ export const AuditList: React.FC = () => {
       'App\\Models\\Supplier': 'Fornecedores',
       'App\\Models\\Brand': 'Marcas',
       'App\\Models\\Invoice': 'Notas Fiscais',
+      'App\\Models\\Frame': 'Armações',
+      'App\\Models\\FrameType': 'Tipos de Armação',
+      'App\\Models\\Laboratory': 'Laboratórios',
+      'App\\Models\\LaboratoryLens': 'Lentes de Laboratório',
+      'App\\Models\\ServiceOrder': 'Ordens de Serviço', // Adicionado para ServiceOrder
+      'App\\Models\\StoreFrame': 'Transferências de Armação', // Adicionado para StoreFrame
     };
     
     const modelName = modelType.split('\\').pop() || modelType;

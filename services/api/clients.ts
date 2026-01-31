@@ -13,10 +13,14 @@ export interface Client {
   email: string | null;
   phone: string;
   document: string;
+  address?: string | null;
   created_at: string;
   updated_at: string;
   deleted_at: string | null;
   stores?: Store[];
+  relationships?: {
+    stores?: Store[];
+  };
 }
 
 export interface CreateClientDto {
@@ -195,6 +199,51 @@ class ClientsService {
     }
     
     return data.data.client;
+  }
+
+  /**
+   * Get client history with service orders and statistics
+   */
+  async getHistory(clientId: string, params?: {
+    page?: number;
+    per_page?: number;
+    order_by?: string;
+    order_dir?: 'asc' | 'desc';
+  }): Promise<{
+    client: Client;
+    service_orders: any;
+    statistics: {
+      total_spent: number;
+      total_orders: number;
+      average_ticket: number;
+      last_purchase: string | null;
+      is_overdue: boolean;
+      overdue_count: number;
+      overdue_total: number;
+    };
+  }> {
+    const response = await apiClient.get<{
+      success: boolean;
+      data: {
+        client: Client;
+        service_orders: any;
+        statistics: {
+          total_spent: number;
+          total_orders: number;
+          average_ticket: number;
+          last_purchase: string | null;
+          is_overdue: boolean;
+          overdue_count: number;
+          overdue_total: number;
+        };
+      };
+    }>(`${this.endpoint}/${clientId}/history`, { params });
+
+    if (!response.data.success || !response.data.data) {
+      throw new Error('Erro ao buscar histórico do cliente');
+    }
+
+    return response.data.data;
   }
 }
 

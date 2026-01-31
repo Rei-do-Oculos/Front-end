@@ -89,21 +89,20 @@ const menuItems: MenuItem[] = [
   { 
     title: 'Financeiro', 
     icon: <DollarSign size={20} />, 
-    path: '/financeiro',
+    path: '/finance',
     submenu: [
-      { title: 'Fluxo de Caixa', path: '/financeiro' },
-      { title: 'Inadimplências', path: '/financeiro/inadimplencias' },
+      { title: 'Fluxo de Caixa', path: '/finance' },
+      { title: 'Inadimplências', path: '/finance/overdue' },
       { title: 'Notas Fiscais', path: '/notas-fiscais' }
     ]
   },
   { 
-    title: 'Ordens de Serviço', 
+    title: 'Pedidos (OS)', 
     icon: <ClipboardList size={20} />, 
-    path: '/pedidos',
+    path: '/service-orders',
     submenu: [
-      { title: 'Listagem Geral (Faturamento)', path: '/pedidos' },
-      { title: 'Laboratório / Produção', path: '/pedidos/laboratorio' },
-      { title: 'Abrir Nova OS', path: '/pedidos/create' }
+      { title: 'Listagem', path: '/service-orders' },
+      { title: 'OS Laboratório', path: '/service-orders/lab' }
     ]
   },
   { 
@@ -231,8 +230,9 @@ export const Layout: React.FC<{ children: React.ReactNode; onLogout: () => void 
       '/estoque': ['frames', 'frame-types', 'store-frames'],
       '/laboratories': ['laboratories', 'laboratory-lenses'],
       '/permissions': ['roles', 'permissions', 'users', 'audits', 'trash'], // Sistema
+      '/service-orders': ['service-orders', 'service-orders-lab'], // Pedidos (OS)
+      '/finance': ['finance', 'service-orders-overdue'],
       // Módulos ainda sem permissões específicas (públicos por enquanto)
-      '/financeiro': [], 
       '/pdv': [],
       '/pedidos': [],
       '/chat': [],
@@ -320,8 +320,11 @@ export const Layout: React.FC<{ children: React.ReactNode; onLogout: () => void 
       '/fornecedores/create': 'Novo Fornecedor',
       '/lenses': 'Lentes',
       '/lenses/create': 'Nova Lente',
-      '/financeiro': 'Financeiro',
-      '/financeiro/inadimplencias': 'Inadimplências',
+      '/service-orders': 'Pedidos (OS)',
+      '/service-orders/create': 'Nova OS',
+      '/service-orders/lab': 'OS Laboratório',
+      '/finance': 'Financeiro',
+      '/finance/overdue': 'Inadimplências',
       '/notas-fiscais': 'Notas Fiscais',
       '/pedidos': 'Ordens de Serviço',
       '/pedidos/laboratorio': 'Laboratório',
@@ -338,7 +341,7 @@ export const Layout: React.FC<{ children: React.ReactNode; onLogout: () => void 
       const baseLabel = routeMap[basePath] || basePath.replace('/', '');
       crumbs.push({ label: baseLabel, path: basePath });
       crumbs.push({ label: 'Editar', path: path });
-    } else if (path.match(/\/[^/]+\/[^/]+$/) && !path.includes('/create') && !path.includes('/laboratorio') && !path.includes('/inadimplencias') && !path.includes('/notas-fiscais')) {
+    } else if (path.match(/\/[^/]+\/[^/]+$/) && !path.includes('/create') && !path.includes('/laboratorio') && !path.includes('/overdue') && !path.includes('/notas-fiscais')) {
       // Detectar detalhes (ex: /clients/:id)
       const basePath = '/' + path.split('/')[1];
       const baseLabel = routeMap[basePath] || basePath.replace('/', '');

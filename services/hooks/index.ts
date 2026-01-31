@@ -8,6 +8,7 @@ export * from './useOrders';
 export * from './usePermissions';
 export * from './usePlucks';
 export * from './useRoles';
+export * from './useServiceOrders';
 export * from './useStores';
 export * from './useTrash';
 export * from './useUsers';
