@@ -1,10 +1,12 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { RotateCcw, Loader2, Trash2, Eye } from 'lucide-react';
 import { Card, Button, Input, Select, FilterSection, Modal, Badge, SortableHeader, SortDirection, Pagination, ActiveFiltersBadge } from '../../components/Common';
 import { useTrash } from '../../services/hooks/useTrash';
 import { useNotification } from '../../hooks/useNotification';
 import { useActiveFilters } from '../../hooks/useActiveFilters';
+import { useAuth } from '../../services/hooks/useAuth';
+import { getEffectiveUserPermissions } from '../../utils/menuPermissions';
 import type { TrashItem } from '../../services/api/trash';
 
 const MODELS = [
@@ -20,6 +22,7 @@ const MODELS = [
 export const TrashList: React.FC = () => {
   const navigate = useNavigate();
   const { showSuccess, showError } = useNotification();
+  const { user } = useAuth();
   const { items: itemsFromHook, loading, error, pagination, fetchItems, restoreItem } = useTrash({
     autoFetch: false,
   });
@@ -34,6 +37,13 @@ export const TrashList: React.FC = () => {
   const [perPage, setPerPage] = useState<number>(15);
   const [restoreConfirmItem, setRestoreConfirmItem] = useState<TrashItem | null>(null);
   const [restoring, setRestoring] = useState(false);
+
+  // Verificar se o usuário tem permissão para restaurar
+  const canRestore = useMemo(() => {
+    if (!user) return false;
+    const permissions = getEffectiveUserPermissions(user);
+    return permissions.some(p => p.name === 'trash.restore');
+  }, [user]);
 
   // Calcular quantidade de filtros ativos
   const activeFilters = useActiveFilters({
@@ -288,13 +298,15 @@ export const TrashList: React.FC = () => {
                         >
                           <Eye size={16} />
                         </button>
-                        <button
-                          title="Restaurar"
-                          onClick={() => setRestoreConfirmItem(item)}
-                          className="p-2 text-slate-600 hover:bg-slate-100 rounded-xl shadow-sm border border-transparent hover:border-slate-200 transition-all"
-                        >
-                          <RotateCcw size={16} />
-                        </button>
+                        {canRestore && (
+                          <button
+                            title="Restaurar"
+                            onClick={() => setRestoreConfirmItem(item)}
+                            className="p-2 text-slate-600 hover:bg-slate-100 rounded-xl shadow-sm border border-transparent hover:border-slate-200 transition-all"
+                          >
+                            <RotateCcw size={16} />
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>

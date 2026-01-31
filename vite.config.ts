@@ -9,6 +9,12 @@ export default defineConfig(({ mode }) => {
       server: {
         port: 3000,
         host: '0.0.0.0',
+        // Redireciona todas as rotas para index.html (necessário para BrowserRouter)
+        historyApiFallback: true,
+      },
+      preview: {
+        port: 3000,
+        host: '0.0.0.0',
       },
       plugins: [
         react(),

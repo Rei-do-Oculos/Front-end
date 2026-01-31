@@ -631,9 +631,26 @@ export const FrameList: React.FC = () => {
                       </p>
                     </td>
                     <td className="px-6 py-4">
-                      <span className="text-xs font-medium text-slate-600">
-                        {frame.frameType?.name ?? frame.frame_type?.name ?? frame.relationships?.frame_type?.name ?? '-'}
-                      </span>
+                      {(() => {
+                        const frameType = frame.frameType || frame.frame_type || frame.relationships?.frame_type;
+                        if (!frameType) return <span className="text-xs text-slate-400">-</span>;
+                        
+                        const isDeleted = frameType.deleted || frameType.deleted_at;
+                        return (
+                          <div className="flex flex-col">
+                            <span 
+                              className={`text-xs font-medium ${isDeleted ? 'text-red-600' : 'text-slate-600'}`}
+                            >
+                              {frameType.name}
+                            </span>
+                            {isDeleted && (
+                              <span className="text-[9px] font-bold text-red-500 uppercase tracking-wider">
+                                Excluído
+                              </span>
+                            )}
+                          </div>
+                        );
+                      })()}
                     </td>
                     <td className="px-6 py-4">
                       <span className="text-xs font-medium text-slate-600">

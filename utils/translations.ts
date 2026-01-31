@@ -24,6 +24,8 @@ const resourceTranslations: Record<string, string> = {
   'frames': 'Armações',
   'frame-types': 'Tipos de Armação',
   'store-frames': 'Transferências',
+  'laboratories': 'Laboratórios',
+  'laboratory-lenses': 'Lentes de Laboratório',
 };
 
 /**

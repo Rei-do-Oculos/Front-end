@@ -169,10 +169,15 @@ class AuthService {
         email: data.data.user.email,
         roles: data.data.user.roles,
         permissions: data.data.user.permissions,
+        stores: data.data.user.stores,
+        storesCount: Array.isArray(data.data.user.stores) ? data.data.user.stores.length : 
+                    (data.data.user.stores && typeof data.data.user.stores === 'object' ? Object.keys(data.data.user.stores).length : 0),
         rolesType: typeof data.data.user.roles,
         permissionsType: typeof data.data.user.permissions,
+        storesType: typeof data.data.user.stores,
         rolesIsArray: Array.isArray(data.data.user.roles),
         permissionsIsArray: Array.isArray(data.data.user.permissions),
+        storesIsArray: Array.isArray(data.data.user.stores),
       } : null,
     });
     

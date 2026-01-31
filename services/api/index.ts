@@ -3,6 +3,8 @@ export * from './audits';
 export * from './client';
 export * from './base.service';
 export * from './clients';
+export * from './laboratories';
+export * from './laboratoryLenses';
 export * from './orders';
 export * from './permissions';
 export * from './roles';

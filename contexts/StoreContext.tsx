@@ -27,6 +27,15 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     // (evita apagar a loja salva quando a tela atualiza e user ainda é null)
     if (authLoading) return;
 
+    console.log('[StoreContext] 🏪 Carregando lojas:', {
+      hasUser: !!user,
+      userStores: user?.stores,
+      userStoresType: typeof user?.stores,
+      userStoresIsArray: Array.isArray(user?.stores),
+      userStoresLength: Array.isArray(user?.stores) ? user.stores.length : 
+                        (user?.stores && typeof user.stores === 'object' ? Object.keys(user.stores).length : 0),
+    });
+
     try {
       if (user && user.stores) {
         let stores: Store[] = [];
@@ -38,6 +47,12 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         stores = stores.filter(store =>
           store && typeof store === 'object' && 'id' in store && 'name' in store
         );
+        
+        console.log('[StoreContext] 🏪 Lojas filtradas:', {
+          count: stores.length,
+          stores: stores.map(s => ({ id: s.id, name: s.name })),
+        });
+        
         setAvailableStores(stores);
 
         if (stores.length > 0) {

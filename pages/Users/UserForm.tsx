@@ -39,6 +39,7 @@ export const UserForm: React.FC = () => {
   // Garantir que sempre sejam arrays
   const safeRolesPlucks = Array.isArray(rolesPlucks) ? rolesPlucks : [];
   const safePermissionsPlucks = Array.isArray(permissionsPlucks) ? permissionsPlucks : [];
+  const safeStoresPlucks = Array.isArray(storesPlucks) ? storesPlucks : [];
   
   const [expandedModules, setExpandedModules] = useState<Set<string>>(new Set());
   const [formError, setFormError] = useState<string | null>(null);
@@ -56,6 +57,14 @@ export const UserForm: React.FC = () => {
     stores: [] as number[],
     active: true,
   });
+
+  // Verificar se SuperAdmin está selecionado
+  const isSuperAdminSelected = useMemo(() => {
+    const superAdminRole = safeRolesPlucks.find((r: any) => 
+      r.name?.toLowerCase() === 'superadmin' || r.name?.toLowerCase() === 'super_admin'
+    );
+    return superAdminRole ? formData.roles.includes(superAdminRole.id) : false;
+  }, [formData.roles, safeRolesPlucks]);
 
   // Agrupar permissões por módulo
   const permissionsByModule = useMemo(() => {
@@ -236,6 +245,20 @@ export const UserForm: React.FC = () => {
     }
   }, [id, isEditMode, permissionsPlucks]);
 
+  // Efeito para pré-selecionar todas as lojas quando SuperAdmin for selecionado
+  useEffect(() => {
+    if (isSuperAdminSelected && safeStoresPlucks.length > 0) {
+      const allStoreIds = safeStoresPlucks.map((s: any) => s.id);
+      // Só atualiza se não estiver com todas as lojas já selecionadas
+      if (formData.stores.length !== allStoreIds.length) {
+        setFormData(prev => ({
+          ...prev,
+          stores: allStoreIds,
+        }));
+      }
+    }
+  }, [isSuperAdminSelected, safeStoresPlucks]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setFormError(null);
@@ -262,6 +285,12 @@ export const UserForm: React.FC = () => {
 
     if (formData.password && formData.password.length < 8) {
       setFormError('A senha deve ter no mínimo 8 caracteres');
+      return;
+    }
+
+    // Validação: usuários não-SuperAdmin devem ter pelo menos uma loja vinculada
+    if (!isSuperAdminSelected && formData.stores.length === 0) {
+      setFormError('Usuários que não são SuperAdmin devem ter pelo menos uma loja vinculada');
       return;
     }
 
@@ -521,20 +550,39 @@ export const UserForm: React.FC = () => {
 
           <div>
             <label className="text-[10px] font-semibold text-slate-500 uppercase tracking-[0.15em] ml-1 mb-2 block">
-              Lojas
+              Lojas {!isSuperAdminSelected && <span className="text-red-500">*</span>}
             </label>
-            <MultiSelect
-              options={Array.isArray(storesPlucks) ? storesPlucks.map((s: any) => ({ 
-                label: s.fancy_name || s.name, 
-                value: String(s.id) 
-              })) : []}
-              value={Array.isArray(formData.stores) ? formData.stores.map(String) : []}
-              onChange={(values) => {
-                const newStores = values.map(Number);
-                setFormData({ ...formData, stores: newStores });
-              }}
-              placeholder={storesPlucksLoading ? "Carregando lojas..." : "Selecione uma ou mais lojas"}
-            />
+            {isSuperAdminSelected ? (
+              <div className="p-4 rounded-xl border-2" style={{ 
+                backgroundColor: 'var(--store-color-light)', 
+                borderColor: 'var(--store-color-opacity-20)' 
+              }}>
+                <p className="text-sm font-medium" style={{ color: 'var(--store-color-dark)' }}>
+                  SuperAdmin tem acesso a todas as lojas automaticamente
+                </p>
+                <p className="text-xs mt-1" style={{ color: 'var(--store-color)' }}>
+                  {safeStoresPlucks.length} loja(s) vinculada(s)
+                </p>
+              </div>
+            ) : (
+              <>
+                <MultiSelect
+                  options={safeStoresPlucks.map((s: any) => ({ 
+                    label: s.fancy_name || s.name, 
+                    value: String(s.id) 
+                  }))}
+                  value={Array.isArray(formData.stores) ? formData.stores.map(String) : []}
+                  onChange={(values) => {
+                    const newStores = values.map(Number);
+                    setFormData({ ...formData, stores: newStores });
+                  }}
+                  placeholder={storesPlucksLoading ? "Carregando lojas..." : "Selecione uma ou mais lojas"}
+                />
+                <p className="text-xs text-slate-400 mt-2">
+                  Usuários devem ter pelo menos uma loja vinculada para acesso ao sistema
+                </p>
+              </>
+            )}
           </div>
 
           <div>

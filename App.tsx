@@ -1,5 +1,5 @@
 import React from 'react';
-import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Layout } from './components/Layout';
 import { Dashboard } from './pages/Dashboard';
 import { ClientList } from './pages/Clients/ClientList';
@@ -9,8 +9,6 @@ import { StockList } from './pages/Stock/StockList';
 import { OrderForm } from './pages/Orders/OrderForm';
 import { OrderList } from './pages/Orders/OrderList';
 import { LabOrders } from './pages/Orders/LabOrders';
-import { SupplierList } from './pages/Suppliers/SupplierList';
-import { SupplierForm } from './pages/Suppliers/SupplierForm';
 import { StoreList } from './pages/Stores/StoreList';
 import { StoreForm } from './pages/Stores/StoreForm';
 import { TrashList } from './pages/Trash/TrashList';
@@ -25,6 +23,7 @@ import { Inadimplencias } from './pages/Finance/Inadimplencias';
 import { InvoiceList } from './pages/Finance/InvoiceList';
 import { InvoiceDetail } from './pages/Finance/InvoiceDetail';
 import { Permissions } from './pages/Permissions/Permissions';
+import { ProfileForm } from './pages/Permissions/ProfileForm';
 import { Users } from './pages/Users/Users';
 import { UserForm } from './pages/Users/UserForm';
 import { BrandList } from './pages/Brands/BrandList';
@@ -35,6 +34,11 @@ import { FrameTypeForm } from './pages/FrameTypes/FrameTypeForm';
 import { FrameList } from './pages/Frames/FrameList';
 import { FrameForm } from './pages/Frames/FrameForm';
 import { StoreFrameList } from './pages/StoreFrames/StoreFrameList';
+import { LaboratoryList } from './pages/Laboratories/LaboratoryList';
+import { LaboratoryForm } from './pages/Laboratories/LaboratoryForm';
+import { LaboratoryDetail } from './pages/Laboratories/LaboratoryDetail';
+import { LaboratoryLensList } from './pages/LaboratoryLenses/LaboratoryLensList';
+import { LaboratoryLensForm } from './pages/LaboratoryLenses/LaboratoryLensForm';
 import { Chat } from './pages/Chat';
 import { Login } from './pages/Login';
 import { PWAUpdatePrompt } from './components/PWAUpdatePrompt';
@@ -69,7 +73,7 @@ const App: React.FC = () => {
 
   const handleLogout = async () => {
     await logout();
-    window.location.hash = '#/login';
+    window.location.href = '/login';
   };
 
   if (isLoading) {
@@ -87,11 +91,11 @@ const App: React.FC = () => {
   return (
     <ErrorBoundary>
       <NotificationProvider>
-        <HashRouter>
+        <BrowserRouter>
           <StoreProvider>
             <StoreSelectorWrapper onLogout={handleLogout} />
           </StoreProvider>
-        </HashRouter>
+        </BrowserRouter>
       </NotificationProvider>
     </ErrorBoundary>
   );
@@ -166,9 +170,6 @@ const StoreSelectorWrapper: React.FC<{ onLogout: () => void }> = ({ onLogout }) 
         <Route path="/vendedores/:id/editar" element={<ProtectedRoute><SellerForm /></ProtectedRoute>} />
         <Route path="/vendedores/:id" element={<ProtectedRoute><SellerDetail /></ProtectedRoute>} />
         <Route path="/estoque" element={<ProtectedRoute><StockList /></ProtectedRoute>} />
-        <Route path="/fornecedores" element={<ProtectedRoute><SupplierList /></ProtectedRoute>} />
-        <Route path="/fornecedores/create" element={<ProtectedRoute><SupplierForm /></ProtectedRoute>} />
-        <Route path="/fornecedores/:id/editar" element={<ProtectedRoute><SupplierForm /></ProtectedRoute>} />
         <Route path="/lenses" element={<ProtectedRoute><LensList /></ProtectedRoute>} />
         <Route path="/frame-types" element={<ProtectedRoute><FrameTypeList /></ProtectedRoute>} />
         <Route path="/frame-types/create" element={<ProtectedRoute><FrameTypeForm /></ProtectedRoute>} />
@@ -177,6 +178,13 @@ const StoreSelectorWrapper: React.FC<{ onLogout: () => void }> = ({ onLogout }) 
         <Route path="/frames/create" element={<ProtectedRoute><FrameForm /></ProtectedRoute>} />
         <Route path="/frames/:id/edit" element={<ProtectedRoute><FrameForm /></ProtectedRoute>} />
         <Route path="/transferencias" element={<ProtectedRoute><StoreFrameList /></ProtectedRoute>} />
+        <Route path="/laboratories" element={<ProtectedRoute><LaboratoryList /></ProtectedRoute>} />
+        <Route path="/laboratories/create" element={<ProtectedRoute><LaboratoryForm /></ProtectedRoute>} />
+        <Route path="/laboratories/:id" element={<ProtectedRoute><LaboratoryDetail /></ProtectedRoute>} />
+        <Route path="/laboratories/:id/edit" element={<ProtectedRoute><LaboratoryForm /></ProtectedRoute>} />
+        <Route path="/laboratory-lenses" element={<ProtectedRoute><LaboratoryLensList /></ProtectedRoute>} />
+        <Route path="/laboratory-lenses/create" element={<ProtectedRoute><LaboratoryLensForm /></ProtectedRoute>} />
+        <Route path="/laboratory-lenses/:id/edit" element={<ProtectedRoute><LaboratoryLensForm /></ProtectedRoute>} />
         <Route path="/financeiro" element={<ProtectedRoute><CashFlow /></ProtectedRoute>} />
         <Route path="/financeiro/inadimplencias" element={<ProtectedRoute><Inadimplencias /></ProtectedRoute>} />
         <Route path="/notas-fiscais" element={<ProtectedRoute><InvoiceList /></ProtectedRoute>} />
@@ -186,6 +194,8 @@ const StoreSelectorWrapper: React.FC<{ onLogout: () => void }> = ({ onLogout }) 
         <Route path="/pedidos/create" element={<ProtectedRoute><OrderForm /></ProtectedRoute>} />
         <Route path="/pedidos/:id/editar" element={<ProtectedRoute><OrderForm /></ProtectedRoute>} />
         <Route path="/permissions" element={<ProtectedRoute><Permissions /></ProtectedRoute>} />
+        <Route path="/profiles/create" element={<ProtectedRoute><ProfileForm /></ProtectedRoute>} />
+        <Route path="/profiles/:id/edit" element={<ProtectedRoute><ProfileForm /></ProtectedRoute>} />
         <Route path="/users" element={<ProtectedRoute><Users /></ProtectedRoute>} />
         <Route path="/users/create" element={<ProtectedRoute><UserForm /></ProtectedRoute>} />
         <Route path="/users/:id/edit" element={<ProtectedRoute><UserForm /></ProtectedRoute>} />

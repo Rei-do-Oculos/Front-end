@@ -1,9 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useParams, useLocation, useNavigate } from 'react-router-dom';
 import { RotateCcw, Loader2, ArrowLeft } from 'lucide-react';
 import { Card, Button, Badge } from '../../components/Common';
 import { useTrash } from '../../services/hooks/useTrash';
 import { useNotification } from '../../hooks/useNotification';
+import { useAuth } from '../../services/hooks/useAuth';
+import { getEffectiveUserPermissions } from '../../utils/menuPermissions';
 import type { TrashItem } from '../../services/api/trash';
 
 const detailDataExcludeKeys = ['created_at', 'updated_at', 'deleted_at'];
@@ -41,10 +43,18 @@ export const TrashDetail: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const { showSuccess, showError } = useNotification();
+  const { user } = useAuth();
   const { restoreItem } = useTrash({ autoFetch: false });
   const [restoring, setRestoring] = useState(false);
 
   const item = (location.state as { item?: TrashItem })?.item ?? null;
+
+  // Verificar se o usuário tem permissão para restaurar
+  const canRestore = useMemo(() => {
+    if (!user) return false;
+    const permissions = getEffectiveUserPermissions(user);
+    return permissions.some(p => p.name === 'trash.restore');
+  }, [user]);
 
   const handleRestore = async () => {
     if (!item || !model || !id) return;
@@ -126,17 +136,19 @@ export const TrashDetail: React.FC = () => {
           <Button variant="outline" onClick={() => navigate('/trash')} disabled={restoring}>
             Voltar
           </Button>
-          <Button onClick={handleRestore} disabled={restoring}>
-            {restoring ? (
-              <>
-                <Loader2 size={16} className="animate-spin" /> Restaurando...
-              </>
-            ) : (
-              <>
-                <RotateCcw size={16} /> Restaurar
-              </>
-            )}
-          </Button>
+          {canRestore && (
+            <Button onClick={handleRestore} disabled={restoring}>
+              {restoring ? (
+                <>
+                  <Loader2 size={16} className="animate-spin" /> Restaurando...
+                </>
+              ) : (
+                <>
+                  <RotateCcw size={16} /> Restaurar
+                </>
+              )}
+            </Button>
+          )}
         </div>
       </Card>
     </div>

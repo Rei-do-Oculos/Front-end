@@ -49,6 +49,16 @@ export const routePermissionMap: Record<string, string[]> = {
   // Transferências
   '/transferencias': ['store-frames.list', 'store-frames.read'],
   
+  // Laboratórios
+  '/laboratories': ['laboratories.list', 'laboratories.read'],
+  '/laboratories/create': ['laboratories.create'],
+  '/laboratories/:id/edit': ['laboratories.update'],
+  
+  // Lentes de Laboratório
+  '/laboratory-lenses': ['laboratory-lenses.list', 'laboratory-lenses.read'],
+  '/laboratory-lenses/create': ['laboratory-lenses.create'],
+  '/laboratory-lenses/:id/edit': ['laboratory-lenses.update'],
+  
   // Outros módulos - por enquanto sem permissões específicas (públicos)
   // Quando as permissões forem criadas no backend, adicionar aqui
   '/pdv': [], // Público por enquanto
@@ -106,6 +116,7 @@ export function isSuperAdmin(user: {
     'stores.list', 'stores.create', 'stores.update', 'stores.delete',
     'audits.list', 'audits.read',
     'lenses.list', 'lenses.create', 'lenses.read', 'lenses.update', 'lenses.delete',
+    'laboratories.list', 'laboratories.create', 'laboratories.read', 'laboratories.update', 'laboratories.delete',
     'trash.list', 'trash.restore',
   ];
   
@@ -113,15 +124,16 @@ export function isSuperAdmin(user: {
   const allUserPermissions = getAllUserPermissions(user);
   const userPermNames = allUserPermissions.map(p => p.name);
 
+  // Verificar se o usuário tem TODAS as permissões principais (não apenas um percentual)
   const hasAllMainPermissions = mainPermissions.every(perm => userPermNames.includes(perm));
   if (hasAllMainPermissions && mainPermissions.length > 0) {
     return true;
   }
 
-  const hasMostPermissions = (userPermNames.length / mainPermissions.length) >= 0.8;
-  if (hasMostPermissions && userPermNames.length >= 20) {
-    return true;
-  }
+  // NÃO usar verificação de percentual - era muito permissiva e causava bugs
+  // Um usuário só é considerado superadmin se:
+  // 1. Tem o role 'superadmin' explicitamente
+  // 2. Tem TODAS as permissões principais listadas acima
 
   return false;
 }
@@ -198,20 +210,25 @@ export function hasRoutePermission(
  */
 export function getEffectiveUserPermissions(user: {
   all_permissions?: Array<{ name: string; slug?: string }>;
+  roles?: Array<{ permissions?: Array<{ name: string; slug?: string }> }>;
+  permissions?: Array<{ name: string; slug?: string }>;
 }): Array<{ name: string }> {
-  if (!user.all_permissions || !Array.isArray(user.all_permissions)) {
-    return [];
+  // Tentar usar all_permissions primeiro
+  if (user.all_permissions && Array.isArray(user.all_permissions) && user.all_permissions.length > 0) {
+    const out: Array<{ name: string }> = [];
+    const seen = new Set<string>();
+    user.all_permissions.forEach(perm => {
+      const name = perm.name || perm.slug;
+      if (name && !seen.has(name)) {
+        seen.add(name);
+        out.push({ name });
+      }
+    });
+    return out;
   }
-  const out: Array<{ name: string }> = [];
-  const seen = new Set<string>();
-  user.all_permissions.forEach(perm => {
-    const name = perm.name || perm.slug;
-    if (name && !seen.has(name)) {
-      seen.add(name);
-      out.push({ name });
-    }
-  });
-  return out;
+  
+  // Fallback: usar getAllUserPermissions (roles + permissions diretas)
+  return getAllUserPermissions(user);
 }
 
 /**
