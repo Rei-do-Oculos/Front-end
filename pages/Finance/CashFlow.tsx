@@ -134,7 +134,7 @@ export const CashFlow: React.FC = () => {
   const dashboard = dashboardData?.dashboard;
 
   // Normalizar para array (API pode retornar objeto com chaves numéricas)
-  const toArray = <T>(value: T[] | Record<string, T> | null | undefined): T[] => {
+  const toArray = <T,>(value: T[] | Record<string, T> | null | undefined): T[] => {
     if (!value) return [];
     if (Array.isArray(value)) return value;
     if (typeof value === 'object') return Object.values(value) as T[];
