@@ -29,7 +29,6 @@ const resourceTranslations: Record<string, string> = {
   'service-orders': 'Ordens de Serviço',
   'service-orders-lab': 'OS Laboratório',
   'service-orders-overdue': 'Inadimplências',
-  'finance': 'Financeiro',
 };
 
 /**

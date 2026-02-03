@@ -46,12 +46,12 @@ interface MenuItem {
 
 const menuItems: MenuItem[] = [
   { title: 'Dashboard', icon: <LayoutDashboard size={20} />, path: '/' },
-  { 
+/*   { 
     title: 'PDV / Vendas', 
     icon: <ShoppingCart size={20} />, 
     path: '/pdv',
     highlight: true 
-  },
+  }, */
   { 
     title: 'Lojas / Unidades', 
     icon: <Store size={20} />, 
@@ -233,7 +233,7 @@ export const Layout: React.FC<{ children: React.ReactNode; onLogout: () => void 
       '/service-orders': ['service-orders', 'service-orders-lab'], // Pedidos (OS)
       '/finance': ['finance', 'service-orders-overdue'],
       // Módulos ainda sem permissões específicas (públicos por enquanto)
-      '/pdv': [],
+//'/pdv': [],
       '/pedidos': [],
       '/chat': [],
     };
@@ -306,7 +306,7 @@ export const Layout: React.FC<{ children: React.ReactNode; onLogout: () => void 
 
     // Mapeamento de rotas
     const routeMap: { [key: string]: string } = {
-      '/pdv': 'PDV / Vendas',
+      //'/pdv': 'PDV / Vendas',
       '/stores': 'Lojas / Unidades',
       '/stores/create': 'Nova Unidade',
       '/clients': 'Clientes',
