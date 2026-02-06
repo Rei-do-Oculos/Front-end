@@ -7,12 +7,14 @@ import { useNotification } from '../../hooks/useNotification';
 import { usePermission } from '../../services/hooks/usePermission';
 import { useActiveFilters } from '../../hooks/useActiveFilters';
 import { useNavigate } from 'react-router-dom';
+import { useStore } from '../../contexts/StoreContext';
 
 export const LaboratoryList: React.FC = () => {
   const navigate = useNavigate();
   const { showSuccess, showError } = useNotification();
   const { hasPermission } = usePermission();
-  const { laboratories, loading, error, pagination, fetchLaboratories, deleteLaboratory } = useLaboratories({
+  const { selectedStore } = useStore();
+  const { laboratories, loading, error, pagination, fetchLaboratories, deleteLaboratory, reset } = useLaboratories({
     autoFetch: false,
   });
 
@@ -33,11 +35,18 @@ export const LaboratoryList: React.FC = () => {
   useEffect(() => {
     const loadLaboratories = async () => {
       console.log('[LaboratoryList] 🔍 Iniciando carregamento de laboratórios');
+      console.log('[LaboratoryList] Store selecionada:', selectedStore?.id, selectedStore?.name);
       console.log('[LaboratoryList] Parâmetros:', {
         sortBy: sortBy || 'id',
         sortDirection: sortDirection || 'desc',
         perPage,
       });
+      
+      // Limpar dados antigos quando trocar de loja
+      if (selectedStore?.id) {
+        reset();
+      }
+      
       try {
         console.log('[LaboratoryList] Chamando fetchLaboratories...');
         await fetchLaboratories(1, {
@@ -57,7 +66,7 @@ export const LaboratoryList: React.FC = () => {
     };
     loadLaboratories();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [perPage]);
+  }, [perPage, selectedStore?.id]);
 
   const handleSort = (key: string, direction: SortDirection) => {
     const newDirection = direction || 'asc';
