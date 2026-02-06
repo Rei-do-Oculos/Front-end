@@ -65,6 +65,7 @@ export const LaboratoryLensForm: React.FC = () => {
     laboratory_id: preselectedLaboratoryId,
     name: '',
     description: '',
+    delivery_days: '',
     cost_price: '',
     sale_price: '',
     active: true,
@@ -87,6 +88,7 @@ export const LaboratoryLensForm: React.FC = () => {
               laboratory_id: String(lens.laboratory_id) || '',
               name: lens.name || '',
               description: lens.description || '',
+              delivery_days: lens.delivery_days?.toString() ?? '',
               cost_price: formatFromNumber(lens.cost_price),
               sale_price: formatFromNumber(lens.sale_price),
               active: lens.active ?? true,
@@ -237,6 +239,22 @@ export const LaboratoryLensForm: React.FC = () => {
               />
               {errors.name && (
                 <p className="mt-1 text-xs text-red-500 font-medium">{errors.name}</p>
+              )}
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
+            <div>
+              <Input
+                label="Prazo de Entrega (dias)"
+                type="number"
+                placeholder="Ex: 7"
+                min={0}
+                value={formData.delivery_days}
+                onChange={(e) => handleFieldChange('delivery_days', e.target.value)}
+              />
+              {errors.delivery_days && (
+                <p className="mt-1 text-xs text-red-500 font-medium">{errors.delivery_days}</p>
               )}
             </div>
           </div>

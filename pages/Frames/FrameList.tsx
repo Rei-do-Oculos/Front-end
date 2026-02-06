@@ -282,8 +282,8 @@ export const FrameList: React.FC = () => {
 
       await createStoreFrame({
         frame_id: frameToTransfer.id,
-        from_store_id: fromStoreId, // ID da loja atual da armação (obrigatório para transferência)
-        to_store_id: Number(transferToStoreId), // ID da loja de destino selecionada
+        from_store_id: fromStoreId,
+        to_store_id: Number(transferToStoreId),
         notes: transferNotes || null,
       });
 
@@ -667,51 +667,87 @@ export const FrameList: React.FC = () => {
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex items-center justify-center gap-2">
-                        {hasPermission('store-frames.create') && (
-                          <button 
-                            title="Transferir armação"
-                            onClick={() => handleTransferClick(frame)}
-                            className="p-2 text-slate-400 hover:bg-white rounded-xl shadow-sm border border-transparent hover:border-slate-100 transition-all"
-                            onMouseEnter={(e) => {
-                              e.currentTarget.style.color = 'var(--store-color-dark)';
-                            }}
-                            onMouseLeave={(e) => {
-                              e.currentTarget.style.color = '';
-                            }}
-                          >
-                            <ArrowRight size={16} />
-                          </button>
-                        )}
-                        {hasPermission('frames.update') && (
-                          <button 
-                            title="Editar armação"
-                            onClick={() => handleEdit(frame)}
-                            className="p-2 text-slate-400 hover:bg-white rounded-xl shadow-sm border border-transparent hover:border-slate-100 transition-all"
-                            onMouseEnter={(e) => {
-                              e.currentTarget.style.color = 'var(--store-color-dark)';
-                            }}
-                            onMouseLeave={(e) => {
-                              e.currentTarget.style.color = '';
-                            }}
-                          >
-                            <Edit size={16} />
-                          </button>
-                        )}
-                        {hasPermission('frames.delete') && (
-                          <button 
-                            title="Excluir armação"
-                            onClick={() => handleDeleteClick(frame)}
-                            className="p-2 text-slate-400 hover:bg-white rounded-xl shadow-sm border border-transparent hover:border-slate-100 transition-all"
-                            onMouseEnter={(e) => {
-                              e.currentTarget.style.color = 'var(--store-color-dark)';
-                            }}
-                            onMouseLeave={(e) => {
-                              e.currentTarget.style.color = '';
-                            }}
-                          >
-                            <Trash2 size={16} />
-                          </button>
-                        )}
+                        {(() => {
+                          const frameStoreId = frame.latestStoreFrame?.toStore?.id ?? frame.latest_store_frame?.to_store?.id;
+                          const isCurrentStore = selectedStore?.id === frameStoreId;
+                          
+                          return (
+                            <>
+                              {hasPermission('store-frames.create') && isCurrentStore && (
+                                <button 
+                                  title="Transferir armação"
+                                  onClick={() => handleTransferClick(frame)}
+                                  className="p-2 text-slate-400 hover:bg-white rounded-xl shadow-sm border border-transparent hover:border-slate-100 transition-all"
+                                  onMouseEnter={(e) => {
+                                    e.currentTarget.style.color = 'var(--store-color-dark)';
+                                  }}
+                                  onMouseLeave={(e) => {
+                                    e.currentTarget.style.color = '';
+                                  }}
+                                >
+                                  <ArrowRight size={16} />
+                                </button>
+                              )}
+                              {hasPermission('store-frames.create') && !isCurrentStore && (
+                                <button 
+                                  title="Apenas a loja que possui o item pode transferir"
+                                  disabled
+                                  className="p-2 text-slate-200 cursor-not-allowed rounded-xl"
+                                >
+                                  <ArrowRight size={16} />
+                                </button>
+                              )}
+                              {hasPermission('frames.update') && isCurrentStore && (
+                                <button 
+                                  title="Editar armação"
+                                  onClick={() => handleEdit(frame)}
+                                  className="p-2 text-slate-400 hover:bg-white rounded-xl shadow-sm border border-transparent hover:border-slate-100 transition-all"
+                                  onMouseEnter={(e) => {
+                                    e.currentTarget.style.color = 'var(--store-color-dark)';
+                                  }}
+                                  onMouseLeave={(e) => {
+                                    e.currentTarget.style.color = '';
+                                  }}
+                                >
+                                  <Edit size={16} />
+                                </button>
+                              )}
+                              {hasPermission('frames.update') && !isCurrentStore && (
+                                <button 
+                                  title="Não é possível editar armação de outra loja"
+                                  disabled
+                                  className="p-2 text-slate-200 cursor-not-allowed rounded-xl"
+                                >
+                                  <Edit size={16} />
+                                </button>
+                              )}
+                              {hasPermission('frames.delete') && isCurrentStore && (
+                                <button 
+                                  title="Excluir armação"
+                                  onClick={() => handleDeleteClick(frame)}
+                                  className="p-2 text-slate-400 hover:bg-white rounded-xl shadow-sm border border-transparent hover:border-slate-100 transition-all"
+                                  onMouseEnter={(e) => {
+                                    e.currentTarget.style.color = 'var(--store-color-dark)';
+                                  }}
+                                  onMouseLeave={(e) => {
+                                    e.currentTarget.style.color = '';
+                                  }}
+                                >
+                                  <Trash2 size={16} />
+                                </button>
+                              )}
+                              {hasPermission('frames.delete') && !isCurrentStore && (
+                                <button 
+                                  title="Não é possível excluir armação de outra loja"
+                                  disabled
+                                  className="p-2 text-slate-200 cursor-not-allowed rounded-xl"
+                                >
+                                  <Trash2 size={16} />
+                                </button>
+                              )}
+                            </>
+                          );
+                        })()}
                       </div>
                     </td>
                   </tr>

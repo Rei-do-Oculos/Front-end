@@ -6,6 +6,7 @@ export interface LaboratoryLens {
   laboratory_id: number;
   name: string;
   description: string | null;
+  delivery_days: number | null;
   cost_price: number;
   sale_price: number;
   active: boolean;
@@ -22,6 +23,7 @@ export interface CreateLaboratoryLensDto {
   laboratory_id: number;
   name: string;
   description?: string;
+  delivery_days?: number | null;
   cost_price: number;
   sale_price: number;
   active?: boolean;

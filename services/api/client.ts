@@ -1,7 +1,8 @@
 import axios, { AxiosInstance, AxiosError, InternalAxiosRequestConfig } from 'axios';
 import { sanitizeObject, validateId, generateRequestId, detectXssAttempt } from '../../utils/security';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080/api';
+// Em dev com Vite, usa /api para o proxy (evita CORS). Em produção usa VITE_API_URL.
+const API_BASE_URL = import.meta.env.DEV ? '/api' : (import.meta.env.VITE_API_URL || 'http://localhost:8080/api');
 
 class ApiClient {
   private client: AxiosInstance;
@@ -60,6 +61,12 @@ class ApiClient {
           config.headers.Authorization = `Bearer ${token}`;
         }
 
+        // Contexto de loja para escopo multi-loja
+        const storeId = localStorage.getItem('selectedStoreId');
+        if (storeId) {
+          config.headers['X-Store-ID'] = storeId;
+        }
+
         config.headers['X-Request-ID'] = generateRequestId();
 
         // Não sanitiza FormData (usado para upload de arquivos)
@@ -106,8 +113,8 @@ class ApiClient {
         const status = error.response?.status;
         const config = error.config as InternalAxiosRequestConfig & { __retryCount?: number };
 
-        // Não trata 401 como não autorizado em rotas de autenticação (login pode retornar 401)
-        if (status === 401 && !config?.url?.includes('/auth/login')) {
+        // Não trata 401 em rotas de auth (login retorna 401 para credenciais inválidas; me/logout são tratadas pelo AuthContext)
+        if (status === 401 && !config?.url?.includes('/auth/')) {
           this.handleUnauthorized();
           return Promise.reject(error);
         }

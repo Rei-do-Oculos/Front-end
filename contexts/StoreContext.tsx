@@ -57,21 +57,13 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
 
         if (stores.length > 0) {
           const savedStoreId = localStorage.getItem(STORAGE_KEY);
-          if (savedStoreId) {
-            const savedStore = stores.find(s => String(s.id) === savedStoreId);
-            if (savedStore) {
-              setSelectedStoreState(savedStore);
-              if (savedStore.color) localStorage.setItem(STORAGE_COLOR_KEY, String(savedStore.color));
-              if (savedStore.unity) localStorage.setItem(STORAGE_UNITY_KEY, String(savedStore.unity));
-              return;
-            }
-            return;
-          }
-          const firstStore = stores[0];
-          setSelectedStoreState(firstStore);
-          localStorage.setItem(STORAGE_KEY, String(firstStore.id));
-          if (firstStore.color) localStorage.setItem(STORAGE_COLOR_KEY, String(firstStore.color));
-          if (firstStore.unity) localStorage.setItem(STORAGE_UNITY_KEY, String(firstStore.unity));
+          const savedStore = savedStoreId ? stores.find(s => String(s.id) === savedStoreId) : null;
+          // Se 1 loja: sempre setar automaticamente; se várias: usar salva ou primeira
+          const storeToSelect = savedStore ?? stores[0];
+          setSelectedStoreState(storeToSelect);
+          localStorage.setItem(STORAGE_KEY, String(storeToSelect.id));
+          if (storeToSelect.color) localStorage.setItem(STORAGE_COLOR_KEY, String(storeToSelect.color));
+          if (storeToSelect.unity) localStorage.setItem(STORAGE_UNITY_KEY, String(storeToSelect.unity));
         } else {
           setSelectedStoreState(null);
           localStorage.removeItem(STORAGE_KEY);

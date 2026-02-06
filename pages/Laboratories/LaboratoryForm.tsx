@@ -5,6 +5,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useLaboratories } from '../../services/hooks/useLaboratories';
 import { useNotification } from '../../hooks/useNotification';
 import { laboratorySchema, formatZodErrors } from '../../schemas/laboratory.schema';
+import { maskCnpjInput, maskPhoneInput } from '../../utils/formatters';
 
 export const LaboratoryForm: React.FC = () => {
   const { id } = useParams();
@@ -26,7 +27,6 @@ export const LaboratoryForm: React.FC = () => {
     email: '',
     address: '',
     contact_name: '',
-    delivery_days: '',
     notes: '',
     active: true,
   });
@@ -39,14 +39,15 @@ export const LaboratoryForm: React.FC = () => {
         try {
           const laboratory = await getLaboratory(id);
           if (laboratory) {
+            const rawCnpj = (laboratory.cnpj || '').replace(/\D/g, '');
+            const rawPhone = (laboratory.phone || '').replace(/\D/g, '');
             setFormData({
               name: laboratory.name || '',
-              cnpj: laboratory.cnpj || '',
-              phone: laboratory.phone || '',
+              cnpj: rawCnpj ? maskCnpjInput(rawCnpj) : '',
+              phone: rawPhone ? maskPhoneInput(rawPhone) : '',
               email: laboratory.email || '',
               address: laboratory.address || '',
               contact_name: laboratory.contact_name || '',
-              delivery_days: laboratory.delivery_days?.toString() || '',
               notes: laboratory.notes || '',
               active: laboratory.active ?? true,
             });
@@ -162,7 +163,7 @@ export const LaboratoryForm: React.FC = () => {
             </div>
             <div>
               <h2 className="text-xl font-bold text-slate-900">Informações do Laboratório</h2>
-              <p className="text-sm text-slate-500">Campos marcados com <span className="text-red-500">*</span> são obrigatórios</p>
+              <p className="text-sm text-slate-500">Campos marcados com <span className="text-red-500 font-bold">*</span> são obrigatórios</p>
             </div>
           </div>
 
@@ -183,9 +184,10 @@ export const LaboratoryForm: React.FC = () => {
             <div>
               <Input
                 label="CNPJ"
-                placeholder="00.000.000/0000-00"
+                placeholder="00.000.000/0001-00"
                 value={formData.cnpj}
-                onChange={(e) => handleFieldChange('cnpj', e.target.value)}
+                onChange={(e) => handleFieldChange('cnpj', maskCnpjInput(e.target.value))}
+                maxLength={18}
               />
               {errors.cnpj && (
                 <p className="mt-1 text-xs text-red-500 font-medium">{errors.cnpj}</p>
@@ -199,7 +201,8 @@ export const LaboratoryForm: React.FC = () => {
                 label="Telefone"
                 placeholder="(00) 00000-0000"
                 value={formData.phone}
-                onChange={(e) => handleFieldChange('phone', e.target.value)}
+                onChange={(e) => handleFieldChange('phone', maskPhoneInput(e.target.value))}
+                maxLength={15}
               />
               {errors.phone && (
                 <p className="mt-1 text-xs text-red-500 font-medium">{errors.phone}</p>
@@ -229,18 +232,6 @@ export const LaboratoryForm: React.FC = () => {
               />
               {errors.contact_name && (
                 <p className="mt-1 text-xs text-red-500 font-medium">{errors.contact_name}</p>
-              )}
-            </div>
-            <div>
-              <Input
-                label="Prazo de Entrega (dias)"
-                type="number"
-                placeholder="Ex: 7"
-                value={formData.delivery_days}
-                onChange={(e) => handleFieldChange('delivery_days', e.target.value)}
-              />
-              {errors.delivery_days && (
-                <p className="mt-1 text-xs text-red-500 font-medium">{errors.delivery_days}</p>
               )}
             </div>
           </div>

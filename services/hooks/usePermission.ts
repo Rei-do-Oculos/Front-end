@@ -1,5 +1,5 @@
 import { useAuth } from './useAuth';
-import { getEffectiveUserPermissions, isSuperAdmin } from '../../utils/menuPermissions';
+import { getEffectiveUserPermissions, isSuperAdmin, hasSuperAdminRole } from '../../utils/menuPermissions';
 
 /**
  * Hook para verificar permissões do usuário atual
@@ -65,5 +65,9 @@ export const usePermission = () => {
     hasAnyPermission,
     hasAllPermissions,
     isSuperAdmin: user ? isSuperAdmin(user) : false,
+    /** Usa has_superadmin_role da API (fonte da verdade) ou fallback para checagem local */
+    hasSuperAdminRole: user
+      ? (typeof user.has_superadmin_role === 'boolean' ? user.has_superadmin_role : hasSuperAdminRole(user))
+      : false,
   };
 };

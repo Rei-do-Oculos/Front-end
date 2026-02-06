@@ -11,6 +11,13 @@ export default defineConfig(({ mode }) => {
         host: '0.0.0.0',
         // Redireciona todas as rotas para index.html (necessário para BrowserRouter)
         historyApiFallback: true,
+        // Proxy da API para evitar CORS e problemas de conexão
+        proxy: {
+          '/api': {
+            target: 'http://localhost:8080',
+            changeOrigin: true,
+          },
+        },
       },
       preview: {
         port: 3000,

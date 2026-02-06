@@ -223,6 +223,7 @@ export const Inadimplencias: React.FC = () => {
     return {
       osNumber: order.os_number,
       date: new Date().toLocaleString('pt-BR'),
+      expectedPickupDate: order.expected_pickup_date || null,
       seller: user?.name || order.user?.name || 'Vendedor',
       store: {
         name: storeData?.name || 'Loja',
@@ -235,6 +236,8 @@ export const Inadimplencias: React.FC = () => {
         municipio: storeData?.municipio || '',
         uf: storeData?.uf || '',
         telefone: storeData?.telefone || null,
+        unity: (storeData as any)?.unity ?? (order.store as any)?.unity ?? null,
+        logo: (storeData as any)?.logo ?? (order.store as any)?.logo ?? null,
       },
       client: {
         name: clientData?.name || 'Cliente',
@@ -242,8 +245,15 @@ export const Inadimplencias: React.FC = () => {
       },
       items,
       total: totalPrice,
-      paymentMethod: order.payment_method || null,
-      installments: order.installments || null,
+      paymentMethod: order.payments && order.payments.length > 0 ? null : (order.payment_method || null),
+      installments: order.payments && order.payments.length > 0 ? null : (order.installments || null),
+      payments: order.payments && order.payments.length > 0
+        ? order.payments.map(p => ({
+            payment_method: p.payment_method,
+            amount: p.amount,
+            installments: p.installments || null,
+          }))
+        : undefined,
     };
   };
 
@@ -619,8 +629,10 @@ export const Inadimplencias: React.FC = () => {
             setShowReceiptModal(false);
             setCompletedOrder(null);
           }}
-          onConfirm={handleReceiptConfirm}
+          onConfirm={() => handleReceiptConfirm()}
           receiptData={prepareReceiptData(completedOrder)}
+          order={completedOrder}
+          clientPhone={(completedOrder.client as any)?.phone}
         />
       )}
     </div>

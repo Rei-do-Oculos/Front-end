@@ -27,8 +27,16 @@ export interface Frame {
   frameType?: FrameTypeRef | null;
   frame_type?: FrameTypeRef | null;
   /** Loja atual (último store_frame); pode vir como latestStoreFrame ou latest_store_frame */
-  latestStoreFrame?: { toStore?: StoreRef | null } | null;
-  latest_store_frame?: { to_store?: StoreRef | null } | null;
+  latestStoreFrame?: { 
+    toStore?: StoreRef | null;
+    cost_price?: number | null;
+    sale_price?: number | null;
+  } | null;
+  latest_store_frame?: { 
+    to_store?: StoreRef | null;
+    cost_price?: number | null;
+    sale_price?: number | null;
+  } | null;
   relationships?: {
     frame_type?: FrameTypeRef | null;
   };
@@ -41,6 +49,9 @@ export interface CreateFrameDto {
   gender: 'masculino' | 'feminino' | 'unissex';
   /** Loja onde a armação está (obrigatório no cadastro) */
   store_id?: number;
+  /** Preços por loja */
+  cost_price?: number;
+  sale_price?: number;
 }
 
 export interface UpdateFrameDto extends Partial<CreateFrameDto> {}

@@ -10,6 +10,7 @@ export interface PaginationMeta {
 export interface PaginatedResponse<T> {
   data: T[];
   meta: PaginationMeta;
+  totalSales?: number;
 }
 
 export interface BaseEntity {

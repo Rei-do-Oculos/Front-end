@@ -16,11 +16,11 @@ export interface EntryReceiptClient {
 export interface EntryReceiptData {
   osNumber: number;
   date: string;
+  expectedPickupDate?: string | null;
   store: EntryReceiptStore;
   client: EntryReceiptClient;
   items: string[]; // Descrições dos itens/serviços
   total: number;
-  deliveryDays?: number | null;
   paymentMethod?: string | null;
 }
 
@@ -52,7 +52,7 @@ const PAYMENT_METHOD_LABELS: Record<string, string> = {
 
 export const EntryReceipt = forwardRef<HTMLDivElement, EntryReceiptProps>(
   ({ data }, ref) => {
-    const { osNumber, date, store, client, items, total, deliveryDays, paymentMethod } = data;
+    const { osNumber, date, expectedPickupDate, store, client, items, total, paymentMethod } = data;
 
     return (
       <div
@@ -137,10 +137,10 @@ export const EntryReceipt = forwardRef<HTMLDivElement, EntryReceiptProps>(
         )}
 
         {/* Previsão de Entrega */}
-        {deliveryDays && (
+        {expectedPickupDate && (
           <div style={{ marginBottom: '8px' }}>
             <div style={{ fontWeight: 'bold' }}>
-              Previsão de entrega: {deliveryDays} dia{deliveryDays > 1 ? 's' : ''}
+              Previsão de entrega: {new Date(expectedPickupDate).toLocaleDateString('pt-BR')}
             </div>
           </div>
         )}

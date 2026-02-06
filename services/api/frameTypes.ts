@@ -12,7 +12,8 @@ export interface FrameType {
 
 export interface CreateFrameTypeDto {
   name: string;
-  slug?: string; // Opcional, será gerado pelo backend
+  slug?: string;
+  store_id?: number;
 }
 
 export interface UpdateFrameTypeDto extends Partial<CreateFrameTypeDto> {}

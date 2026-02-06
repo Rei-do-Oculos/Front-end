@@ -36,6 +36,8 @@ export interface User {
   permissions: Permission[];
   all_permissions?: Permission[]; // Todas as permissões (via roles + diretas)
   stores?: Store[];
+  /** Definido pelo backend: true apenas para role 'superadmin', não Admin */
+  has_superadmin_role?: boolean;
 }
 
 export interface Role {

@@ -13,7 +13,6 @@ import {
   Mail,
   MapPin,
   User,
-  Clock,
   FileText,
   Building2,
   Eye,
@@ -340,12 +339,6 @@ export const LaboratoryDetail: React.FC = () => {
                   <p className="text-xs font-semibold text-slate-600">{laboratory.contact_name}</p>
                 </div>
               )}
-              {laboratory.delivery_days !== null && laboratory.delivery_days !== undefined && (
-                <div className="flex items-center gap-3">
-                  <Clock size={16} style={{ color: 'var(--store-color)' }} className="shrink-0" />
-                  <p className="text-xs font-semibold text-slate-600">{laboratory.delivery_days} dias para entrega</p>
-                </div>
-              )}
             </div>
           </Card>
 
@@ -453,10 +446,6 @@ export const LaboratoryDetail: React.FC = () => {
                     <div className="p-4 bg-slate-50 rounded-xl">
                       <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Contato</p>
                       <p className="text-sm font-bold text-slate-900">{laboratory.contact_name || '-'}</p>
-                    </div>
-                    <div className="p-4 bg-slate-50 rounded-xl">
-                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Prazo Entrega</p>
-                      <p className="text-sm font-bold text-slate-900">{laboratory.delivery_days ? `${laboratory.delivery_days} dias` : '-'}</p>
                     </div>
                     <div className="p-4 bg-slate-50 rounded-xl md:col-span-2">
                       <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Endereço</p>

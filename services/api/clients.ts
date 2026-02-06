@@ -19,7 +19,8 @@ export interface Client {
   deleted_at: string | null;
   stores?: Store[];
   relationships?: {
-    stores?: Store[];
+    stores?: Array<Store & { is_origin?: boolean; deleted?: boolean }>;
+    original_store?: Store & { deleted?: boolean } | null;
   };
 }
 

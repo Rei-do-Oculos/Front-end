@@ -6,10 +6,12 @@ import { Lens, CreateLensDto, UpdateLensDto } from '../../services/api/lenses';
 import { useNotification } from '../../hooks/useNotification';
 import { usePermission } from '../../services/hooks/usePermission';
 import { useActiveFilters } from '../../hooks/useActiveFilters';
+import { useStore } from '../../contexts/StoreContext';
 
 export const LensList: React.FC = () => {
   const { showSuccess, showError } = useNotification();
   const { hasPermission } = usePermission();
+  const { selectedStore } = useStore();
   const { lenses, loading, error, pagination, fetchLenses, deleteLens, createLens, updateLens, getLens } = useLenses({
     autoFetch: false,
   });
@@ -32,50 +34,46 @@ export const LensList: React.FC = () => {
   const [formError, setFormError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [loadingLens, setLoadingLens] = useState(false);
+  const [isOtherStoreLens, setIsOtherStoreLens] = useState(false);
 
-  // Carregar dados iniciais
+  // Carregar dados iniciais e ao trocar de loja (lentes = só da própria loja)
   useEffect(() => {
     const loadLenses = async () => {
       try {
-        await fetchLenses(1, {
+        const params: Record<string, unknown> = {
           order_by: sortBy || 'id',
           order_dir: sortDirection || 'desc',
           per_page: perPage,
-        });
+        };
+        if (selectedStore?.id) params.store_id = selectedStore.id;
+        await fetchLenses(1, params);
       } catch (err) {
         console.error('Erro ao carregar lentes:', err);
       }
     };
     loadLenses();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [perPage]);
+  }, [perPage, selectedStore?.id]);
 
   const handleSort = (key: string, direction: SortDirection) => {
     const newDirection = direction || 'asc';
     setSortBy(key);
     setSortDirection(newDirection);
     
-    const params: any = {};
+    const params: any = { order_by: key, order_dir: newDirection, per_page: perPage };
     if (searchName) params.search = searchName;
-    
-    params.order_by = key;
-    params.order_dir = newDirection;
-    params.per_page = perPage;
+    if (selectedStore?.id) params.store_id = selectedStore.id;
     
     fetchLenses(pagination?.currentPage || 1, params);
   };
 
   const handleApplyFilters = async () => {
     try {
-      const params: any = {};
+      const params: any = { per_page: perPage };
       if (searchName) params.search = searchName;
-      
-      if (sortBy) {
-        params.order_by = sortBy;
-        params.order_dir = sortDirection || 'desc';
-      }
-      
-      params.per_page = perPage;
+      if (sortBy) params.order_by = sortBy;
+      if (sortBy) params.order_dir = sortDirection || 'desc';
+      if (selectedStore?.id) params.store_id = selectedStore.id;
       await fetchLenses(1, params);
     } catch (err) {
       console.error('Erro ao aplicar filtros:', err);
@@ -84,13 +82,10 @@ export const LensList: React.FC = () => {
 
   const handleClearFilters = async () => {
     setSearchName('');
-    
     try {
-      await fetchLenses(1, {
-        order_by: sortBy || 'id',
-        order_dir: sortDirection || 'desc',
-        per_page: perPage,
-      });
+      const params: any = { order_by: sortBy || 'id', order_dir: sortDirection || 'desc', per_page: perPage };
+      if (selectedStore?.id) params.store_id = selectedStore.id;
+      await fetchLenses(1, params);
     } catch (err) {
       console.error('Erro ao limpar filtros:', err);
     }
@@ -99,14 +94,11 @@ export const LensList: React.FC = () => {
   const handlePerPageChange = async (newPerPage: number) => {
     setPerPage(newPerPage);
     try {
-      const params: any = {
-        per_page: newPerPage,
-      };
+      const params: any = { per_page: newPerPage };
       if (searchName) params.search = searchName;
-      if (sortBy) {
-        params.order_by = sortBy;
-        params.order_dir = sortDirection || 'desc';
-      }
+      if (sortBy) params.order_by = sortBy;
+      if (sortBy) params.order_dir = sortDirection || 'desc';
+      if (selectedStore?.id) params.store_id = selectedStore.id;
       await fetchLenses(1, params);
     } catch (err) {
       console.error('Erro ao alterar itens por página:', err);
@@ -114,7 +106,12 @@ export const LensList: React.FC = () => {
   };
 
   const handleCreate = () => {
+    if (!selectedStore?.id) {
+      showError('Selecione uma loja no cabeçalho para cadastrar a lente.');
+      return;
+    }
     setEditingLens(null);
+    setIsOtherStoreLens(false);
     setFormData({ name: '' });
     setFormError(null);
     setFormModalOpen(true);
@@ -122,16 +119,15 @@ export const LensList: React.FC = () => {
 
   const handleEdit = async (lens: Lens) => {
     setEditingLens(lens);
-    setFormData({ name: lens.name || '' });
     setFormError(null);
-    setLoadingLens(true);
+    setFormData({ name: lens.name || '' });
+    setIsOtherStoreLens(false); // Lista já filtrada por loja = lente pertence à loja atual
     setFormModalOpen(true);
+    setLoadingLens(true);
     
     try {
       const lensData = await getLens(String(lens.id));
-      if (lensData) {
-        setFormData({ name: lensData.name || '' });
-      }
+      if (lensData?.name) setFormData({ name: lensData.name });
     } catch (err: any) {
       console.error('Erro ao carregar lente:', err);
       showError(err.message || 'Erro ao carregar dados da lente');
@@ -149,20 +145,33 @@ export const LensList: React.FC = () => {
       return;
     }
 
+    if (!editingLens && !selectedStore?.id) {
+      setFormError('Selecione uma loja no cabeçalho para cadastrar a lente.');
+      return;
+    }
+
     setSaving(true);
     try {
+      const payload: CreateLensDto | UpdateLensDto = {
+        ...formData,
+        store_id: selectedStore?.id,
+      };
+      
       if (editingLens) {
-        await updateLens(String(editingLens.id), formData);
+        await updateLens(String(editingLens.id), payload);
         showSuccess('Lente atualizada com sucesso!');
       } else {
-        await createLens(formData);
+        await createLens(payload);
         showSuccess('Lente criada com sucesso!');
       }
 
       setFormModalOpen(false);
       setFormData({ name: '' });
       setEditingLens(null);
-      await fetchLenses(pagination.currentPage, {});
+      setIsOtherStoreLens(false);
+      const params: any = {};
+      if (selectedStore?.id) params.store_id = selectedStore.id;
+      await fetchLenses(pagination.currentPage, params);
     } catch (err: any) {
       console.error('Erro ao salvar lente:', err);
       const errorMessage = err.response?.data?.data?.errors 
@@ -188,7 +197,9 @@ export const LensList: React.FC = () => {
       await deleteLens(String(lensToDelete.id));
       setDeleteModalOpen(false);
       setLensToDelete(null);
-      await fetchLenses(pagination.currentPage, {});
+      const params: any = {};
+      if (selectedStore?.id) params.store_id = selectedStore.id;
+      await fetchLenses(pagination.currentPage, params);
     } catch (err: any) {
       console.error('Erro ao excluir lente:', err);
       showError(err.message || 'Erro ao excluir lente');
@@ -344,7 +355,7 @@ export const LensList: React.FC = () => {
                 </tr>
               ) : error ? (
                 <tr>
-                  <td colSpan={5} className="px-6 py-12 text-center">
+                  <td colSpan={4} className="px-6 py-12 text-center">
                     <div className="border rounded-lg p-4" style={{ backgroundColor: 'var(--store-color-light)', borderColor: 'var(--store-color-opacity-20)' }}>
                       <p className="text-sm font-bold mb-1" style={{ color: 'var(--store-color-dark)' }}>Erro ao carregar lentes</p>
                       <p className="text-xs" style={{ color: 'var(--store-color)' }}>{error.message || 'Erro desconhecido'}</p>
@@ -358,61 +369,84 @@ export const LensList: React.FC = () => {
                   </td>
                 </tr>
               ) : (
-                lensesList.map((lens) => (
-                  <tr key={lens.id} className="group hover:bg-slate-50/50 transition-colors">
-                    <td className="px-6 py-4 text-xs font-bold text-slate-400">#{lens.id}</td>
-                    <td className="px-6 py-4">
-                      <p 
-                        className="text-sm font-bold text-slate-900 transition-colors"
-                        onMouseEnter={(e) => {
-                          e.currentTarget.style.color = 'var(--store-color-dark)';
-                        }}
-                        onMouseLeave={(e) => {
-                          e.currentTarget.style.color = '';
-                        }}
-                      >
-                        {lens.name}
-                      </p>
-                    </td>
-                    <td className="px-6 py-4 text-[10px] font-medium text-slate-400">
-                      {formatDate(lens.created_at)}
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="flex items-center justify-center gap-2">
-                        {hasPermission('lenses.update') && (
-                          <button 
-                            title="Editar lente"
-                            onClick={() => handleEdit(lens)}
-                            className="p-2 text-slate-400 hover:bg-white rounded-xl shadow-sm border border-transparent hover:border-slate-100 transition-all"
-                            onMouseEnter={(e) => {
-                              e.currentTarget.style.color = 'var(--store-color-dark)';
-                            }}
-                            onMouseLeave={(e) => {
-                              e.currentTarget.style.color = '';
-                            }}
-                          >
-                            <Edit size={16} />
-                          </button>
-                        )}
-                        {hasPermission('lenses.delete') && (
-                          <button 
-                            title="Excluir lente"
-                            onClick={() => handleDeleteClick(lens)}
-                            className="p-2 text-slate-400 hover:bg-white rounded-xl shadow-sm border border-transparent hover:border-slate-100 transition-all"
-                            onMouseEnter={(e) => {
-                              e.currentTarget.style.color = 'var(--store-color-dark)';
-                            }}
-                            onMouseLeave={(e) => {
-                              e.currentTarget.style.color = '';
-                            }}
-                          >
-                            <Trash2 size={16} />
-                          </button>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                ))
+                lensesList.map((lens) => {
+                  // Lista já é filtrada por loja: se está na lista, pertence à loja atual
+                  const isCurrentStore = true;
+                  
+                  return (
+                    <tr key={lens.id} className="group hover:bg-slate-50/50 transition-colors">
+                      <td className="px-6 py-4 text-xs font-bold text-slate-400">#{lens.id}</td>
+                      <td className="px-6 py-4">
+                        <p 
+                          className="text-sm font-bold text-slate-900 transition-colors"
+                          onMouseEnter={(e) => {
+                            e.currentTarget.style.color = 'var(--store-color-dark)';
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.color = '';
+                          }}
+                        >
+                          {lens.name}
+                        </p>
+                      </td>
+                      <td className="px-6 py-4 text-[10px] font-medium text-slate-400">
+                        {formatDate(lens.created_at)}
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="flex items-center justify-center gap-2">
+                          {hasPermission('lenses.update') && isCurrentStore && (
+                            <button 
+                              title="Editar lente"
+                              onClick={() => handleEdit(lens)}
+                              className="p-2 text-slate-400 hover:bg-white rounded-xl shadow-sm border border-transparent hover:border-slate-100 transition-all"
+                              onMouseEnter={(e) => {
+                                e.currentTarget.style.color = 'var(--store-color-dark)';
+                              }}
+                              onMouseLeave={(e) => {
+                                e.currentTarget.style.color = '';
+                              }}
+                            >
+                              <Edit size={16} />
+                            </button>
+                          )}
+                          {hasPermission('lenses.update') && !isCurrentStore && (
+                            <button 
+                              title="Não é possível editar lente de outra loja"
+                              disabled
+                              className="p-2 text-slate-200 cursor-not-allowed rounded-xl"
+                            >
+                              <Edit size={16} />
+                            </button>
+                          )}
+                          {hasPermission('lenses.delete') && isCurrentStore && (
+                            <button 
+                              title="Excluir lente"
+                              onClick={() => handleDeleteClick(lens)}
+                              className="p-2 text-slate-400 hover:bg-white rounded-xl shadow-sm border border-transparent hover:border-slate-100 transition-all"
+                              onMouseEnter={(e) => {
+                                e.currentTarget.style.color = 'var(--store-color-dark)';
+                              }}
+                              onMouseLeave={(e) => {
+                                e.currentTarget.style.color = '';
+                              }}
+                            >
+                              <Trash2 size={16} />
+                            </button>
+                          )}
+                          {hasPermission('lenses.delete') && !isCurrentStore && (
+                            <button 
+                              title="Não é possível excluir lente de outra loja"
+                              disabled
+                              className="p-2 text-slate-200 cursor-not-allowed rounded-xl"
+                            >
+                              <Trash2 size={16} />
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })
               )}
             </tbody>
           </table>
@@ -424,13 +458,13 @@ export const LensList: React.FC = () => {
             perPage={perPage}
             onPerPageChange={handlePerPageChange}
             onPageChange={(page) => {
-              const params: any = {};
+              const params: any = { per_page: perPage };
               if (searchName) params.search = searchName;
               if (sortBy && sortDirection) {
                 params.order_by = sortBy;
                 params.order_dir = sortDirection;
               }
-              params.per_page = perPage;
+              if (selectedStore?.id) params.store_id = selectedStore.id;
               fetchLenses(page, params);
             }}
             itemName="lentes"
@@ -446,6 +480,7 @@ export const LensList: React.FC = () => {
             setFormModalOpen(false);
             setFormData({ name: '' });
             setEditingLens(null);
+            setIsOtherStoreLens(false);
             setFormError(null);
           }
         }}
@@ -464,14 +499,29 @@ export const LensList: React.FC = () => {
               </div>
             )}
 
+            {isOtherStoreLens && (
+              <div className="p-4 rounded-xl border-2 border-red-400 bg-red-50">
+                <p className="text-sm text-red-800">Esta lente pertence a outra loja. Você pode visualizar, mas não pode editar.</p>
+              </div>
+            )}
+
+            {!editingLens && selectedStore && (
+              <div className="space-y-1.5 lg:space-y-2 w-full">
+                <span className="text-[10px] lg:text-[11px] font-semibold text-slate-500 uppercase tracking-[0.15em] ml-1">Loja</span>
+                <p className="px-4 py-3 rounded-lg bg-slate-50 border border-slate-100 text-sm font-medium text-slate-700">
+                  {selectedStore.fancy_name || selectedStore.name}
+                </p>
+              </div>
+            )}
+
             <Input
               label="Nome da Lente *"
               placeholder="Ex: Varilux Physio 3.0"
               value={formData.name}
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
               required
+              disabled={isOtherStoreLens}
             />
-
 
             <div className="flex gap-3 pt-4 border-t border-slate-100">
               <Button
@@ -481,6 +531,7 @@ export const LensList: React.FC = () => {
                   setFormModalOpen(false);
                   setFormData({ name: '' });
                   setEditingLens(null);
+                  setIsOtherStoreLens(false);
                   setFormError(null);
                 }}
                 disabled={saving}

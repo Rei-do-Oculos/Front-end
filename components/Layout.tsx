@@ -193,6 +193,7 @@ export const Layout: React.FC<{ children: React.ReactNode; onLogout: () => void 
   const [currentTime, setCurrentTime] = useState('');
   const location = useLocation();
   const { user } = useAuth();
+  const isSheetPage = location.pathname.includes('/service-orders/') && location.pathname.endsWith('/sheet');
   const { selectedStore, availableStores, setSelectedStore, storeColor, storeUnity } = useStore();
   const [storeDropdownOpen, setStoreDropdownOpen] = useState(false);
   const storeDropdownRef = useRef<HTMLDivElement>(null);
@@ -559,7 +560,7 @@ export const Layout: React.FC<{ children: React.ReactNode; onLogout: () => void 
   const isPDVPage = location.pathname === '/pdv';
 
   return (
-    <div className="flex h-screen bg-[#f8f9fc] overflow-hidden font-sans text-slate-900">
+    <div className={`flex h-screen bg-[#f8f9fc] overflow-hidden font-sans text-slate-900 ${isSheetPage ? 'print-sheet-page' : ''}`}>
       {!isPDVPage && (
         <>
           {/* Sidebar Desktop */}

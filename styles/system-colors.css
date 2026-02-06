@@ -102,3 +102,15 @@
 .hover-border-system:hover {
   border-color: var(--store-color) !important;
 }
+
+/* Impressão: esconder sidebar e header na página de Ordem de Serviço */
+@media print {
+  .print-sheet-page aside,
+  .print-sheet-page header,
+  .print-sheet-page .print\\:hidden {
+    display: none !important;
+  }
+  .print-sheet-page main {
+    padding: 0 !important;
+  }
+}

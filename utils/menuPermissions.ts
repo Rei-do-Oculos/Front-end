@@ -71,6 +71,18 @@ export const routePermissionMap: Record<string, string[]> = {
 };
 
 /**
+ * Verifica se o usuário tem APENAS o role 'superadmin' (não Admin nem equivalência por permissões).
+ * Use para regras que exigem exclusivamente o role superadmin.
+ */
+export function hasSuperAdminRole(user: {
+  roles?: Array<{ name?: string }> | any[];
+} | null | undefined): boolean {
+  if (!user?.roles) return false;
+  const roles = Array.isArray(user.roles) ? user.roles : Object.values(user.roles || {});
+  return roles.some((role: any) => (role?.name || '').toLowerCase() === 'superadmin');
+}
+
+/**
  * Verifica se o usuário é superadmin OU tem acesso equivalente (todas as permissões principais)
  * 
  * @param user Usuário com roles e permissions

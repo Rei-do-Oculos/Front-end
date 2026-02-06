@@ -9,7 +9,6 @@ export interface Laboratory {
   email: string | null;
   address: string | null;
   contact_name: string | null;
-  delivery_days: number | null;
   notes: string | null;
   active: boolean;
   created_at: string;
@@ -24,7 +23,6 @@ export interface CreateLaboratoryDto {
   email?: string;
   address?: string;
   contact_name?: string;
-  delivery_days?: number;
   notes?: string;
   active?: boolean;
 }

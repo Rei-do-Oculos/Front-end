@@ -60,14 +60,17 @@ export const ClientForm: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // Validações básicas
+    // Validações (conforme backend: name, phone, document obrigatórios)
     if (!formData.name.trim()) {
       showError('Validação', 'O nome é obrigatório');
       return;
     }
-
     if (!formData.phone.trim()) {
       showError('Validação', 'O telefone é obrigatório');
+      return;
+    }
+    if (!formData.document || !formData.document.replace(/\D/g, '').trim()) {
+      showError('Validação', 'O CPF/CNPJ é obrigatório');
       return;
     }
 
@@ -238,13 +241,14 @@ export const ClientForm: React.FC = () => {
               maxLength={15}
             />
             <Input 
-              label="CPF" 
+              label="CPF/CNPJ *" 
               placeholder="000.000.000-00" 
               value={formData.document}
               onChange={(e) => {
                 const formatted = formatDocument(e.target.value);
                 setFormData({ ...formData, document: formatted });
               }}
+              required
               maxLength={14}
             />
             <Input 

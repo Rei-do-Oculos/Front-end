@@ -7,8 +7,9 @@ import { useStores } from '../../services/hooks/useStores';
 import { Store } from '../../services/api/stores';
 import { useNotification } from '../../hooks/useNotification';
 
-const API_BASE_URL = ((import.meta as any).env?.VITE_API_URL || 'http://localhost:8080/api') as string;
-const PUBLIC_BASE_URL = API_BASE_URL.replace(/\/api(\/.*)?$/, '');
+const API_BASE_URL = (import.meta.env.DEV ? '/api' : ((import.meta as any).env?.VITE_API_URL || 'http://localhost:8080/api')) as string;
+// Para assets (logo etc), em dev usa o backend direto pois /storage não passa pelo proxy
+const PUBLIC_BASE_URL = import.meta.env.DEV ? 'http://localhost:8080' : (API_BASE_URL.replace(/\/api(\/.*)?$/, '') || window.location.origin);
 
 export const StoreForm: React.FC = () => {
   const { id } = useParams();

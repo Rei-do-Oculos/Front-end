@@ -39,6 +39,8 @@ export interface CreateStoreFrameDto {
   from_store_id?: number | null;
   to_store_id: number;
   notes?: string | null;
+  cost_price?: number | null;
+  sale_price?: number | null;
 }
 
 export interface UpdateStoreFrameDto extends Partial<CreateStoreFrameDto> {}

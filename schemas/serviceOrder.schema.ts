@@ -13,14 +13,16 @@ export const serviceOrderSchema = z.object({
     .string({ required_error: 'Usuário é obrigatório' })
     .min(1, 'Usuário é obrigatório'),
   price: z
-    .string({ required_error: 'Preço é obrigatório' })
-    .min(1, 'Preço é obrigatório')
+    .string()
+    .optional()
+    .nullable()
+    .transform((val) => val || '0')
     .refine(
       (val) => {
-        const num = parseFloat(val.replace(',', '.').replace(/[^\d.]/g, ''));
-        return !isNaN(num) && num > 0;
+        const num = parseFloat(String(val).replace(',', '.').replace(/[^\d.]/g, ''));
+        return !isNaN(num) && num >= 0;
       },
-      'Preço deve ser maior que zero'
+      'Preço deve ser maior ou igual a zero'
     ),
 
   // Laboratório (opcional)

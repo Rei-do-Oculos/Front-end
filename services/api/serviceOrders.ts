@@ -11,6 +11,7 @@ export interface ServiceOrder {
   store_id: number;
   user_id: number;
   laboratory_id: number | null;
+  expected_pickup_date: string | null;
   // Longe - OD
   far_od_spherical: string | null;
   far_od_cylindrical: string | null;
@@ -77,11 +78,11 @@ export interface ServiceOrder {
   laboratory?: {
     id: number;
     name: string;
-    delivery_days?: number;
   };
   laboratory_lenses?: Array<{
     id: number;
     name: string;
+    delivery_days?: number | null;
     cost_price: number;
     sale_price: number;
   }>;
@@ -95,6 +96,12 @@ export interface ServiceOrder {
     name: string;
     slug: string;
   }>;
+  payments?: Array<{
+    id: number;
+    payment_method: 'credit_card' | 'debit_card' | 'cash' | 'pix';
+    amount: number;
+    installments: number | null;
+  }>;
   // Status computed
   status_label?: string;
   status_color?: string;
@@ -107,6 +114,7 @@ export interface CreateServiceOrderDto {
   store_id: number;
   user_id: number;
   laboratory_id?: number | null;
+  expected_pickup_date?: string | null;
   // Longe - OD
   far_od_spherical?: string | null;
   far_od_cylindrical?: string | null;
@@ -150,6 +158,12 @@ export interface CreateServiceOrderDto {
   laboratory_lenses?: number[];
   frames?: number[];
   lenses?: number[];
+  // Pagamentos parciais/mistos
+  payments?: Array<{
+    payment_method: 'credit_card' | 'debit_card' | 'cash' | 'pix';
+    amount: number;
+    installments?: number | null;
+  }>;
 }
 
 export interface UpdateServiceOrderDto extends Partial<CreateServiceOrderDto> {}
@@ -194,6 +208,7 @@ export interface ServiceOrdersListResponse {
   data: {
     request: any;
     service_orders: LaravelPaginatedResponse<ServiceOrder>;
+    total_sales?: number;
   };
 }
 
@@ -241,6 +256,7 @@ class ServiceOrdersService {
         totalPages: laravelPagination.last_page || 1,
         totalItems: laravelPagination.total || 0,
       },
+      totalSales: responseData.data?.total_sales ?? 0,
     };
   }
 
@@ -330,6 +346,7 @@ class ServiceOrdersService {
         totalPages: laravelPagination.last_page || 1,
         totalItems: laravelPagination.total || 0,
       },
+      totalSales: responseData.data?.total_sales ?? 0,
     };
   }
 
@@ -364,6 +381,7 @@ class ServiceOrdersService {
         totalPages: laravelPagination.last_page || 1,
         totalItems: laravelPagination.total || 0,
       },
+      totalSales: responseData.data?.total_sales ?? 0,
     };
   }
 
@@ -426,6 +444,47 @@ class ServiceOrdersService {
       service_order: data.data?.service_order,
     };
   }
+
+  /**
+   * Reverter envio para laboratório (voltar para pendente)
+   */
+  async revertSendToLab(id: string): Promise<{ success: boolean; message: string; service_order: ServiceOrder }> {
+    const { data } = await apiClient.post<{
+      success: boolean;
+      action: string;
+      data: {
+        message: string;
+        service_order: ServiceOrder;
+      };
+    }>(`${this.endpoint}/${id}/revert-send-to-lab`);
+    
+    return {
+      success: data.success,
+      message: data.data?.message || '',
+      service_order: data.data?.service_order,
+    };
+  }
+
+  /**
+   * Reverter chegada (voltar para enviado ao lab)
+   */
+  async revertArrived(id: string): Promise<{ success: boolean; message: string; service_order: ServiceOrder }> {
+    const { data } = await apiClient.post<{
+      success: boolean;
+      action: string;
+      data: {
+        message: string;
+        service_order: ServiceOrder;
+      };
+    }>(`${this.endpoint}/${id}/revert-arrived`);
+    
+    return {
+      success: data.success,
+      message: data.data?.message || '',
+      service_order: data.data?.service_order,
+    };
+  }
+
 }
 
 export const serviceOrdersService = new ServiceOrdersService();

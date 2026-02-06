@@ -6,10 +6,12 @@ import { FrameType, CreateFrameTypeDto, UpdateFrameTypeDto } from '../../service
 import { useNotification } from '../../hooks/useNotification';
 import { usePermission } from '../../services/hooks/usePermission';
 import { useActiveFilters } from '../../hooks/useActiveFilters';
+import { useStore } from '../../contexts/StoreContext';
 
 export const FrameTypeList: React.FC = () => {
   const { showSuccess, showError } = useNotification();
   const { hasPermission } = usePermission();
+  const { selectedStore } = useStore();
   const { frameTypes, loading, error, pagination, fetchFrameTypes, deleteFrameType, createFrameType, updateFrameType, getFrameType } = useFrameTypes({
     autoFetch: false,
   });
@@ -114,6 +116,10 @@ export const FrameTypeList: React.FC = () => {
   };
 
   const handleCreate = () => {
+    if (!selectedStore?.id) {
+      showError('Selecione uma loja no cabeçalho para cadastrar o tipo de armação.');
+      return;
+    }
     setEditingFrameType(null);
     setFormData({ name: '' });
     setFormError(null);
@@ -148,14 +154,19 @@ export const FrameTypeList: React.FC = () => {
       setFormError('O nome é obrigatório');
       return;
     }
+    if (!editingFrameType && !selectedStore?.id) {
+      setFormError('Selecione uma loja no cabeçalho para cadastrar o tipo de armação.');
+      return;
+    }
 
     setSaving(true);
     try {
+      const payload = { ...formData, store_id: selectedStore?.id };
       if (editingFrameType) {
-        await updateFrameType(String(editingFrameType.id), formData);
+        await updateFrameType(String(editingFrameType.id), payload);
         showSuccess('Tipo de armação atualizado com sucesso!');
       } else {
-        await createFrameType(formData);
+        await createFrameType(payload);
         showSuccess('Tipo de armação criado com sucesso!');
       }
 

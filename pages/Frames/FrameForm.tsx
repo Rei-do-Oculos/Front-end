@@ -31,6 +31,7 @@ export const FrameForm: React.FC = () => {
   const [loadingFrame, setLoadingFrame] = useState(false);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [isOtherStoreFrame, setIsOtherStoreFrame] = useState(false);
 
   // Carregar tipos de armação
   useEffect(() => {
@@ -52,6 +53,19 @@ export const FrameForm: React.FC = () => {
         try {
           const frame = await getFrame(id);
           if (frame) {
+            // Verificar se frame pertence à loja atual
+            const frameStoreId = frame.latestStoreFrame?.toStore?.id || frame.latest_store_frame?.to_store?.id;
+            const currentStoreId = selectedStore?.id;
+            const isOtherStore = currentStoreId !== undefined && frameStoreId !== currentStoreId;
+            setIsOtherStoreFrame(isOtherStore);
+            
+            // Se for frame de outra loja e estiver editando, redirecionar
+            if (isOtherStore && isEditMode) {
+              showError('Não é possível editar armação de outra loja.');
+              navigate(`/frames/${id}`);
+              return;
+            }
+            
             setFormData({
               description: frame.description || '',
               code: frame.code || '',
@@ -198,6 +212,7 @@ export const FrameForm: React.FC = () => {
 
       <Card>
         <form onSubmit={handleSubmit} className="space-y-6">
+          <fieldset disabled={isOtherStoreFrame} className="disabled:opacity-70">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <Input
               label="Descrição *"
@@ -240,12 +255,31 @@ export const FrameForm: React.FC = () => {
               </div>
             )}
           </div>
+          
+          {isOtherStoreFrame && (
+            <div className="p-6 rounded-xl border-2 border-red-400 bg-red-50">
+              <div className="flex items-start gap-4">
+                <div className="flex-shrink-0 w-12 h-12 rounded-full bg-red-200 flex items-center justify-center">
+                  <svg className="w-6 h-6 text-red-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                  </svg>
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-lg font-bold text-red-900 mb-2">Armação de Outra Loja</h3>
+                  <p className="text-sm text-red-800">
+                    Esta armação pertence a outra loja. Você pode visualizar, mas não pode editar.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
 
+          </fieldset>
           <div className="flex gap-3 pt-6 mt-6 border-t border-slate-200">
             <Button type="button" onClick={() => navigate('/frames')} variant="outline">
               Cancelar
             </Button>
-            <Button type="submit" disabled={loading}>
+            <Button type="submit" disabled={loading || isOtherStoreFrame}>
               {loading ? (
                 <>
                   <Loader2 size={18} className="animate-spin" /> Salvando...

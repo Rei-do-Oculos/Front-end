@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Edit, Plus, Trash2, Loader2, Building2, Phone, Mail, Clock, Eye } from 'lucide-react';
+import { Edit, Plus, Trash2, Loader2, Building2, Phone, Mail, Eye } from 'lucide-react';
 import { Card, Button, Input, FilterSection, Modal, ActiveFiltersBadge, SortableHeader, SortDirection, Pagination, AccessDeniedCard, Badge } from '../../components/Common';
 import { useLaboratories } from '../../services/hooks/useLaboratories';
 import { Laboratory } from '../../services/api/laboratories';
@@ -285,7 +285,6 @@ export const LaboratoryList: React.FC = () => {
                   className="px-6 py-4"
                 />
                 <th className="px-6 py-4 text-left text-[10px] font-black uppercase text-slate-400 tracking-widest">Contato</th>
-                <th className="px-6 py-4 text-center text-[10px] font-black uppercase text-slate-400 tracking-widest">Prazo</th>
                 <th className="px-6 py-4 text-center text-[10px] font-black uppercase text-slate-400 tracking-widest">Status</th>
                 <SortableHeader
                   label="Cadastro"
@@ -301,7 +300,7 @@ export const LaboratoryList: React.FC = () => {
             <tbody className="divide-y divide-slate-50">
               {loading ? (
                 <tr>
-                  <td colSpan={7} className="px-6 py-12 text-center">
+                  <td colSpan={6} className="px-6 py-12 text-center">
                     <div className="flex items-center justify-center gap-3">
                       <Loader2 size={20} className="animate-spin" style={{ color: 'var(--store-color)' }} />
                       <span className="text-sm text-slate-500">Carregando laboratórios...</span>
@@ -310,7 +309,7 @@ export const LaboratoryList: React.FC = () => {
                 </tr>
               ) : error ? (
                 <tr>
-                  <td colSpan={7} className="px-6 py-12 text-center">
+                  <td colSpan={6} className="px-6 py-12 text-center">
                     <div className="border rounded-lg p-4" style={{ backgroundColor: 'var(--store-color-light)', borderColor: 'var(--store-color-opacity-20)' }}>
                       <p className="text-sm font-bold mb-1" style={{ color: 'var(--store-color-dark)' }}>Erro ao carregar laboratórios</p>
                       <p className="text-xs" style={{ color: 'var(--store-color)' }}>{error.message || 'Erro desconhecido'}</p>
@@ -319,7 +318,7 @@ export const LaboratoryList: React.FC = () => {
                 </tr>
               ) : laboratoriesList.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="px-6 py-12 text-center">
+                  <td colSpan={6} className="px-6 py-12 text-center">
                     <span className="text-sm text-slate-500">Nenhum laboratório encontrado</span>
                   </td>
                 </tr>
@@ -369,16 +368,6 @@ export const LaboratoryList: React.FC = () => {
                           <span className="text-xs text-slate-400">-</span>
                         )}
                       </div>
-                    </td>
-                    <td className="px-6 py-4 text-center">
-                      {laboratory.delivery_days ? (
-                        <div className="flex items-center justify-center gap-1 text-xs text-slate-600">
-                          <Clock size={12} />
-                          <span>{laboratory.delivery_days} dias</span>
-                        </div>
-                      ) : (
-                        <span className="text-xs text-slate-400">-</span>
-                      )}
                     </td>
                     <td className="px-6 py-4 text-center">
                       <Badge variant={laboratory.active ? 'success' : 'danger'}>

@@ -8,11 +8,15 @@ export interface Lens {
   created_at: string;
   updated_at: string;
   deleted_at: string | null;
+  relationships?: {
+    stores?: Array<{ id: number; name: string }>;
+  };
 }
 
 export interface CreateLensDto {
   name: string;
-  slug?: string; // Opcional, será gerado pelo backend
+  slug?: string;
+  store_id?: number;
 }
 
 export interface UpdateLensDto extends Partial<CreateLensDto> {}
@@ -23,6 +27,7 @@ export interface LensesQueryParams {
   search?: string;
   order_by?: string;
   order_dir?: 'asc' | 'desc';
+  store_id?: number;
 }
 
 export interface LaravelPaginatedResponse<T> {

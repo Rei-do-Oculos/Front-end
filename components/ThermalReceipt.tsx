@@ -11,6 +11,8 @@ export interface ReceiptStore {
   municipio: string;
   uf: string;
   telefone?: string | null;
+  unity?: string | null;
+  logo?: string | null;
 }
 
 export interface ReceiptClient {
@@ -24,9 +26,16 @@ export interface ReceiptItem {
   price: number;
 }
 
+export interface ReceiptPayment {
+  payment_method: string;
+  amount: number;
+  installments?: number | null;
+}
+
 export interface ReceiptData {
   osNumber: number;
   date: string;
+  expectedPickupDate?: string | null;
   seller: string;
   store: ReceiptStore;
   client: ReceiptClient;
@@ -34,6 +43,7 @@ export interface ReceiptData {
   total: number;
   paymentMethod?: string | null;
   installments?: number | null;
+  payments?: ReceiptPayment[];
 }
 
 // Labels para formas de pagamento
@@ -82,7 +92,7 @@ const formatOsNumber = (num: number): string => {
 
 export const ThermalReceipt = forwardRef<HTMLDivElement, ThermalReceiptProps>(
   ({ data }, ref) => {
-    const { osNumber, date, seller, store, client, items, total, paymentMethod, installments } = data;
+    const { osNumber, date, expectedPickupDate, seller, store, client, items, total, paymentMethod, installments, payments } = data;
 
     return (
       <div
@@ -136,6 +146,9 @@ export const ThermalReceipt = forwardRef<HTMLDivElement, ThermalReceiptProps>(
         <div style={{ marginBottom: '8px' }}>
           <div>OS Nº: {formatOsNumber(osNumber)}</div>
           <div>Data: {date}</div>
+          {expectedPickupDate && (
+            <div style={{ fontWeight: 'bold' }}>Retirada prevista: {new Date(expectedPickupDate).toLocaleDateString('pt-BR')}</div>
+          )}
           <div>Vendedor: {seller}</div>
         </div>
 
@@ -195,23 +208,45 @@ export const ThermalReceipt = forwardRef<HTMLDivElement, ThermalReceiptProps>(
         </div>
 
         {/* Forma de Pagamento */}
-        {paymentMethod && (
+        {(payments && payments.length > 0) || paymentMethod ? (
           <>
             <div style={{ borderTop: '1px dashed #000', margin: '8px 0' }} />
             <div style={{ marginBottom: '8px' }}>
               <div style={{ fontWeight: 'bold', marginBottom: '4px' }}>PAGAMENTO</div>
-              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <span>{PAYMENT_METHOD_LABELS[paymentMethod] || paymentMethod}</span>
-                <span>
-                  {paymentMethod === 'credit_card' && installments && installments > 1
-                    ? `${installments}x de ${formatCurrency(total / installments)}`
-                    : formatCurrency(total)
-                  }
-                </span>
-              </div>
+              {payments && payments.length > 0 ? (
+                // Múltiplos pagamentos
+                payments.map((payment, index) => (
+                  <div key={index} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: index < payments.length - 1 ? '4px' : '0' }}>
+                    <span>
+                      {PAYMENT_METHOD_LABELS[payment.payment_method] || payment.payment_method}
+                      {payment.payment_method === 'credit_card' && payment.installments && payment.installments > 1
+                        ? ` (${payment.installments}x)`
+                        : ''
+                      }
+                    </span>
+                    <span>
+                      {payment.payment_method === 'credit_card' && payment.installments && payment.installments > 1
+                        ? `${payment.installments}x de ${formatCurrency(payment.amount / payment.installments)}`
+                        : formatCurrency(payment.amount)
+                      }
+                    </span>
+                  </div>
+                ))
+              ) : (
+                // Pagamento único (modo tradicional)
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span>{PAYMENT_METHOD_LABELS[paymentMethod!] || paymentMethod}</span>
+                  <span>
+                    {paymentMethod === 'credit_card' && installments && installments > 1
+                      ? `${installments}x de ${formatCurrency(total / installments)}`
+                      : formatCurrency(total)
+                    }
+                  </span>
+                </div>
+              )}
             </div>
           </>
-        )}
+        ) : null}
 
         {/* Separador */}
         <div style={{ borderTop: '1px dashed #000', margin: '8px 0' }} />

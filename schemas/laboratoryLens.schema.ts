@@ -14,6 +14,19 @@ export const laboratoryLensSchema = z.object({
     .optional()
     .nullable()
     .transform(val => val || null),
+  delivery_days: z
+    .union([z.string(), z.number()])
+    .optional()
+    .nullable()
+    .transform(val => {
+      if (val === '' || val === null || val === undefined) return null;
+      const num = Number(val);
+      return isNaN(num) ? null : num;
+    })
+    .refine(
+      (val) => val === null || (val >= 0 && val <= 365),
+      'Prazo deve ser entre 0 e 365 dias'
+    ),
   cost_price: z
     .union([z.string(), z.number()])
     .refine((val) => val !== '' && val !== null && val !== undefined, 'Preço de custo é obrigatório')

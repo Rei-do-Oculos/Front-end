@@ -74,9 +74,33 @@ export const useServiceOrders = (options: UseServiceOrdersOptions = {}) => {
     }
   }, []);
 
+  // Reverter envio para laboratório
+  const revertSendToLab = useCallback(async (id: string) => {
+    setActionLoading(true);
+    try {
+      const result = await serviceOrdersService.revertSendToLab(id);
+      return result;
+    } finally {
+      setActionLoading(false);
+    }
+  }, []);
+
+  // Reverter chegada
+  const revertArrived = useCallback(async (id: string) => {
+    setActionLoading(true);
+    try {
+      const result = await serviceOrdersService.revertArrived(id);
+      return result;
+    } finally {
+      setActionLoading(false);
+    }
+  }, []);
+
+
   return {
     serviceOrders: api.data,
     loading: api.loading,
+    totalSales: api.totalSales ?? 0,
     actionLoading,
     error: api.error,
     pagination: api.pagination,
@@ -91,6 +115,9 @@ export const useServiceOrders = (options: UseServiceOrdersOptions = {}) => {
     sendToLab,
     markArrived,
     markCompleted,
+    // Revert actions
+    revertSendToLab,
+    revertArrived,
     // Overdue actions
     fetchOverdueOrders,
   };

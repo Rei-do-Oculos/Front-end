@@ -27,6 +27,7 @@ interface UseApiReturn<T, CreateDto, UpdateDto, QueryParams> {
     totalPages: number;
     totalItems: number;
   };
+  totalSales?: number;
   fetch: (page?: number, params?: QueryParams) => Promise<void>;
   getById: (id: string) => Promise<T | undefined>;
   create: (payload: CreateDto) => Promise<T>;
@@ -60,6 +61,7 @@ export const useApi = <
     totalPages: 1,
     totalItems: 0,
   });
+  const [totalSales, setTotalSales] = useState<number>(0);
 
   const fetch = useCallback(
     async (page = 1, params?: QueryParams) => {
@@ -69,6 +71,7 @@ export const useApi = <
         const response = await service.getAll({ page, ...params } as any);
         setData(Array.isArray(response.data) ? response.data : []);
         setPagination(response.meta || { currentPage: 1, totalPages: 1, totalItems: 0 });
+        setTotalSales(response.totalSales ?? 0);
         onSuccess?.(response.data);
       } catch (err) {
         const error = err instanceof Error ? err : new Error('Erro ao carregar dados');
@@ -188,6 +191,7 @@ export const useApi = <
     loading,
     error,
     pagination,
+    totalSales,
     fetch,
     getById,
     create,
