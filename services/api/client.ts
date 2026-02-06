@@ -1,8 +1,8 @@
 import axios, { AxiosInstance, AxiosError, InternalAxiosRequestConfig } from 'axios';
 import { sanitizeObject, validateId, generateRequestId, detectXssAttempt } from '../../utils/security';
 
-// Sempre usa VITE_API_URL. Em dev passa pelo proxy /api (evita CORS); em prod usa direto.
-const API_BASE_URL = import.meta.env.DEV ? '/api' : (import.meta.env.VITE_API_URL ?? '');
+// Sempre usa /api (URL relativa). Em dev o proxy do Vite encaminha; em prod o reverse proxy (Nginx) deve encaminhar.
+const API_BASE_URL = '/api';
 
 class ApiClient {
   private client: AxiosInstance;

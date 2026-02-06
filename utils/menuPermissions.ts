@@ -59,15 +59,26 @@ export const routePermissionMap: Record<string, string[]> = {
   '/laboratory-lenses/create': ['laboratory-lenses.create'],
   '/laboratory-lenses/:id/edit': ['laboratory-lenses.update'],
   
+  // Financeiro
+  '/finance': ['finance.dashboard', 'finance.revenue-by-store', 'finance.top-sellers', 'finance.overdue-summary'],
+  '/finance/overdue': ['service-orders-overdue.list', 'finance.overdue-summary'],
+  '/notas-fiscais': ['finance.dashboard'],
+  '/notas-fiscais/:id': ['finance.dashboard'],
+
+  // Pedidos (OS)
+  '/service-orders': ['service-orders.list', 'service-orders.read'],
+  '/service-orders/create': ['service-orders.create'],
+  '/service-orders/lab': ['service-orders-lab.list'],
+  '/service-orders/:id': ['service-orders.read'],
+  '/service-orders/:id/edit': ['service-orders.update'],
+  
   // Outros módulos - por enquanto sem permissões específicas (públicos)
-  // Quando as permissões forem criadas no backend, adicionar aqui
-  '/pdv': [], // Público por enquanto
-  '/vendedores': [], // Público por enquanto
-  '/estoque': [], // Público por enquanto
-  '/fornecedores': [], // Público por enquanto
-  '/finance': [], // Público por enquanto
-  '/pedidos': [], // Público por enquanto
-  '/chat': [], // Público por enquanto
+  '/pdv': [],
+  '/vendedores': [],
+  '/estoque': [],
+  '/fornecedores': [],
+  '/pedidos': [],
+  '/chat': [],
 };
 
 /**
@@ -225,6 +236,17 @@ export function getEffectiveUserPermissions(user: {
   roles?: Array<{ permissions?: Array<{ name: string; slug?: string }> }>;
   permissions?: Array<{ name: string; slug?: string }>;
 }): Array<{ name: string }> {
+  // DEBUG: Log para verificar estrutura do usuário
+  console.log('[getEffectiveUserPermissions] 🔍 Verificando permissões do usuário:', {
+    hasAllPermissions: !!user.all_permissions,
+    allPermissionsLength: user.all_permissions?.length || 0,
+    allPermissions: user.all_permissions?.map(p => p.name || p.slug) || [],
+    hasRoles: !!user.roles,
+    rolesLength: Array.isArray(user.roles) ? user.roles.length : 0,
+    hasDirectPermissions: !!user.permissions,
+    directPermissionsLength: user.permissions?.length || 0,
+  });
+
   // Tentar usar all_permissions primeiro
   if (user.all_permissions && Array.isArray(user.all_permissions) && user.all_permissions.length > 0) {
     const out: Array<{ name: string }> = [];
@@ -236,6 +258,13 @@ export function getEffectiveUserPermissions(user: {
         out.push({ name });
       }
     });
+    
+    console.log('[getEffectiveUserPermissions] ✅ Retornando all_permissions:', {
+      total: out.length,
+      permissions: out.map(p => p.name),
+      hasServiceOrdersLabList: out.some(p => p.name === 'service-orders-lab.list'),
+    });
+    
     return out;
   }
   

@@ -10,11 +10,13 @@ import { permissionsService } from '../../services/api/permissions';
 import { storesService } from '../../services/api/stores';
 import { translatePermission, translateResource } from '../../utils/translations';
 import { useNotification } from '../../hooks/useNotification';
+import { useAuth } from '../../services/hooks/useAuth';
 
 export const UserForm: React.FC = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const { showSuccess, showError } = useNotification();
+  const { user: currentUser, refreshUser } = useAuth();
   const isEditMode = !!id;
   
   const { createUser, updateUser, loading } = useUsers({
@@ -318,6 +320,11 @@ export const UserForm: React.FC = () => {
       if (isEditMode) {
         await updateUser(String(id), payload);
         showSuccess('Usuário atualizado!', 'O usuário foi atualizado com sucesso.');
+        
+        // Se o usuário atualizado for o próprio usuário logado, atualizar dados do contexto
+        if (currentUser && String(currentUser.id) === String(id)) {
+          await refreshUser();
+        }
       } else {
         await createUser(payload);
         showSuccess('Usuário criado!', 'O usuário foi criado com sucesso.');

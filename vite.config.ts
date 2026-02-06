@@ -18,6 +18,10 @@ export default defineConfig(({ mode }) => {
             target: proxyTarget,
             changeOrigin: true,
           },
+          '/storage': {
+            target: proxyTarget,
+            changeOrigin: true,
+          },
         },
       },
       preview: {

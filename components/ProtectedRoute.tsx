@@ -42,17 +42,15 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
 
   // Usar apenas permissões efetivas do backend (all_permissions)
   const userPermissions = getEffectiveUserPermissions(user);
-  
-  // Debug detalhado
-  console.log('[ProtectedRoute] DEBUG:', {
+
+  // DEBUG: Log para verificar permissões
+  console.log('[ProtectedRoute] 🔍 Verificação de permissões:', {
     route: location.pathname,
-    userId: user.id,
-    userEmail: user.email,
-    hasAllPermissions: !!user.all_permissions,
-    allPermissionsCount: user.all_permissions?.length || 0,
-    allPermissions: user.all_permissions?.map(p => p.name),
-    effectivePermissionsCount: userPermissions.length,
-    effectivePermissions: userPermissions.map(p => p.name),
+    hash: location.hash,
+    userPermissions: userPermissions.map(p => typeof p === 'string' ? p : p.name),
+    userAllPermissions: user?.all_permissions?.map((p: any) => p.name || p.slug) || [],
+    userId: user?.id,
+    userEmail: user?.email,
   });
 
   // Se não foram passadas permissões específicas, tentar obter do mapeamento de rotas
@@ -88,23 +86,39 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
     }
   }
 
+  console.log('[ProtectedRoute] 📋 Permissões requeridas:', {
+    route,
+    permissionsToCheck,
+    foundInMap: !!routePermissionMap[route],
+  });
+
   // Se não há permissões requeridas, permitir acesso (rota pública)
   if (!permissionsToCheck || permissionsToCheck.length === 0) {
+    console.log('[ProtectedRoute] ✅ Rota pública, permitindo acesso');
     return <>{children}</>;
   }
 
   // Verificar se o usuário tem permissão
   const hasPermission = hasRoutePermission(userPermissions, route, user as any);
 
+  console.log('[ProtectedRoute] 🔐 Resultado da verificação:', {
+    hasPermission,
+    userPermissionsCount: userPermissions.length,
+    requiredPermissions: permissionsToCheck,
+    userHasRequired: permissionsToCheck.some(perm => 
+      userPermissions.some(up => {
+        const upName = typeof up === 'string' ? up : up.name;
+        return upName === perm;
+      })
+    ),
+  });
+
   if (!hasPermission) {
-    // Log para debug
-    console.warn('[ProtectedRoute] Acesso negado:', {
+    console.warn('[ProtectedRoute] ❌ Acesso negado:', {
       route,
       requiredPermissions: permissionsToCheck,
-      userPermissions: userPermissions.map(p => p.name),
-      userId: user.id,
+      userPermissions: userPermissions.map(p => typeof p === 'string' ? p : p.name),
     });
-
     return <AccessDeniedCard />;
   }
 

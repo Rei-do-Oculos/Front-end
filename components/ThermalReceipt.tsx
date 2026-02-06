@@ -13,6 +13,7 @@ export interface ReceiptStore {
   telefone?: string | null;
   unity?: string | null;
   logo?: string | null;
+  color?: string | null;
 }
 
 export interface ReceiptClient {

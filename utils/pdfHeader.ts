@@ -1,0 +1,98 @@
+/**
+ * Utilitário para gerar header padrão de PDFs
+ */
+
+export interface StoreData {
+  name?: string;
+  fancy_name?: string;
+  color?: string;
+  logo?: string | null;
+  logradouro?: string;
+  numero?: string;
+  bairro?: string;
+  municipio?: string;
+  uf?: string;
+  telefone?: string | null;
+  cnpj?: string;
+}
+
+export interface PdfHeaderOptions {
+  storeData?: StoreData | null;
+  storeColor?: string;
+  storeLogo?: string | null;
+  title?: string;
+  logoUrlBuilder?: (logoPath: string | null | undefined) => string | null;
+}
+
+/**
+ * Converte URL de imagem para data URL (para incluir no PDF)
+ */
+export const imageToDataUrl = async (url: string): Promise<string> => {
+  try {
+    const res = await fetch(url, { mode: 'cors' });
+    const blob = await res.blob();
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result as string);
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+  } catch {
+    return url;
+  }
+};
+
+/**
+ * Gera o HTML do header padrão para PDFs
+ */
+export const generatePdfHeader = async (options: PdfHeaderOptions): Promise<string> => {
+  const {
+    storeData,
+    storeColor = '#dc2626',
+    storeLogo,
+    title = 'Relatório',
+    logoUrlBuilder,
+  } = options;
+
+  const color = storeData?.color ?? storeColor ?? '#dc2626';
+  const storeName = storeData?.name ?? 'Sistema';
+  const storeFancy = storeData?.fancy_name ?? storeData?.name ?? storeName;
+  const logradouro = storeData?.logradouro ?? '';
+  const numero = storeData?.numero ?? '';
+  const bairro = storeData?.bairro ?? '';
+  const municipio = storeData?.municipio ?? '';
+  const uf = storeData?.uf ?? '';
+  const telefone = storeData?.telefone ?? null;
+  const cnpj = storeData?.cnpj ?? '00.000.000/0000-00';
+
+  // Buscar logo
+  let logoDataUrl = '';
+  const logoPath = storeData?.logo ?? storeLogo ?? null;
+  if (logoPath && logoUrlBuilder) {
+    const logoUrl = logoUrlBuilder(logoPath);
+    if (logoUrl) {
+      logoDataUrl = await imageToDataUrl(logoUrl);
+    }
+  }
+
+  const headerLogoHtml = logoDataUrl
+    ? `<img src="${logoDataUrl}" alt="Logo" style="max-height: 90px; max-width: 220px; object-fit: contain;" />`
+    : `<div style="display: flex; flex-direction: column; gap: 2px;"><span style="font-size: 20px; font-weight: 700; color: ${color}; letter-spacing: 1px;">ÓTICA</span><span style="font-size: 16px; font-weight: 500; color: #374151;">${storeName}</span></div>`;
+
+  return `
+    <table style="width: 100%; border-collapse: collapse; margin-bottom: 28px; border-bottom: 2px solid ${color};">
+      <tr>
+        <td style="width: 1%; vertical-align: top;">${headerLogoHtml}</td>
+        <td style="padding: 0 20px; text-align: center; vertical-align: top;">
+          <div style="font-weight: 700; font-size: 13px; color: #111827; margin-bottom: 6px;">${storeFancy}</div>
+          ${(logradouro || municipio) ? `<div style="font-size: 11px; color: #6b7280; line-height: 1.5;">${[logradouro, numero].filter(Boolean).join(', ')}${bairro ? ` — ${bairro}` : ''}${(municipio || uf) ? ` — ${[municipio, uf].filter(Boolean).join(' - ')}` : ''}</div>` : ''}
+          ${telefone ? `<div style="font-size: 11px; color: #6b7280; margin-top: 2px;">Tel: ${telefone}</div>` : ''}
+          ${cnpj && cnpj !== '00.000.000/0000-00' ? `<div style="font-size: 10px; color: #9ca3af; margin-top: 2px;">CNPJ: ${cnpj}</div>` : ''}
+        </td>
+        <td style="width: 1%; text-align: right; vertical-align: top;">
+          <div style="font-weight: 700; font-size: 14px; color: ${color};">${title}</div>
+        </td>
+      </tr>
+    </table>
+  `;
+};

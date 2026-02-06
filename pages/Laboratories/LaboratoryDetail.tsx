@@ -18,22 +18,37 @@ import {
   Eye,
   DollarSign,
   TrendingUp,
-  Calendar
+  Calendar,
+  FileDown
 } from 'lucide-react';
 import { Card, Button, Badge, Modal, Pagination, SortableHeader, SortDirection, MultiSelect } from '../../components/Common';
 import { useLaboratories } from '../../services/hooks/useLaboratories';
+import { laboratoriesService } from '../../services/api/laboratories';
+import { storesService } from '../../services/api/stores';
+import { useStore } from '../../contexts/StoreContext';
 import { useLaboratoryLenses } from '../../services/hooks/useLaboratoryLenses';
 import { Laboratory } from '../../services/api/laboratories';
 import { LaboratoryLens } from '../../services/api/laboratoryLenses';
 import { ServiceOrder } from '../../services/api/serviceOrders';
 import { useNotification } from '../../hooks/useNotification';
 import { usePermission } from '../../services/hooks/usePermission';
+import { generateLaboratoryReportPdf } from '../../utils/laboratoryReportPdf';
+
+const API_BASE = import.meta.env.DEV ? 'http://localhost:8080' : (import.meta.env.VITE_API_URL || '').replace(/\/api(\/.*)?$/, '') || window.location.origin;
+const buildLogoUrl = (logoPath: string | null | undefined): string | null => {
+  if (!logoPath || typeof logoPath !== 'string') return null;
+  if (logoPath.startsWith('http://') || logoPath.startsWith('https://')) return logoPath;
+  if (logoPath.startsWith('/')) return `${API_BASE}${logoPath}`;
+  const path = logoPath.startsWith('storage/') ? logoPath : `storage/${logoPath}`;
+  return import.meta.env.DEV ? `/${path}` : `${API_BASE}/${path}`;
+};
 
 export const LaboratoryDetail: React.FC = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const { showSuccess, showError } = useNotification();
   const { hasPermission } = usePermission();
+  const { selectedStore, storeColor, storeLogo } = useStore();
   
   const [activeTab, setActiveTab] = useState<'overview' | 'lenses' | 'history'>('overview');
   const [laboratory, setLaboratory] = useState<Laboratory | null>(null);
@@ -58,6 +73,13 @@ export const LaboratoryDetail: React.FC = () => {
   const [historySortBy, setHistorySortBy] = useState<string | null>('completed_at');
   const [historySortDirection, setHistorySortDirection] = useState<SortDirection>('desc');
   const [historyPerPage, setHistoryPerPage] = useState<number>(10);
+  const [historyReportData, setHistoryReportData] = useState<{
+    total_os: number;
+    total_cost: number;
+    top_lenses: Array<{ id: number; name: string; count: number; total_cost: number }>;
+    laboratory: { id: number; name: string };
+  } | null>(null);
+  const [generatingPdf, setGeneratingPdf] = useState(false);
   
   const { getLaboratory, getHistory } = useLaboratories({ autoFetch: false });
   const { 
@@ -90,7 +112,7 @@ export const LaboratoryDetail: React.FC = () => {
   };
 
   useEffect(() => {
-    if (id && activeTab === 'lenses') {
+    if (id && (activeTab === 'overview' || activeTab === 'lenses')) {
       loadLenses(1);
     }
     if (id && activeTab === 'history') {
@@ -137,7 +159,17 @@ export const LaboratoryDetail: React.FC = () => {
       if (historyDateFrom || params.date_from) finalParams.date_from = params.date_from ?? historyDateFrom;
       if (historyDateTo || params.date_to) finalParams.date_to = params.date_to ?? historyDateTo;
       
-      const result = await getHistory(Number(id), finalParams);
+      const reportParams: { date_from?: string; date_to?: string; laboratory_lens_ids?: number[] } = {
+        date_from: finalParams.date_from,
+        date_to: finalParams.date_to,
+      };
+      if (historyProductFilter.length > 0) {
+        reportParams.laboratory_lens_ids = historyProductFilter.map(Number).filter((n) => !Number.isNaN(n));
+      }
+      const [result] = await Promise.all([
+        getHistory(Number(id), finalParams),
+        laboratoriesService.getHistoryReport(Number(id), reportParams).then(setHistoryReportData).catch(() => setHistoryReportData(null)),
+      ]);
       setHistoryOrders(result.data);
       setHistoryPagination(result.meta);
     } catch (err) {
@@ -155,10 +187,52 @@ export const LaboratoryDetail: React.FC = () => {
     setHistoryDateFrom('');
     setHistoryDateTo('');
     setHistoryProductFilter([]);
+    setHistoryReportData(null);
     await loadHistory(1, {
       date_from: undefined,
       date_to: undefined,
     });
+  };
+
+  const handleGeneratePdf = async () => {
+    setGeneratingPdf(true);
+    try {
+      const params: { date_from?: string; date_to?: string; laboratory_lens_ids?: number[] } = {};
+      if (historyDateFrom) params.date_from = historyDateFrom;
+      if (historyDateTo) params.date_to = historyDateTo;
+      if (historyProductFilter.length > 0) {
+        params.laboratory_lens_ids = historyProductFilter.map(Number).filter((n) => !Number.isNaN(n));
+      }
+      
+      const [report, storeData] = await Promise.all([
+        laboratoriesService.getHistoryReport(Number(id), params),
+        selectedStore ? storesService.getById(String(selectedStore.id)).catch(() => null) : Promise.resolve(null),
+      ]);
+
+      // Debug: verificar dados recebidos
+      console.log('🔍 [LaboratoryDetail] PDF Report Data:', {
+        total_os: report.total_os,
+        total_cost: report.total_cost,
+        top_lenses_count: report.top_lenses?.length || 0,
+        top_lenses: report.top_lenses,
+        top_lenses_is_array: Array.isArray(report.top_lenses),
+        report_full: report,
+      });
+
+      await generateLaboratoryReportPdf({
+        report,
+        storeData: storeData ?? null,
+        storeColor,
+        storeLogo,
+        logoUrlBuilder: buildLogoUrl,
+      });
+
+      showSuccess('PDF gerado com sucesso!');
+    } catch (err: any) {
+      showError(err.message || 'Erro ao gerar PDF');
+    } finally {
+      setGeneratingPdf(false);
+    }
   };
 
   const handleHistorySort = (key: string, direction: SortDirection) => {
@@ -392,7 +466,7 @@ export const LaboratoryDetail: React.FC = () => {
                       <Package size={24} style={{ color: 'var(--store-color)' }} />
                     </div>
                     <div>
-                      <h3 className="text-2xl font-black text-slate-900">{lensesList.length || 0}</h3>
+                      <h3 className="text-2xl font-black text-slate-900">{pagination?.totalItems ?? lensesList.length ?? 0}</h3>
                       <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Lentes Cadastradas</p>
                     </div>
                   </div>
@@ -631,7 +705,9 @@ export const LaboratoryDetail: React.FC = () => {
               </Card>
             )}
 
-            {activeTab === 'history' && (
+            {activeTab === 'history' && (() => {
+              const historyOrdersList = Array.isArray(historyOrders) ? historyOrders : Object.values(historyOrders || {});
+              return (
               <div className="space-y-6">
                 {/* Cards de estatísticas */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -648,13 +724,19 @@ export const LaboratoryDetail: React.FC = () => {
                   </Card>
                   <Card className="border-none shadow-lg">
                     <div className="flex items-center gap-4">
-                      <div className="p-4 rounded-2xl bg-emerald-50">
-                        <DollarSign size={28} className="text-emerald-600" />
+                      <div className="p-4 rounded-2xl bg-amber-50">
+                        <DollarSign size={28} className="text-amber-600" />
                       </div>
                       <div>
-                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Valor Total</p>
-                        <h3 className="text-3xl font-black text-emerald-600">
-                          {formatCurrency(historyOrders.reduce((acc, order) => acc + (order.price || 0), 0))}
+                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Custo Total (produtos usados)</p>
+                        <h3 className="text-3xl font-black text-amber-600">
+                          {historyReportData !== null
+                            ? formatCurrency(historyReportData.total_cost)
+                            : formatCurrency(historyOrdersList.reduce((acc, order) => {
+                                const lenses = Array.isArray(order.laboratory_lenses) ? order.laboratory_lenses : Object.values(order.laboratory_lenses || {});
+                                const lensCost = lenses.reduce((s, l) => s + (Number(l.cost_price) || 0), 0);
+                                return acc + lensCost;
+                              }, 0))}
                         </h3>
                       </div>
                     </div>
@@ -689,9 +771,18 @@ export const LaboratoryDetail: React.FC = () => {
                     <div className="flex-1 min-w-[250px]">
                       <MultiSelect
                         label="Produtos"
-                        value={historyProductFilter}
-                        onChange={setHistoryProductFilter}
-                        options={lensesList.map((lens) => ({ value: String(lens.id), label: lens.name }))}
+                        value={historyProductFilter.length === 0 ? ['__all__'] : historyProductFilter}
+                        onChange={(vals) => {
+                          if (vals.includes('__all__')) {
+                            setHistoryProductFilter([]);
+                          } else {
+                            setHistoryProductFilter(vals.filter((v) => v !== '__all__'));
+                          }
+                        }}
+                        options={[
+                          { value: '__all__', label: 'Todos os produtos' },
+                          ...lensesList.map((lens) => ({ value: String(lens.id), label: lens.name })),
+                        ]}
                         placeholder="Selecione os produtos..."
                       />
                     </div>
@@ -702,6 +793,25 @@ export const LaboratoryDetail: React.FC = () => {
                       <Button onClick={handleHistoryApplyFilters}>
                         Filtrar
                       </Button>
+                      {hasPermission('laboratories.history-report') && (
+                      <Button
+                        variant="outline"
+                        onClick={handleGeneratePdf}
+                        disabled={generatingPdf || (!historyDateFrom && !historyDateTo)}
+                        style={{ borderColor: 'var(--store-color)', color: 'var(--store-color)' }}
+                        title={!historyDateFrom && !historyDateTo ? 'Selecione pelo menos um filtro de data' : ''}
+                      >
+                        {generatingPdf ? (
+                          <>
+                            <Loader2 size={16} className="animate-spin" /> Gerando...
+                          </>
+                        ) : (
+                          <>
+                            <FileDown size={16} /> Gerar PDF
+                          </>
+                        )}
+                      </Button>
+                      )}
                     </div>
                   </div>
                 </Card>
@@ -751,7 +861,7 @@ export const LaboratoryDetail: React.FC = () => {
                               </div>
                             </td>
                           </tr>
-                        ) : historyOrders.length === 0 ? (
+                        ) : historyOrdersList.length === 0 ? (
                           <tr>
                             <td colSpan={6} className="px-6 py-12 text-center">
                               <div className="flex flex-col items-center gap-4">
@@ -761,7 +871,7 @@ export const LaboratoryDetail: React.FC = () => {
                             </td>
                           </tr>
                         ) : (
-                          historyOrders.map((order) => (
+                          historyOrdersList.map((order) => (
                             <tr key={order.id} className="group hover:bg-slate-50/50 transition-colors">
                               <td className="px-6 py-4">
                                 <span className="text-sm font-bold" style={{ color: 'var(--store-color)' }}>
@@ -820,7 +930,8 @@ export const LaboratoryDetail: React.FC = () => {
                   )}
                 </Card>
               </div>
-            )}
+            );
+            })()}
           </div>
         </div>
       </div>

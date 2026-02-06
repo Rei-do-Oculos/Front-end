@@ -51,6 +51,7 @@ const actionTranslations: Record<string, string> = {
   'completed': 'Marcar Retirada',
   'migrate': 'Migrar',
   'history': 'Histórico',
+  'history-report': 'Relatório PDF',
   'dashboard': 'Dashboard',
   'revenue-by-store': 'Faturamento por Loja',
   'top-sellers': 'Ranking de Vendedores',

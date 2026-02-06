@@ -9,6 +9,7 @@ interface AuthContextType {
   login: (credentials: LoginDto) => Promise<void>;
   logout: () => Promise<void>;
   checkAuth: () => Promise<void>;
+  refreshUser: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -84,6 +85,21 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   }, []);
 
+  const refreshUser = useCallback(async () => {
+    if (!authService.isAuthenticated()) {
+      return;
+    }
+
+    try {
+      const response = await authService.me();
+      if (response.success && response.data.user) {
+        setUser(response.data.user);
+      }
+    } catch (err) {
+      console.error('Erro ao atualizar dados do usuário:', err);
+    }
+  }, []);
+
   useEffect(() => {
     checkAuth();
   }, [checkAuth]);
@@ -96,6 +112,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     login,
     logout,
     checkAuth,
+    refreshUser,
   };
 
   return (

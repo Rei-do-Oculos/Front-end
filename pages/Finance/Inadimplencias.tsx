@@ -2,7 +2,8 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Loader2, AlertTriangle, FileText, Phone, User, Building2, Eye, CheckCircle } from 'lucide-react';
 import { Card, Button, Input, SingleSelect, FilterSection, Modal, ActiveFiltersBadge, SortableHeader, SortDirection, Pagination, AccessDeniedCard, Badge } from '../../components/Common';
 import { useServiceOrders } from '../../services/hooks/useServiceOrders';
-import { useStores } from '../../services/hooks/useStores';
+import { usePlucks } from '../../services/hooks/usePlucks';
+import { storesService } from '../../services/api/stores';
 import { ServiceOrder } from '../../services/api/serviceOrders';
 import { useNotification } from '../../hooks/useNotification';
 import { usePermission } from '../../services/hooks/usePermission';
@@ -25,7 +26,12 @@ export const Inadimplencias: React.FC = () => {
     fetchOverdueOrders,
     markCompleted 
   } = useServiceOrders({ autoFetch: false });
-  const { stores, fetchStores } = useStores({ autoFetch: false });
+  
+  // Usar usePlucks para trazer todas as lojas que o usuário tem acesso
+  const { plucks: storesPlucks } = usePlucks({
+    service: storesService,
+    autoFetch: true,
+  });
 
   const [serviceOrders, setServiceOrders] = useState<ServiceOrder[]>([]);
   const [pagination, setPagination] = useState<{ currentPage: number; totalPages: number; totalItems: number } | null>(null);
@@ -55,11 +61,8 @@ export const Inadimplencias: React.FC = () => {
     filterDateTo,
   });
 
-  // Carregar dados auxiliares
-  useEffect(() => {
-    fetchStores(1, { per_page: 100 });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  // Garantir que storesPlucks seja sempre um array
+  const safeStoresPlucks = Array.isArray(storesPlucks) ? storesPlucks : [];
 
   // Carregar OS inadimplentes
   const loadOrders = useCallback(async (page = 1, params: any = {}) => {
@@ -196,8 +199,7 @@ export const Inadimplencias: React.FC = () => {
 
   // Preparar dados do recibo
   const prepareReceiptData = (order: ServiceOrder): ReceiptData => {
-    const storesList = Array.isArray(stores) ? stores : [];
-    const storeData = storesList.find(s => s.id === order.store_id) || order.store;
+    const storeData = safeStoresPlucks.find((s: any) => s.id === order.store_id) || order.store;
     const clientData = order.client;
     const totalPrice = order.price || 0;
     
@@ -303,11 +305,9 @@ export const Inadimplencias: React.FC = () => {
   };
 
   const ordersList = Array.isArray(serviceOrders) ? serviceOrders : [];
-  const storesList = Array.isArray(stores) ? stores : [];
-
-  // Filtrar stores apenas pelas que o usuário tem acesso
-  const availableStoreIds = availableStores.map(s => s.id);
-  const filteredStoresList = storesList.filter(s => availableStoreIds.includes(s.id));
+  
+  // Usar storesPlucks que já traz apenas as lojas que o usuário tem acesso
+  const filteredStoresList = safeStoresPlucks;
 
   if (error && (error as any).status === 403) return <AccessDeniedCard />;
 
@@ -336,7 +336,7 @@ export const Inadimplencias: React.FC = () => {
           label="Ótica"
           value={filterStore}
           onChange={(val) => setFilterStore(val)}
-          options={filteredStoresList.map((store) => ({ value: String(store.id), label: store.name }))}
+          options={filteredStoresList.map((store: any) => ({ value: String(store.id), label: store.name }))}
           placeholder="Todas"
         />
         <Input 

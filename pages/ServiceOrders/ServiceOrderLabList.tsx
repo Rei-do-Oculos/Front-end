@@ -51,6 +51,7 @@ export const ServiceOrderLabList: React.FC = () => {
   const [serviceOrders, setServiceOrders] = useState<ServiceOrder[]>([]);
   const [pagination, setPagination] = useState<{ currentPage: number; totalPages: number; totalItems: number } | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [labListError, setLabListError] = useState<Error & { response?: { status?: number } } | null>(null);
 
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStore, setFilterStore] = useState('');
@@ -103,6 +104,7 @@ export const ServiceOrderLabList: React.FC = () => {
   // Carregar OS do laboratório
   const loadOrders = useCallback(async (page = 1, params: any = {}) => {
     setIsLoading(true);
+    setLabListError(null);
     try {
       const finalParams: any = {
         ...params,
@@ -123,8 +125,9 @@ export const ServiceOrderLabList: React.FC = () => {
       const result = await fetchLabOrders({ page, ...finalParams });
       setServiceOrders(result.data);
       setPagination(result.meta);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Erro ao carregar ordens de serviço:', err);
+      setLabListError(err);
     } finally {
       setIsLoading(false);
     }
@@ -655,7 +658,9 @@ export const ServiceOrderLabList: React.FC = () => {
 
   const modalConfig = getActionModalConfig();
 
-  if (error && (error as any).status === 403) return <AccessDeniedCard />;
+  const is403 = (err: any) => err?.response?.status === 403 || err?.status === 403;
+  if (error && is403(error)) return <AccessDeniedCard />;
+  if (labListError && is403(labListError)) return <AccessDeniedCard />;
 
   return (
     <div className="space-y-8 animate-in fade-in duration-700">
@@ -796,12 +801,12 @@ export const ServiceOrderLabList: React.FC = () => {
                     </div>
                   </td>
                 </tr>
-              ) : error ? (
+              ) : (error || labListError) ? (
                 <tr>
                   <td colSpan={9} className="px-6 py-12 text-center">
                     <div className="border rounded-lg p-4" style={{ backgroundColor: 'var(--store-color-light)', borderColor: 'var(--store-color-opacity-20)' }}>
                       <p className="text-sm font-bold mb-1" style={{ color: 'var(--store-color-dark)' }}>Erro ao carregar ordens de serviço</p>
-                      <p className="text-xs" style={{ color: 'var(--store-color)' }}>{error.message || 'Erro desconhecido'}</p>
+                      <p className="text-xs" style={{ color: 'var(--store-color)' }}>{(error || labListError)?.message || 'Erro desconhecido'}</p>
                     </div>
                   </td>
                 </tr>

@@ -246,6 +246,17 @@ export const Layout: React.FC<{ children: React.ReactNode; onLogout: () => void 
         const modulePrefix = routeToModuleMap[item.path];
         const hasSubmenu = item.submenu && item.submenu.length > 0;
         
+        // DEBUG: Log para itens com submenu problemáticos
+        if (hasSubmenu && item.path === '/service-orders') {
+          console.log('[Layout] 🔍 Verificando item do menu:', {
+            itemPath: item.path,
+            itemTitle: item.title,
+            submenuItems: item.submenu?.map(s => ({ path: s.path, title: s.title })),
+            modulePrefix,
+            allPermissions: allPermissions.map(p => typeof p === 'string' ? p : p.name),
+          });
+        }
+        
         // Se há um prefixo de módulo mapeado, verificar PRIMEIRO se o usuário tem pelo menos uma permissão desse módulo
         // Isso garante que se o usuário não tem NENHUMA permissão do módulo, o item não aparece
         if (modulePrefix) {
@@ -257,6 +268,19 @@ export const Layout: React.FC<{ children: React.ReactNode; onLogout: () => void 
               const hasAnyModule = modulePrefix.some(prefix => 
                 hasAnyModulePermission(allPermissions, prefix)
               );
+              
+              // DEBUG para service-orders
+              if (item.path === '/service-orders') {
+                console.log('[Layout] 🔍 Verificação de módulo:', {
+                  modulePrefix,
+                  hasAnyModule,
+                  moduleChecks: modulePrefix.map(prefix => ({
+                    prefix,
+                    hasPermission: hasAnyModulePermission(allPermissions, prefix),
+                  })),
+                });
+              }
+              
               if (!hasAnyModule) return false;
             }
             // Se array vazio, não faz verificação (público)
@@ -268,10 +292,36 @@ export const Layout: React.FC<{ children: React.ReactNode; onLogout: () => void 
         // Para itens COM submenu: verificar se tem acesso a pelo menos um subitem
         // NÃO verificar requiredPermissions do item pai - o pai aparece se algum filho tiver permissão
         if (hasSubmenu) {
-          const hasAnySubmenuPermission = item.submenu!.some(sub =>
+          const submenuPermissions = item.submenu!.map(sub => ({
+            path: sub.path,
+            hasPermission: hasRoutePermission(allPermissions, sub.path, user),
+          }));
+          
+          const hasAnySubmenuPermission = submenuPermissions.some(sp => sp.hasPermission);
+          
+          // DEBUG para service-orders
+          if (item.path === '/service-orders') {
+            console.log('[Layout] 🔍 Verificação de submenu:', {
+              submenuPermissions,
+              hasAnySubmenuPermission,
+            });
+          }
+          
+          if (!hasAnySubmenuPermission) return false;
+          
+          // IMPORTANTE: Se tem submenu, também verificar se após filtrar os subitens ainda há algum
+          // Isso garante que se o usuário não tem permissão para NENHUM subitem, o item pai não aparece
+          const filteredSubmenu = item.submenu!.filter(sub => 
             hasRoutePermission(allPermissions, sub.path, user)
           );
-          if (!hasAnySubmenuPermission) return false;
+          
+          if (filteredSubmenu.length === 0) {
+            // DEBUG
+            if (item.path === '/service-orders') {
+              console.log('[Layout] ❌ Item removido: nenhum subitem válido após filtrar');
+            }
+            return false;
+          }
         } else {
           // Para itens SEM submenu: verificar requiredPermissions normalmente
           if (requiredPermissions && requiredPermissions.length > 0) {
@@ -284,16 +334,45 @@ export const Layout: React.FC<{ children: React.ReactNode; onLogout: () => void 
       .map(item => {
         // Se tem submenu, filtrar os subitens baseado nas permissões
         if (item.submenu && item.submenu.length > 0) {
-          const filteredSubmenu = item.submenu.filter(sub => 
-            hasRoutePermission(allPermissions, sub.path, user)
-          );
+          const filteredSubmenu = item.submenu.filter(sub => {
+            const hasPerm = hasRoutePermission(allPermissions, sub.path, user);
+            
+            // DEBUG para service-orders
+            if (item.path === '/service-orders') {
+              console.log('[Layout] 🔍 Filtrando subitem:', {
+                subPath: sub.path,
+                subTitle: sub.title,
+                hasPermission: hasPerm,
+              });
+            }
+            
+            return hasPerm;
+          });
+          
+          // DEBUG para service-orders
+          if (item.path === '/service-orders') {
+            console.log('[Layout] 📋 Resultado do filtro de submenu:', {
+              originalCount: item.submenu.length,
+              filteredCount: filteredSubmenu.length,
+              filteredItems: filteredSubmenu.map(s => ({ path: s.path, title: s.title })),
+            });
+          }
+          
+          // Se após filtrar não sobrou nenhum subitem, não retornar o item pai
+          if (filteredSubmenu.length === 0) {
+            if (item.path === '/service-orders') {
+              console.log('[Layout] ❌ Item removido: nenhum subitem válido após filtrar');
+            }
+            return null;
+          }
           return {
             ...item,
             submenu: filteredSubmenu,
           };
         }
         return item;
-      });
+      })
+      .filter((item): item is MenuItem => item !== null);
 
     return filtered;
   }, [user]);

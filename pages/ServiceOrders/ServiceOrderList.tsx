@@ -1,9 +1,8 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { Edit, Plus, Trash2, Loader2, FileText, User, Building2, CheckCircle, XCircle, Eye, Printer, DollarSign } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Edit, Plus, Trash2, Loader2, FileText, User, Building2, CheckCircle, XCircle, Eye, Printer } from 'lucide-react';
 import { Card, Button, Input, SingleSelect, FilterSection, Modal, ActiveFiltersBadge, SortableHeader, SortDirection, Pagination, AccessDeniedCard, Badge } from '../../components/Common';
 import { useServiceOrders } from '../../services/hooks/useServiceOrders';
-import { useStores } from '../../services/hooks/useStores';
-import { useUsers } from '../../services/hooks/useUsers';
+import { usePlucks } from '../../services/hooks/usePlucks';
 import { useClients } from '../../services/hooks/useClients';
 import { ServiceOrder } from '../../services/api/serviceOrders';
 import { useNotification } from '../../hooks/useNotification';
@@ -13,17 +12,19 @@ import { useStore } from '../../contexts/StoreContext';
 import { useNavigate } from 'react-router-dom';
 import { ReceiptModal } from '../../components/ReceiptModal';
 import { ReceiptData } from '../../components/ThermalReceipt';
+import { usersService } from '../../services/api/users';
+import { storesService } from '../../services/api/stores';
 
 export const ServiceOrderList: React.FC = () => {
   const navigate = useNavigate();
   const { showSuccess, showError } = useNotification();
-  const { hasPermission } = usePermission();
+  const { hasPermission, hasSuperAdminRole } = usePermission();
   const { availableStores, selectedStore } = useStore();
   const { serviceOrders, loading, error, pagination, totalSales, fetchServiceOrders, deleteServiceOrder } = useServiceOrders({
     autoFetch: false,
   });
-  const { stores, fetchStores } = useStores({ autoFetch: false });
-  const { users, fetchUsers } = useUsers({ autoFetch: false });
+  const { plucks: storesPlucks } = usePlucks({ service: storesService, autoFetch: true });
+  const { plucks: usersPlucks } = usePlucks({ service: usersService, autoFetch: true });
   const { clients, fetchClients } = useClients({ autoFetch: false });
 
   const [searchTerm, setSearchTerm] = useState('');
@@ -31,76 +32,76 @@ export const ServiceOrderList: React.FC = () => {
   // Estados para o modal de recibo
   const [showReceiptModal, setShowReceiptModal] = useState(false);
   const [orderToPrint, setOrderToPrint] = useState<ServiceOrder | null>(null);
-  const today = useMemo(() => new Date().toISOString().slice(0, 10), []);
   const [filterStore, setFilterStore] = useState('');
   const [filterUser, setFilterUser] = useState('');
   const [filterVerified, setFilterVerified] = useState('');
-  const [filterDateFrom, setFilterDateFrom] = useState(today);
-  const [filterDateTo, setFilterDateTo] = useState(today);
+  const [filterDateFrom, setFilterDateFrom] = useState('');
+  const [filterDateTo, setFilterDateTo] = useState('');
+  // Filtros aplicados - só atualizados ao clicar em "Aplicar Filtros"
+  const [appliedFilters, setAppliedFilters] = useState<{
+    searchTerm: string;
+    filterStore: string;
+    filterUser: string;
+    filterVerified: string;
+    filterDateFrom: string;
+    filterDateTo: string;
+  }>({
+    searchTerm: '',
+    filterStore: '',
+    filterUser: '',
+    filterVerified: '',
+    filterDateFrom: '',
+    filterDateTo: '',
+  });
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
-  const [sortBy, setSortBy] = useState<string | null>('id');
+  const [sortBy, setSortBy] = useState<string | null>('completed_at');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
   const [perPage, setPerPage] = useState<number>(15);
   
+  // Filtros ativos: contar os que estão aplicados (após clicar em Aplicar)
   const activeFilters = useActiveFilters({
-    searchTerm,
-    filterStore,
-    filterUser,
-    filterVerified,
-    // Datas diferentes de hoje contam como filtro ativo
-    filterDateFrom: filterDateFrom && filterDateFrom !== today ? filterDateFrom : '',
-    filterDateTo: filterDateTo && filterDateTo !== today ? filterDateTo : '',
+    searchTerm: appliedFilters.searchTerm,
+    filterStore: appliedFilters.filterStore,
+    filterUser: appliedFilters.filterUser,
+    filterVerified: appliedFilters.filterVerified,
+    filterDateFrom: appliedFilters.filterDateFrom,
+    filterDateTo: appliedFilters.filterDateTo,
   });
   const [orderToDelete, setOrderToDelete] = useState<ServiceOrder | null>(null);
   const [deleting, setDeleting] = useState(false);
 
-  // Carregar dados auxiliares
+  const buildParamsFromFilters = (f: typeof appliedFilters): Record<string, any> => {
+    const params: Record<string, any> = { status: 'completed' };
+    if (f.searchTerm) params.search = f.searchTerm;
+    if (f.filterStore) params.store_id = f.filterStore;
+    else if (availableStores.length > 0) params.store_id = availableStores.map(s => s.id);
+    if (f.filterUser) params.user_id = f.filterUser;
+    if (f.filterVerified) params.verified = f.filterVerified === 'true';
+    if (f.filterDateFrom || f.filterDateTo) {
+      params.date_from = f.filterDateFrom || undefined;
+      params.date_to = f.filterDateTo || undefined;
+    }
+    return params;
+  };
+
+  // Carregar clientes para recibos
   useEffect(() => {
-    fetchStores(1, { per_page: 100 });
-    fetchUsers(1, { per_page: 100 });
     fetchClients(1, { per_page: 100 });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Carregar OS com filtro de loja do usuário (padrão: hoje)
+  // Carregar OS - usa apenas filtros já aplicados (não os valores do formulário)
   useEffect(() => {
     const loadOrders = async () => {
       try {
-        const params: any = {
-          order_by: sortBy || 'id',
-          order_dir: sortDirection || 'desc',
-          per_page: perPage,
-          // Mostrar apenas OS finalizadas (pendentes ficam na lista de laboratório)
-          status: 'completed',
-        };
-        
-        // Se houver busca, não limitar por data (buscar em todo histórico)
-        if (searchTerm) {
-          params.search = searchTerm;
-          // Não aplicar filtro de data quando há busca
-        } else {
-          // Sem busca: usar filtros de data se definidos, senão usar hoje como padrão
-          if (filterDateFrom && filterDateFrom !== today) {
-            params.date_from = filterDateFrom;
-          } else if (!filterDateFrom || filterDateFrom === today) {
-            params.date_from = today;
-          }
-          
-          if (filterDateTo && filterDateTo !== today) {
-            params.date_to = filterDateTo;
-          } else if (!filterDateTo || filterDateTo === today) {
-            params.date_to = today;
-          }
-        }
-        
-        // Filtrar apenas pelas lojas que o usuário tem acesso
-        if (availableStores.length > 0 && !filterStore) {
+        const params = buildParamsFromFilters(appliedFilters);
+        params.order_by = sortBy || 'completed_at';
+        params.order_dir = sortDirection || 'desc';
+        params.per_page = perPage;
+        params.status = 'completed';
+        if (availableStores.length > 0 && !appliedFilters.filterStore) {
           params.store_id = availableStores.map(s => s.id);
         }
-        if (filterStore) params.store_id = filterStore;
-        if (filterUser) params.user_id = filterUser;
-        if (filterVerified) params.verified = filterVerified === 'true';
-        
         await fetchServiceOrders(1, params);
       } catch (err) {
         console.error('Erro ao carregar ordens de serviço:', err);
@@ -114,73 +115,28 @@ export const ServiceOrderList: React.FC = () => {
     const newDirection = direction || 'asc';
     setSortBy(key);
     setSortDirection(newDirection);
-    
-    const params: any = {
-      // Mostrar apenas OS finalizadas
-      status: 'completed',
-    };
-    if (searchTerm) params.search = searchTerm;
-    if (filterStore) params.store_id = filterStore;
-    if (filterUser) params.user_id = filterUser;
-    if (filterVerified) params.verified = filterVerified === 'true';
-    if (filterDateFrom) params.date_from = filterDateFrom;
-    if (filterDateTo) params.date_to = filterDateTo;
-    
+    const params = buildParamsFromFilters(appliedFilters);
     params.order_by = key;
     params.order_dir = newDirection;
     params.per_page = perPage;
-    
     fetchServiceOrders(pagination?.currentPage || 1, params);
   };
 
   const handleApplyFilters = async () => {
     try {
-      const params: any = {
-        // Mostrar apenas OS finalizadas
-        status: 'completed',
-        order_by: sortBy || 'id',
-        order_dir: sortDirection || 'desc',
-        per_page: perPage,
+      const next = {
+        searchTerm,
+        filterStore,
+        filterUser,
+        filterVerified,
+        filterDateFrom,
+        filterDateTo,
       };
-      
-      // Aplicar filtros apenas se preenchidos
-      if (searchTerm) {
-        params.search = searchTerm;
-        // Se houver busca, não limitar por data padrão (buscar em todo histórico)
-      }
-      
-      if (filterStore) {
-        params.store_id = filterStore;
-      } else if (availableStores.length > 0 && !searchTerm) {
-        // Se não houver filtro de loja específico e não houver busca, usar lojas disponíveis
-        params.store_id = availableStores.map(s => s.id);
-      }
-      
-      if (filterUser) params.user_id = filterUser;
-      if (filterVerified) params.verified = filterVerified === 'true';
-      
-      // Datas: usar filtros se preenchidos
-      // Se houver busca, não aplicar filtro de data padrão (permitir buscar em todo histórico)
-      if (filterDateFrom && !searchTerm) {
-        params.date_from = filterDateFrom;
-      } else if (!searchTerm) {
-        // Sem busca e sem filtro de data: usar hoje como padrão
-        params.date_from = today;
-      } else if (filterDateFrom) {
-        // Com busca mas com filtro de data específico: usar o filtro
-        params.date_from = filterDateFrom;
-      }
-      
-      if (filterDateTo && !searchTerm) {
-        params.date_to = filterDateTo;
-      } else if (!searchTerm) {
-        // Sem busca e sem filtro de data: usar hoje como padrão
-        params.date_to = today;
-      } else if (filterDateTo) {
-        // Com busca mas com filtro de data específico: usar o filtro
-        params.date_to = filterDateTo;
-      }
-      
+      setAppliedFilters(next);
+      const params = buildParamsFromFilters(next);
+      params.order_by = sortBy || 'completed_at';
+      params.order_dir = sortDirection || 'desc';
+      params.per_page = perPage;
       await fetchServiceOrders(1, params);
     } catch (err) {
       console.error('Erro ao aplicar filtros:', err);
@@ -192,24 +148,22 @@ export const ServiceOrderList: React.FC = () => {
     setFilterStore('');
     setFilterUser('');
     setFilterVerified('');
-    setFilterDateFrom(today);
-    setFilterDateTo(today);
-    
+    setFilterDateFrom('');
+    setFilterDateTo('');
+    const empty = {
+      searchTerm: '',
+      filterStore: '',
+      filterUser: '',
+      filterVerified: '',
+      filterDateFrom: '',
+      filterDateTo: '',
+    };
+    setAppliedFilters(empty);
     try {
-      const params: any = {
-        order_by: sortBy || 'id',
-        order_dir: sortDirection || 'desc',
-        per_page: perPage,
-        // Mostrar apenas OS finalizadas
-        status: 'completed',
-        date_from: today,
-        date_to: today,
-      };
-      
-      if (availableStores.length > 0) {
-        params.store_id = availableStores.map(s => s.id);
-      }
-      
+      const params = buildParamsFromFilters(empty);
+      params.order_by = sortBy || 'completed_at';
+      params.order_dir = sortDirection || 'desc';
+      params.per_page = perPage;
       await fetchServiceOrders(1, params);
     } catch (err) {
       console.error('Erro ao limpar filtros:', err);
@@ -219,21 +173,10 @@ export const ServiceOrderList: React.FC = () => {
   const handlePerPageChange = async (newPerPage: number) => {
     setPerPage(newPerPage);
     try {
-      const params: any = {
-        per_page: newPerPage,
-        // Mostrar apenas OS finalizadas
-        status: 'completed',
-      };
-      if (searchTerm) params.search = searchTerm;
-      if (filterStore) params.store_id = filterStore;
-      if (filterUser) params.user_id = filterUser;
-      if (filterVerified) params.verified = filterVerified === 'true';
-      if (filterDateFrom) params.date_from = filterDateFrom;
-      if (filterDateTo) params.date_to = filterDateTo;
-      if (sortBy) {
-        params.order_by = sortBy;
-        params.order_dir = sortDirection || 'desc';
-      }
+      const params = buildParamsFromFilters(appliedFilters);
+      params.per_page = newPerPage;
+      params.order_by = sortBy || 'completed_at';
+      params.order_dir = sortDirection || 'desc';
       await fetchServiceOrders(1, params);
     } catch (err) {
       console.error('Erro ao alterar itens por página:', err);
@@ -245,6 +188,14 @@ export const ServiceOrderList: React.FC = () => {
     setDeleteModalOpen(true);
   };
 
+  const buildFetchParams = () => {
+    const params = buildParamsFromFilters(appliedFilters);
+    params.order_by = sortBy || 'completed_at';
+    params.order_dir = sortDirection || 'desc';
+    params.per_page = perPage;
+    return params;
+  };
+
   const handleConfirmDelete = async () => {
     if (!orderToDelete) return;
 
@@ -254,7 +205,7 @@ export const ServiceOrderList: React.FC = () => {
       setDeleteModalOpen(false);
       setOrderToDelete(null);
       showSuccess('Ordem de serviço excluída com sucesso!');
-      await fetchServiceOrders(pagination.currentPage, {});
+      await fetchServiceOrders(pagination.currentPage, buildFetchParams());
     } catch (err: any) {
       console.error('Erro ao excluir ordem de serviço:', err);
       showError(err.message || 'Erro ao excluir ordem de serviço');
@@ -293,13 +244,16 @@ export const ServiceOrderList: React.FC = () => {
     return String(osNumber).padStart(4, '0');
   };
 
+  const safeStoresPlucks = Array.isArray(storesPlucks) ? storesPlucks : [];
+  const safeUsersPlucks = Array.isArray(usersPlucks) ? usersPlucks : [];
+
   // Função para preparar dados do recibo
   const prepareReceiptData = (order: ServiceOrder): ReceiptData => {
-    const storesList = Array.isArray(stores) ? stores : [];
+    const storesForReceipt = safeStoresPlucks;
     const clientsList = Array.isArray(clients) ? clients : [];
     
-    // Buscar dados completos da loja
-    const storeData = storesList.find(s => s.id === order.store_id);
+    // Buscar dados da loja (plucks ou relation order.store)
+    const storeFromPlucks = storesForReceipt.find((s: any) => s.id === order.store_id);
     const clientData = clientsList.find(c => c.id === order.client_id);
     
     const totalPrice = typeof order.price === 'number' ? order.price : parseFloat(String(order.price)) || 0;
@@ -334,18 +288,18 @@ export const ServiceOrderList: React.FC = () => {
       expectedPickupDate: order.expected_pickup_date || null,
       seller: order.user?.name || 'Vendedor',
       store: {
-        name: storeData?.name || order.store?.name || 'Loja',
-        fancy_name: storeData?.fancy_name || storeData?.name || order.store?.name || 'Loja',
-        cnpj: storeData?.cnpj || '00.000.000/0000-00',
-        ie: storeData?.ie || null,
-        logradouro: storeData?.logradouro || '',
-        numero: storeData?.numero || '',
-        bairro: storeData?.bairro || '',
-        municipio: storeData?.municipio || '',
-        uf: storeData?.uf || '',
-        telefone: storeData?.telefone || null,
-        unity: storeData?.unity ?? (order.store as any)?.unity ?? null,
-        logo: storeData?.logo ?? (order.store as any)?.logo ?? null,
+        name: storeFromPlucks?.name || order.store?.name || 'Loja',
+        fancy_name: storeFromPlucks?.fancy_name || storeFromPlucks?.name || order.store?.name || 'Loja',
+        cnpj: (order.store as any)?.cnpj || '00.000.000/0000-00',
+        ie: (order.store as any)?.ie || null,
+        logradouro: (order.store as any)?.logradouro || '',
+        numero: (order.store as any)?.numero || '',
+        bairro: (order.store as any)?.bairro || '',
+        municipio: (order.store as any)?.municipio || '',
+        uf: (order.store as any)?.uf || '',
+        telefone: (order.store as any)?.telefone || null,
+        unity: (order.store as any)?.unity ?? null,
+        logo: (order.store as any)?.logo ?? null,
       },
       client: {
         name: clientData?.name || order.client?.name || 'Cliente',
@@ -378,12 +332,6 @@ export const ServiceOrderList: React.FC = () => {
   };
 
   const ordersList = Array.isArray(serviceOrders) ? serviceOrders : [];
-  const storesList = Array.isArray(stores) ? stores : [];
-  const usersList = Array.isArray(users) ? users : [];
-
-  // Filtrar stores apenas pelas que o usuário tem acesso
-  const availableStoreIds = availableStores.map(s => s.id);
-  const filteredStoresList = storesList.filter(s => availableStoreIds.includes(s.id));
 
   if (error && (error as any).status === 403) return <AccessDeniedCard />;
 
@@ -404,40 +352,43 @@ export const ServiceOrderList: React.FC = () => {
       </div>
 
       <FilterSection onClear={handleClearFilters} onApply={handleApplyFilters}>
-        <Input 
-          label="Nº OS / Cliente" 
-          placeholder="Buscar..." 
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-        />
-        <Input 
-          label="Data Início" 
-          type="date"
-          value={filterDateFrom}
-          onChange={(e) => setFilterDateFrom(e.target.value)}
-        />
-        <Input 
-          label="Data Fim" 
-          type="date"
-          value={filterDateTo}
-          onChange={(e) => setFilterDateTo(e.target.value)}
-        />
-        <SingleSelect
-          label="Ótica"
-          value={filterStore}
-          onChange={(val) => setFilterStore(val)}
-          options={filteredStoresList.map((store) => ({ value: String(store.id), label: store.name }))}
-          placeholder="Todas as óticas"
-        />
-        <SingleSelect
-          label="Vendedor"
-          value={filterUser}
-          onChange={(val) => setFilterUser(val)}
-          options={usersList.map((user) => ({ value: String(user.id), label: user.name }))}
-          placeholder="Todos"
-        />
-        <SingleSelect
-          label="Garantia"
+        <div className="col-span-full grid grid-cols-1 md:grid-cols-3 gap-6">
+          <Input 
+            label="Nº OS / Cliente" 
+            placeholder="Buscar..." 
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
+          <Input 
+            label="Data Início" 
+            type="date"
+            value={filterDateFrom}
+            onChange={(e) => setFilterDateFrom(e.target.value)}
+          />
+          <Input 
+            label="Data Fim" 
+            type="date"
+            value={filterDateTo}
+            onChange={(e) => setFilterDateTo(e.target.value)}
+          />
+        </div>
+        <div className="col-span-full grid grid-cols-1 md:grid-cols-3 gap-6">
+          <SingleSelect
+            label="Ótica"
+            value={filterStore}
+            onChange={(val) => setFilterStore(val)}
+            options={safeStoresPlucks.map((s: any) => ({ value: String(s.id), label: s.name }))}
+            placeholder="Todas as óticas"
+          />
+          <SingleSelect
+            label="Vendedor"
+            value={filterUser}
+            onChange={(val) => setFilterUser(val)}
+            options={safeUsersPlucks.map((u: any) => ({ value: String(u.id), label: u.name }))}
+            placeholder="Todos"
+          />
+          <SingleSelect
+            label="Garantia"
           value={filterVerified}
           onChange={(val) => setFilterVerified(val)}
           options={[
@@ -445,7 +396,8 @@ export const ServiceOrderList: React.FC = () => {
             { value: 'false', label: 'Não' },
           ]}
           placeholder="Todos"
-        />
+          />
+        </div>
       </FilterSection>
 
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -460,13 +412,12 @@ export const ServiceOrderList: React.FC = () => {
           {activeFilters > 0 && (
             <ActiveFiltersBadge count={activeFilters} />
           )}
-          {!loading && (
+          {!loading && activeFilters > 0 && (totalSales ?? 0) > 0 && (
             <div 
               className="flex items-center gap-2 px-3 py-1.5 rounded-lg font-bold text-sm"
               style={{ backgroundColor: 'var(--store-color-light)', color: 'var(--store-color-dark)' }}
             >
-              <DollarSign size={16} />
-              <span>Total: {formatCurrency(totalSales ?? 0)}</span>
+              <span>Total de suas vendas: {formatCurrency(totalSales ?? 0)}</span>
             </div>
           )}
         </div>
@@ -635,7 +586,7 @@ export const ServiceOrderList: React.FC = () => {
                             <Printer size={16} />
                           </button>
                         )}
-                        {hasPermission('service-orders.update') && !(order as any).is_other_store && (
+                        {hasPermission('service-orders.update') && !(order as any).is_other_store && (order.status !== 'completed' || hasSuperAdminRole) && (
                           <button 
                             title="Editar OS"
                             onClick={() => navigate(`/service-orders/${order.id}/edit`)}
@@ -659,7 +610,7 @@ export const ServiceOrderList: React.FC = () => {
                             <Edit size={16} />
                           </button>
                         )}
-                        {hasPermission('service-orders.delete') && !(order as any).is_other_store && (
+                        {hasPermission('service-orders.delete') && !(order as any).is_other_store && (order.status !== 'completed' || hasSuperAdminRole) && (
                           <button 
                             title="Excluir OS"
                             onClick={() => handleDeleteClick(order)}
@@ -689,44 +640,10 @@ export const ServiceOrderList: React.FC = () => {
             perPage={perPage}
             onPerPageChange={handlePerPageChange}
             onPageChange={(page) => {
-              const params: any = {
-                // Mostrar apenas OS finalizadas
-                status: 'completed',
-                order_by: sortBy || 'id',
-                order_dir: sortDirection || 'desc',
-                per_page: perPage,
-              };
-              
-              if (searchTerm) {
-                params.search = searchTerm;
-              }
-              
-              if (filterStore) {
-                params.store_id = filterStore;
-              } else if (availableStores.length > 0 && !searchTerm) {
-                params.store_id = availableStores.map(s => s.id);
-              }
-              
-              if (filterUser) params.user_id = filterUser;
-              if (filterVerified) params.verified = filterVerified === 'true';
-              
-              // Datas: aplicar apenas se não houver busca ou se filtros específicos foram definidos
-              if (filterDateFrom && !searchTerm) {
-                params.date_from = filterDateFrom;
-              } else if (!searchTerm) {
-                params.date_from = today;
-              } else if (filterDateFrom) {
-                params.date_from = filterDateFrom;
-              }
-              
-              if (filterDateTo && !searchTerm) {
-                params.date_to = filterDateTo;
-              } else if (!searchTerm) {
-                params.date_to = today;
-              } else if (filterDateTo) {
-                params.date_to = filterDateTo;
-              }
-              
+              const params = buildParamsFromFilters(appliedFilters);
+              params.order_by = sortBy || 'completed_at';
+              params.order_dir = sortDirection || 'desc';
+              params.per_page = perPage;
               fetchServiceOrders(page, params);
             }}
             itemName="ordens de serviço"

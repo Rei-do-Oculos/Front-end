@@ -243,6 +243,40 @@ class LaboratoriesService {
       },
     };
   }
+
+  /**
+   * Get history report (totals, top lenses) for PDF generation
+   */
+  async getHistoryReport(laboratoryId: number, params?: {
+    date_from?: string;
+    date_to?: string;
+    laboratory_lens_ids?: number[];
+  }): Promise<{
+    total_os: number;
+    total_cost: number;
+    top_lenses: Array<{ id: number; name: string; count: number; total_cost: number }>;
+    laboratory: { id: number; name: string };
+    date_from: string | null;
+    date_to: string | null;
+  }> {
+    const response = await apiClient.get<{
+      success: boolean;
+      data: {
+        total_os: number;
+        total_cost: number;
+        top_lenses: Array<{ id: number; name: string; count: number; total_cost: number }>;
+        laboratory: { id: number; name: string };
+        date_from: string | null;
+        date_to: string | null;
+      };
+    }>(`${this.endpoint}/${laboratoryId}/history-report`, { params });
+
+    const d = response.data?.data;
+    if (!response.data?.success || !d) {
+      throw new Error('Erro ao buscar relatório');
+    }
+    return d;
+  }
 }
 
 export const laboratoriesService = new LaboratoriesService();

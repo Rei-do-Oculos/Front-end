@@ -28,6 +28,7 @@ export const ServiceOrderSheet = forwardRef<HTMLDivElement, ServiceOrderSheetPro
   ({ order, store, clientPhone }, ref) => {
     const client = order.client;
     const lensBrand = order.laboratory_lenses?.[0]?.name || '';
+    const storeColor = store.color || '#dc2626';
 
     return (
       <div
@@ -35,153 +36,229 @@ export const ServiceOrderSheet = forwardRef<HTMLDivElement, ServiceOrderSheetPro
         className="service-order-sheet"
         style={{
           width: '210mm',
-          minHeight: '297mm',
-          padding: '16mm',
-          fontFamily: "'Times New Roman', serif",
-          fontSize: '11px',
-          color: '#000',
+          maxWidth: '100%',
+          margin: '0 auto',
+          padding: '15mm 18mm',
+          fontFamily: "'Segoe UI', 'Helvetica Neue', Arial, sans-serif",
+          fontSize: '12px',
+          color: '#1f2937',
           backgroundColor: '#fff',
           boxSizing: 'border-box',
         }}
       >
-        {/* Cabeçalho: Logo + Rede + Unidade */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20 }}>
-          <div>
+        {/* Cabeçalho: Logo à esquerda | Dados da loja ao centro | Unidade à direita */}
+        <div style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'flex-start',
+          marginBottom: 28,
+          paddingBottom: 16,
+          borderBottom: `2px solid ${storeColor}`,
+        }}>
+          <div style={{ flex: '0 0 auto', minWidth: 0 }}>
             {store.logo ? (
-              <img src={store.logo} alt="Logo" style={{ maxHeight: 48, maxWidth: 120 }} />
+              <img src={store.logo} alt="Logo" style={{ maxHeight: 90, maxWidth: 220, objectFit: 'contain' }} />
             ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
-                <span style={{ fontSize: 18, fontWeight: 'bold', color: '#c00' }}>ÓTICA</span>
-                <span style={{ fontFamily: 'cursive', fontSize: 16, marginTop: 2 }}>Rei do Óculos</span>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                <span style={{ fontSize: 20, fontWeight: 700, color: storeColor, letterSpacing: 1 }}>ÓTICA</span>
+                <span style={{ fontSize: 16, fontWeight: 500, color: '#374151' }}>{store.name}</span>
               </div>
             )}
           </div>
-          <div style={{ textAlign: 'center', flex: 1 }}>
-            <div style={{ fontWeight: 'bold', fontSize: 14, textTransform: 'uppercase', letterSpacing: 1 }}>
-              REDE REI DO ÓCULOS
+          <div style={{ flex: 1, padding: '0 20px', textAlign: 'center' }}>
+            <div style={{ fontWeight: 700, fontSize: 13, color: '#111827', marginBottom: 6 }}>
+              {store.fancy_name || store.name}
             </div>
+            {(store.logradouro || store.municipio) && (
+              <div style={{ fontSize: 11, color: '#6b7280', lineHeight: 1.5 }}>
+                {[store.logradouro, store.numero].filter(Boolean).join(', ')}
+                {store.bairro && ` — ${store.bairro}`}
+                {(store.municipio || store.uf) && (
+                  <span> — {[store.municipio, store.uf].filter(Boolean).join(' - ')}</span>
+                )}
+              </div>
+            )}
+            {store.telefone && (
+              <div style={{ fontSize: 11, color: '#6b7280', marginTop: 2 }}>
+                Tel: {store.telefone}
+              </div>
+            )}
+            {store.cnpj && store.cnpj !== '00.000.000/0000-00' && (
+              <div style={{ fontSize: 10, color: '#9ca3af', marginTop: 2 }}>
+                CNPJ: {store.cnpj}
+              </div>
+            )}
           </div>
-          <div style={{ textAlign: 'right', fontWeight: 'bold', fontSize: 12 }}>
-            {store.fancy_name || store.name}
+          <div style={{ flex: '0 0 auto', textAlign: 'right', minWidth: 80 }}>
+            <div style={{ fontWeight: 700, fontSize: 14, color: storeColor }}>
+              Nº OS: {formatOsNumber(order.os_number)}
+            </div>
           </div>
         </div>
 
-        {/* Cliente e OS */}
-        <div style={{ marginBottom: 16, border: '1px solid #000', padding: 10 }}>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '16px 24px' }}>
-            <span><strong>CLIENTE:</strong> {client?.name || '-'}</span>
+        {/* Dados do cliente */}
+        <div style={{
+          marginBottom: 20,
+          padding: '12px 16px',
+          backgroundColor: '#f9fafb',
+          borderRadius: 8,
+          borderLeft: `4px solid ${storeColor}`,
+        }}>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '20px 32px', alignItems: 'center' }}>
+            <span><strong>Cliente:</strong> {client?.name || '-'}</span>
             <span><strong>CPF:</strong> {formatDoc(client?.document)}</span>
-            <span><strong>TELEFONE:</strong> {clientPhone || '-'}</span>
-            <span><strong>N° OS:</strong> {formatOsNumber(order.os_number)}</span>
+            <span><strong>Telefone:</strong> {clientPhone || '-'}</span>
           </div>
         </div>
 
-        {/* Receita - Longe */}
-        <div style={{ marginBottom: 12 }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', border: '1px solid #000' }}>
+        {/* Receita Óptica - Longe */}
+        <div style={{ marginBottom: 16 }}>
+          <div style={{ fontWeight: 600, marginBottom: 8, fontSize: 11, color: '#6b7280', textTransform: 'uppercase', letterSpacing: 1 }}>Visão para longe</div>
+          <table style={{ width: '100%', borderCollapse: 'collapse', border: '1px solid #e5e7eb', borderRadius: 8, overflow: 'hidden' }}>
             <thead>
-              <tr>
-                <th style={{ border: '1px solid #000', padding: 6, width: 50 }}>LONGE</th>
-                <th style={{ border: '1px solid #000', padding: 6, width: 40 }}></th>
-                <th style={{ border: '1px solid #000', padding: 6 }}>ESFÉRICO</th>
-                <th style={{ border: '1px solid #000', padding: 6 }}>CILÍNDRICO</th>
-                <th style={{ border: '1px solid #000', padding: 6 }}>EIXO</th>
+              <tr style={{ backgroundColor: '#f3f4f6' }}>
+                <th style={{ border: '1px solid #e5e7eb', padding: 10, width: 60, textAlign: 'left', fontSize: 11 }}></th>
+                <th style={{ border: '1px solid #e5e7eb', padding: 10, width: 50, textAlign: 'center', fontSize: 11 }}>O.D</th>
+                <th style={{ border: '1px solid #e5e7eb', padding: 10, textAlign: 'center', fontSize: 11 }}>Esférico</th>
+                <th style={{ border: '1px solid #e5e7eb', padding: 10, textAlign: 'center', fontSize: 11 }}>Cilíndrico</th>
+                <th style={{ border: '1px solid #e5e7eb', padding: 10, textAlign: 'center', fontSize: 11 }}>Eixo</th>
               </tr>
             </thead>
             <tbody>
               <tr>
-                <td style={{ border: '1px solid #000', padding: 6 }} rowSpan={2}>LONGE</td>
-                <td style={{ border: '1px solid #000', padding: 6 }}>O.D</td>
-                <td style={{ border: '1px solid #000', padding: 6 }}>{formatNum(order.far_od_spherical)}</td>
-                <td style={{ border: '1px solid #000', padding: 6 }}>{formatNum(order.far_od_cylindrical)}</td>
-                <td style={{ border: '1px solid #000', padding: 6 }}>{order.far_od_axis || ''}</td>
+                <td rowSpan={2} style={{ border: '1px solid #e5e7eb', padding: 10, fontWeight: 600, verticalAlign: 'middle' }}>Longe</td>
+                <td style={{ border: '1px solid #e5e7eb', padding: 10, textAlign: 'center' }}>O.D</td>
+                <td style={{ border: '1px solid #e5e7eb', padding: 10, textAlign: 'center' }}>{formatNum(order.far_od_spherical)}</td>
+                <td style={{ border: '1px solid #e5e7eb', padding: 10, textAlign: 'center' }}>{formatNum(order.far_od_cylindrical)}</td>
+                <td style={{ border: '1px solid #e5e7eb', padding: 10, textAlign: 'center' }}>{order.far_od_axis || ''}</td>
               </tr>
               <tr>
-                <td style={{ border: '1px solid #000', padding: 6 }}>O.E</td>
-                <td style={{ border: '1px solid #000', padding: 6 }}>{formatNum(order.far_oe_spherical)}</td>
-                <td style={{ border: '1px solid #000', padding: 6 }}>{formatNum(order.far_oe_cylindrical)}</td>
-                <td style={{ border: '1px solid #000', padding: 6 }}>{order.far_oe_axis || ''}</td>
+                <td style={{ border: '1px solid #e5e7eb', padding: 10, textAlign: 'center' }}>O.E</td>
+                <td style={{ border: '1px solid #e5e7eb', padding: 10, textAlign: 'center' }}>{formatNum(order.far_oe_spherical)}</td>
+                <td style={{ border: '1px solid #e5e7eb', padding: 10, textAlign: 'center' }}>{formatNum(order.far_oe_cylindrical)}</td>
+                <td style={{ border: '1px solid #e5e7eb', padding: 10, textAlign: 'center' }}>{order.far_oe_axis || ''}</td>
               </tr>
             </tbody>
           </table>
         </div>
 
-        {/* Receita - Perto */}
-        <div style={{ marginBottom: 12 }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', border: '1px solid #000' }}>
+        {/* Receita Óptica - Perto */}
+        <div style={{ marginBottom: 20 }}>
+          <div style={{ fontWeight: 600, marginBottom: 8, fontSize: 11, color: '#6b7280', textTransform: 'uppercase', letterSpacing: 1 }}>Visão para perto</div>
+          <table style={{ width: '100%', borderCollapse: 'collapse', border: '1px solid #e5e7eb', borderRadius: 8, overflow: 'hidden' }}>
             <thead>
-              <tr>
-                <th style={{ border: '1px solid #000', padding: 6, width: 50 }}>PERTO</th>
-                <th style={{ border: '1px solid #000', padding: 6, width: 40 }}></th>
-                <th style={{ border: '1px solid #000', padding: 6 }}>ESFÉRICO</th>
-                <th style={{ border: '1px solid #000', padding: 6 }}>CILÍNDRICO</th>
-                <th style={{ border: '1px solid #000', padding: 6 }}>EIXO</th>
+              <tr style={{ backgroundColor: '#f3f4f6' }}>
+                <th style={{ border: '1px solid #e5e7eb', padding: 10, width: 60, textAlign: 'left', fontSize: 11 }}></th>
+                <th style={{ border: '1px solid #e5e7eb', padding: 10, width: 50, textAlign: 'center', fontSize: 11 }}>O.D</th>
+                <th style={{ border: '1px solid #e5e7eb', padding: 10, textAlign: 'center', fontSize: 11 }}>Esférico</th>
+                <th style={{ border: '1px solid #e5e7eb', padding: 10, textAlign: 'center', fontSize: 11 }}>Cilíndrico</th>
+                <th style={{ border: '1px solid #e5e7eb', padding: 10, textAlign: 'center', fontSize: 11 }}>Eixo</th>
               </tr>
             </thead>
             <tbody>
               <tr>
-                <td style={{ border: '1px solid #000', padding: 6 }} rowSpan={3}>PERTO</td>
-                <td style={{ border: '1px solid #000', padding: 6 }}>O.D</td>
-                <td style={{ border: '1px solid #000', padding: 6 }}>{formatNum(order.near_od_spherical)}</td>
-                <td style={{ border: '1px solid #000', padding: 6 }}>{formatNum(order.near_od_cylindrical)}</td>
-                <td style={{ border: '1px solid #000', padding: 6 }}>{order.near_od_axis || ''}</td>
+                <td rowSpan={3} style={{ border: '1px solid #e5e7eb', padding: 10, fontWeight: 600, verticalAlign: 'middle' }}>Perto</td>
+                <td style={{ border: '1px solid #e5e7eb', padding: 10, textAlign: 'center' }}>O.D</td>
+                <td style={{ border: '1px solid #e5e7eb', padding: 10, textAlign: 'center' }}>{formatNum(order.near_od_spherical)}</td>
+                <td style={{ border: '1px solid #e5e7eb', padding: 10, textAlign: 'center' }}>{formatNum(order.near_od_cylindrical)}</td>
+                <td style={{ border: '1px solid #e5e7eb', padding: 10, textAlign: 'center' }}>{order.near_od_axis || ''}</td>
               </tr>
               <tr>
-                <td style={{ border: '1px solid #000', padding: 6 }}>O.E</td>
-                <td style={{ border: '1px solid #000', padding: 6 }}>{formatNum(order.near_oe_spherical)}</td>
-                <td style={{ border: '1px solid #000', padding: 6 }}>{formatNum(order.near_oe_cylindrical)}</td>
-                <td style={{ border: '1px solid #000', padding: 6 }}>{order.near_oe_axis || ''}</td>
+                <td style={{ border: '1px solid #e5e7eb', padding: 10, textAlign: 'center' }}>O.E</td>
+                <td style={{ border: '1px solid #e5e7eb', padding: 10, textAlign: 'center' }}>{formatNum(order.near_oe_spherical)}</td>
+                <td style={{ border: '1px solid #e5e7eb', padding: 10, textAlign: 'center' }}>{formatNum(order.near_oe_cylindrical)}</td>
+                <td style={{ border: '1px solid #e5e7eb', padding: 10, textAlign: 'center' }}>{order.near_oe_axis || ''}</td>
               </tr>
               <tr>
-                <td style={{ border: '1px solid #000', padding: 6 }}>ADIÇÃO</td>
-                <td style={{ border: '1px solid #000', padding: 6 }}>{formatNum(order.addition)}</td>
-                <td style={{ border: '1px solid #000', padding: 6 }}></td>
-                <td style={{ border: '1px solid #000', padding: 6 }}></td>
+                <td style={{ border: '1px solid #e5e7eb', padding: 10, textAlign: 'center', fontWeight: 500 }}>Adição</td>
+                <td style={{ border: '1px solid #e5e7eb', padding: 10, textAlign: 'center' }}>{formatNum(order.addition)}</td>
+                <td style={{ border: '1px solid #e5e7eb', padding: 10 }}></td>
+                <td style={{ border: '1px solid #e5e7eb', padding: 10 }}></td>
               </tr>
             </tbody>
           </table>
         </div>
 
-        {/* DNP */}
-        <div style={{ marginBottom: 16 }}>
-          <strong>DNP:</strong>
-          <table style={{ display: 'inline-table', marginLeft: 8, borderCollapse: 'collapse', border: '1px solid #000' }}>
-            <tbody>
-              <tr>
-                <td style={{ border: '1px solid #000', padding: 4, minWidth: 80 }}>LONGE</td>
-                <td style={{ border: '1px solid #000', padding: 4, minWidth: 80 }}>{order.far_dnp || ''}</td>
-              </tr>
-              <tr>
-                <td style={{ border: '1px solid #000', padding: 4 }}>PERTO</td>
-                <td style={{ border: '1px solid #000', padding: 4 }}>{order.near_dnp || ''}</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-
-        {/* Recomendação de Lentes */}
-        <div style={{ marginBottom: 16 }}>
-          <strong>RECOMENDA-SE O USO DE LENTES:</strong>
-          <div style={{ marginTop: 8, display: 'flex', flexWrap: 'wrap', gap: '16px 24px' }}>
-            <span>({order.single_vision ? 'X' : ' '}) VISÃO SIMPLES</span>
-            <span>({order.bifocal ? 'X' : ' '}) BIFOCAIS</span>
-            <span>({order.multifocal ? 'X' : ' '}) MULTIFOCAIS</span>
-            <span>({order.anti_reflective ? 'X' : ' '}) ANTI-REFLEXO</span>
-            <span>({order.transitions ? 'X' : ' '}) TRANSITIONS</span>
-            <span>({order.frame_included ? 'X' : ' '}) ARMAÇÃO</span>
-            <span>({order.tinting ? 'X' : ' '}) COLORAÇÃO</span>
-          </div>
-        </div>
-
-        {/* Marca da Lente */}
-        {lensBrand && (
-          <div>
-            <strong>MARCA</strong>
-            <div style={{ marginTop: 4, borderBottom: '1px solid #000', minHeight: 24 }}>
-              {lensBrand}
+        {/* Bloco: DNP + Recomendações + Marca */}
+        <div style={{
+          marginTop: 20,
+          padding: 20,
+          backgroundColor: '#f9fafb',
+          borderRadius: 8,
+          border: '1px solid #e5e7eb',
+          borderLeft: `4px solid ${storeColor}`,
+        }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+            {/* DNP */}
+            <div>
+              <div style={{ fontWeight: 600, fontSize: 11, color: '#6b7280', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8 }}>DNP (Distância Naso-Pupilar)</div>
+              <table style={{ width: 'auto', borderCollapse: 'collapse' }}>
+                <tbody>
+                  <tr>
+                    <td style={{ padding: '4px 20px 4px 0', color: '#6b7280', fontSize: 12 }}>Longe</td>
+                    <td style={{ padding: '4px 0', fontWeight: 500 }}>{order.far_dnp || '-'}</td>
+                  </tr>
+                  <tr>
+                    <td style={{ padding: '4px 20px 4px 0', color: '#6b7280', fontSize: 12 }}>Perto</td>
+                    <td style={{ padding: '4px 0', fontWeight: 500 }}>{order.near_dnp || '-'}</td>
+                  </tr>
+                </tbody>
+              </table>
             </div>
+
+            {/* Recomendação de Lentes - [X] texto puro para renderizar bem no PDF */}
+            <div>
+              <div style={{ fontWeight: 600, fontSize: 11, color: '#6b7280', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 10 }}>Recomenda-se o uso de lentes</div>
+              <table style={{ borderCollapse: 'collapse', fontSize: 12 }}>
+                <tbody>
+                  {[
+                    [
+                      { label: 'Visão simples', checked: order.single_vision },
+                      { label: 'Bifocais', checked: order.bifocal },
+                    ],
+                    [
+                      { label: 'Multifocais', checked: order.multifocal },
+                      { label: 'Anti-reflexo', checked: order.anti_reflective },
+                    ],
+                    [
+                      { label: 'Transitions', checked: order.transitions },
+                      { label: 'Armação', checked: order.frame_included },
+                    ],
+                    [
+                      { label: 'Coloração', checked: order.tinting },
+                      null,
+                    ],
+                  ].map((row, i) => (
+                    <tr key={i}>
+                      {row.map((item, j) => (
+                        <React.Fragment key={j}>
+                          {item ? (
+                            <>
+                              <td style={{ padding: '3px 10px 3px 0', verticalAlign: 'middle', width: 28 }}>
+                                <span style={{ fontWeight: 700, color: storeColor }}>{item.checked ? '[X]' : '[ ]'}</span>
+                              </td>
+                              <td style={{ padding: '3px 24px 3px 0', verticalAlign: 'middle', color: '#374151' }}>{item.label}</td>
+                            </>
+                          ) : (
+                            <td colSpan={2} style={{ padding: 0 }} />
+                          )}
+                        </React.Fragment>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Marca da Lente */}
+            {lensBrand && (
+              <div>
+                <div style={{ fontWeight: 600, fontSize: 11, color: '#6b7280', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 6 }}>Marca</div>
+                <div style={{ fontWeight: 500, fontSize: 14, color: '#111827' }}>{lensBrand}</div>
+              </div>
+            )}
           </div>
-        )}
+        </div>
       </div>
     );
   }

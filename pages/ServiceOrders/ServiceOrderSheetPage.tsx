@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Printer, ArrowLeft, Loader2 } from 'lucide-react';
+import html2pdf from 'html2pdf.js';
 import { Button } from '../../components/Common';
 import { ServiceOrderSheet } from '../../components/ServiceOrderSheet';
 import { ReceiptStore } from '../../components/ThermalReceipt';
@@ -11,6 +12,16 @@ import { ServiceOrder } from '../../services/api/serviceOrders';
 import { Store } from '../../services/api/stores';
 import { useNotification } from '../../hooks/useNotification';
 
+const API_BASE = import.meta.env.DEV ? 'http://localhost:8080' : (import.meta.env.VITE_API_URL || '').replace(/\/api(\/.*)?$/, '') || window.location.origin;
+const buildLogoUrl = (logoPath: string | null | undefined): string | null => {
+  if (!logoPath || typeof logoPath !== 'string') return null;
+  if (logoPath.startsWith('http://') || logoPath.startsWith('https://')) return logoPath;
+  if (logoPath.startsWith('/')) return `${API_BASE}${logoPath}`;
+  // Path do storage (ex: stores/xxx.jpg) -> em dev usa relativo (proxy); em prod usa API_BASE
+  const path = logoPath.startsWith('storage/') ? logoPath : `storage/${logoPath}`;
+  return import.meta.env.DEV ? `/${path}` : `${API_BASE}/${path}`;
+};
+
 export const ServiceOrderSheetPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -19,6 +30,7 @@ export const ServiceOrderSheetPage: React.FC = () => {
   const [store, setStore] = useState<ReceiptStore | null>(null);
   const [clientPhone, setClientPhone] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const sheetRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const load = async () => {
@@ -37,6 +49,7 @@ export const ServiceOrderSheetPage: React.FC = () => {
           // Usar dados básicos do order.store como fallback
         }
 
+        const rawLogo = storeData?.logo ?? (orderData.store as any)?.logo ?? null;
         const receiptStore: ReceiptStore = {
           name: storeData?.name || orderData.store?.name || 'Loja',
           fancy_name: storeData?.fancy_name || storeData?.name || orderData.store?.name || 'Loja',
@@ -49,7 +62,8 @@ export const ServiceOrderSheetPage: React.FC = () => {
           uf: storeData?.uf || '',
           telefone: storeData?.telefone || null,
           unity: storeData?.unity ?? (orderData.store as any)?.unity ?? null,
-          logo: storeData?.logo ?? (orderData.store as any)?.logo ?? null,
+          logo: buildLogoUrl(rawLogo) || null,
+          color: storeData?.color ?? (orderData.store as any)?.color ?? '#dc2626',
         };
         setStore(receiptStore);
 
@@ -69,8 +83,56 @@ export const ServiceOrderSheetPage: React.FC = () => {
     load();
   }, [id, showError]);
 
-  const handlePrint = () => {
-    window.print();
+  const formatOsNumber = (n: number): string => String(n).padStart(4, '0');
+
+  const imageToDataUrl = async (url: string): Promise<string> => {
+    try {
+      const res = await fetch(url, { mode: 'cors' });
+      const blob = await res.blob();
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result as string);
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+      });
+    } catch {
+      return url;
+    }
+  };
+
+  const handlePrint = async () => {
+    const sheetEl = sheetRef.current;
+    if (!sheetEl) return;
+    const imgs = sheetEl.querySelectorAll('img[src^="http"]');
+    const origSrcs: (string | null)[] = [];
+    for (let i = 0; i < imgs.length; i++) {
+      const img = imgs[i] as HTMLImageElement;
+      const src = img.getAttribute('src');
+      if (src) {
+        origSrcs[i] = src;
+        const dataUrl = await imageToDataUrl(src);
+        img.setAttribute('src', dataUrl);
+      }
+    }
+    const opt = {
+      margin: [5, 5, 5, 5],
+      filename: `OS-${formatOsNumber(order?.os_number ?? 0)}.pdf`,
+      image: { type: 'jpeg', quality: 0.98 },
+      html2canvas: {
+        scale: 2,
+        useCORS: true,
+        allowTaint: true,
+        scrollX: 0,
+        scrollY: 0,
+        letterRendering: true,
+      },
+      jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+      pagebreak: { mode: ['avoid-all', 'css', 'legacy'], avoid: ['tr', 'table', '.service-order-sheet > div'] },
+    };
+    await html2pdf().set(opt).from(sheetEl).save();
+    imgs.forEach((img, i) => {
+      if (origSrcs[i]) (img as HTMLImageElement).setAttribute('src', origSrcs[i]!);
+    });
   };
 
   if (loading) {
@@ -105,8 +167,8 @@ export const ServiceOrderSheetPage: React.FC = () => {
       </div>
 
       {/* Conteúdo para impressão */}
-      <div className="p-6 flex justify-center">
-        <ServiceOrderSheet order={order} store={store} clientPhone={clientPhone} />
+      <div className="p-8 flex justify-center min-h-[calc(100vh-80px)] items-start">
+        <ServiceOrderSheet ref={sheetRef} order={order} store={store} clientPhone={clientPhone} />
       </div>
     </div>
   );

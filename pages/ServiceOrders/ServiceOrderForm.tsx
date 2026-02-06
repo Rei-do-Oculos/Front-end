@@ -338,12 +338,13 @@ export const ServiceOrderForm: React.FC = () => {
           if (order) {
             setLoadedOrder(order);
             
-            // Verificar se OS é de outra loja
+            // Verificar se OS é de outra loja (superadmin pode editar qualquer OS)
             const orderStoreId = order.store_id;
-            const isOtherStore = (order as any).is_other_store ?? (selectedStore?.id !== undefined && orderStoreId !== selectedStore.id);
+            const apiSaysOtherStore = (order as any).is_other_store ?? (selectedStore?.id !== undefined && orderStoreId !== selectedStore.id);
+            const isOtherStore = hasSuperAdminRole ? false : apiSaysOtherStore;
             setIsOtherStoreOrder(isOtherStore);
             
-            // Se for OS de outra loja e estiver em modo de edição, redirecionar para visualização
+            // Se for OS de outra loja e estiver em modo de edição, redirecionar para visualização (superadmin não)
             if (isOtherStore && isEditMode) {
               showError('Não é possível editar OS de outra loja.');
               navigate(`/service-orders/${id}`);
@@ -788,7 +789,7 @@ export const ServiceOrderForm: React.FC = () => {
           >
             <ArrowLeft size={18} /> Voltar
           </Button>
-          {isViewMode && !isOtherStoreOrder && (
+          {isViewMode && !isOtherStoreOrder && (loadedOrder?.status !== 'completed' || hasSuperAdminRole) && (
             <Button 
               type="button" 
               onClick={() => navigate(`/service-orders/${id}/edit`)}
@@ -1573,35 +1574,34 @@ export const ServiceOrderForm: React.FC = () => {
             />
           </div>
 
+          {/* Botões - apenas para criar/editar (no modo view ficam no cabeçalho) */}
+          {!isViewMode && (
+            <div className="flex gap-4 pt-4 border-t border-slate-100">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => navigate('/service-orders')}
+                disabled={saving}
+              >
+                <ArrowLeft size={18} /> Voltar
+              </Button>
+              {!(isEditMode && loadedOrder?.status === 'completed' && !hasSuperAdminRole) && (
+                <Button type="submit" disabled={saving}>
+                  {saving ? (
+                    <>
+                      <Loader2 size={18} className="animate-spin" /> Salvando...
+                    </>
+                  ) : (
+                    <>
+                      <Save size={18} /> Salvar
+                    </>
+                  )}
+                </Button>
+              )}
+            </div>
+          )}
         </Card>
         </fieldset>
-
-        {/* Botões - apenas para criar/editar (no modo view ficam no cabeçalho) */}
-        {!isViewMode && (
-          <div className="flex gap-4 pt-6 px-8">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => navigate('/service-orders')}
-              disabled={saving}
-            >
-              <ArrowLeft size={18} /> Voltar
-            </Button>
-            {!(isEditMode && loadedOrder?.status === 'completed' && !hasSuperAdminRole) && (
-              <Button type="submit" disabled={saving}>
-                {saving ? (
-                  <>
-                    <Loader2 size={18} className="animate-spin" /> Salvando...
-                  </>
-                ) : (
-                  <>
-                    <Save size={18} /> Salvar
-                  </>
-                )}
-              </Button>
-            )}
-          </div>
-        )}
       </form>
 
       {/* Modal de Recibo */}

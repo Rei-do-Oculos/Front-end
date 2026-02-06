@@ -255,7 +255,7 @@ export const Input: React.FC<React.InputHTMLAttributes<HTMLInputElement> & { lab
     if (label.includes('*')) {
       const parts = label.split('*');
       return (
-        <label className="text-[10px] lg:text-[11px] font-semibold text-slate-500 uppercase tracking-[0.15em] ml-1">
+        <label className="text-[10px] lg:text-[11px] font-bold text-slate-500 uppercase tracking-[0.15em] ml-1">
           {parts[0]}
           <span className="text-red-500">*</span>
           {parts[1]}
@@ -263,14 +263,14 @@ export const Input: React.FC<React.InputHTMLAttributes<HTMLInputElement> & { lab
       );
     }
     
-    return <label className="text-[10px] lg:text-[11px] font-semibold text-slate-500 uppercase tracking-[0.15em] ml-1">{label}</label>;
+    return <label className="text-[10px] lg:text-[11px] font-bold text-slate-500 uppercase tracking-[0.15em] ml-1">{label}</label>;
   };
 
   return (
     <div className="space-y-1.5 lg:space-y-2 w-full">
       {renderLabel()}
       <input 
-        className={`w-full px-4 py-3 lg:px-5 lg:py-3.5 ${styles.input.default} bg-gray-50 border text-sm font-medium transition-all outline-none placeholder:text-gray-400 ${className}`}
+        className={`w-full px-4 py-3 lg:px-5 lg:py-3.5 ${styles.input.default} bg-gray-50 border-2 border-slate-200 text-sm font-medium transition-all outline-none placeholder:text-gray-400 ${className}`}
         style={{
           borderColor: error 
             ? 'var(--store-color)' 
@@ -342,7 +342,7 @@ export const NumberInput: React.FC<{
   return (
     <div className={`space-y-1.5 lg:space-y-2 w-full ${className}`}>
       {label && (
-        <label className="text-[10px] lg:text-[11px] font-semibold text-slate-500 uppercase tracking-[0.15em] ml-1">
+        <label className="text-[10px] lg:text-[11px] font-bold text-slate-500 uppercase tracking-[0.15em] ml-1">
           {label}
         </label>
       )}
@@ -354,13 +354,13 @@ export const NumberInput: React.FC<{
         onBlur={handleBlur}
         onFocus={() => setIsFocused(true)}
         placeholder={placeholder}
-        className={`w-full px-4 py-3 lg:px-5 lg:py-3.5 ${styles.input.default} bg-gray-50 border text-sm font-medium transition-all outline-none`}
+        className={`w-full px-4 py-3 lg:px-5 lg:py-3.5 ${styles.input.default} bg-gray-50 border-2 border-slate-200 text-sm font-medium transition-all outline-none`}
         style={{
           borderColor: error 
             ? 'var(--store-color)' 
             : isFocused 
               ? 'var(--store-color)' 
-              : '#f1f5f9',
+              : '#e2e8f0',
           backgroundColor: isFocused ? 'white' : undefined,
           boxShadow: isFocused && !error ? '0 0 0 4px var(--store-color-opacity-5)' : undefined,
         }}
@@ -372,10 +372,10 @@ export const NumberInput: React.FC<{
 
 export const Select: React.FC<React.SelectHTMLAttributes<HTMLSelectElement> & { label?: string; options: { label: string; value: string }[] }> = ({ label, options, className = "", ...props }) => (
   <div className="space-y-1.5 lg:space-y-2 w-full">
-    {label && <label className="text-[10px] lg:text-[11px] font-semibold text-slate-500 uppercase tracking-[0.15em] ml-1">{label}</label>}
+    {label && <label className="text-[10px] lg:text-[11px] font-bold text-slate-500 uppercase tracking-[0.15em] ml-1">{label}</label>}
     <div className="relative">
       <select 
-        className={`w-full px-4 py-3 lg:px-5 lg:py-3.5 ${styles.input.default} bg-gray-50 border border-gray-100 text-sm font-medium transition-all outline-none appearance-none ${className}`}
+        className={`w-full px-4 py-3 lg:px-5 lg:py-3.5 ${styles.input.default} bg-gray-50 border-2 border-slate-200 text-sm font-medium transition-all outline-none appearance-none ${className}`}
         style={{
           '--focus-border': 'var(--store-color)',
           '--focus-ring': 'var(--store-color-opacity-5)',
@@ -562,12 +562,12 @@ export const MultiSelect: React.FC<{
 
   return (
     <div className="space-y-1.5 lg:space-y-2 w-full relative">
-      {label && <label className="text-[10px] lg:text-[11px] font-semibold text-slate-500 uppercase tracking-[0.15em] ml-1">{label}</label>}
+      {label && <label className="text-[10px] lg:text-[11px] font-bold text-slate-500 uppercase tracking-[0.15em] ml-1">{label}</label>}
       <div className="relative">
         <div
           ref={buttonRef}
           onClick={() => !disabled && !isOpen && setIsOpen(true)}
-          className={`w-full px-4 py-3 lg:px-5 lg:py-3.5 ${styles.input.default} bg-gray-50 border border-gray-100 text-sm font-medium transition-all outline-none text-left flex items-center justify-between min-h-[48px] ${disabled ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'} ${isOpen ? 'bg-white ring-2' : ''}`}
+          className={`w-full px-4 py-3 lg:px-5 lg:py-3.5 ${styles.input.default} bg-gray-50 border-2 border-slate-200 text-sm font-medium transition-all outline-none text-left flex items-center justify-between min-h-[48px] ${disabled ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'} ${isOpen ? 'bg-white ring-2' : ''}`}
           style={{
             borderColor: isOpen ? 'var(--store-color)' : undefined,
             '--tw-ring-color': 'var(--store-color-opacity-20)',
@@ -781,12 +781,12 @@ export const SingleSelect: React.FC<{
 
   return (
     <div className="space-y-1.5 lg:space-y-2 w-full relative">
-      {label && <label className="text-[10px] lg:text-[11px] font-semibold text-slate-500 uppercase tracking-[0.15em] ml-1">{label}</label>}
+      {label && <label className="text-[10px] lg:text-[11px] font-bold text-slate-500 uppercase tracking-[0.15em] ml-1">{label}</label>}
       <div className="relative">
         <div
           ref={buttonRef}
           onClick={() => !disabled && setIsOpen(!isOpen)}
-          className={`w-full px-4 py-3 lg:px-5 lg:py-3.5 ${styles.input.default} bg-gray-50 border text-sm font-medium transition-all outline-none text-left flex items-center justify-between min-h-[48px] ${disabled ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'} ${isOpen ? 'bg-white ring-2' : ''} ${error ? 'border-red-500' : 'border-gray-100'}`}
+          className={`w-full px-4 py-3 lg:px-5 lg:py-3.5 ${styles.input.default} bg-gray-50 border-2 text-sm font-medium transition-all outline-none text-left flex items-center justify-between min-h-[48px] ${disabled ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'} ${isOpen ? 'bg-white ring-2' : ''} ${error ? 'border-red-500' : 'border-slate-200'}`}
           style={{
             borderColor: error ? '#ef4444' : (isOpen ? 'var(--store-color)' : undefined),
             '--tw-ring-color': 'var(--store-color-opacity-20)',
