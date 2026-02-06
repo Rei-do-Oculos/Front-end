@@ -32,14 +32,27 @@ export const LaboratoryList: React.FC = () => {
 
   useEffect(() => {
     const loadLaboratories = async () => {
+      console.log('[LaboratoryList] 🔍 Iniciando carregamento de laboratórios');
+      console.log('[LaboratoryList] Parâmetros:', {
+        sortBy: sortBy || 'id',
+        sortDirection: sortDirection || 'desc',
+        perPage,
+      });
       try {
+        console.log('[LaboratoryList] Chamando fetchLaboratories...');
         await fetchLaboratories(1, {
           order_by: sortBy || 'id',
           order_dir: sortDirection || 'desc',
           per_page: perPage,
         });
+        console.log('[LaboratoryList] ✅ fetchLaboratories concluído');
       } catch (err) {
-        console.error('Erro ao carregar laboratórios:', err);
+        console.error('[LaboratoryList] ❌ Erro ao carregar laboratórios:', err);
+        console.error('[LaboratoryList] Detalhes do erro:', {
+          message: err instanceof Error ? err.message : String(err),
+          stack: err instanceof Error ? err.stack : undefined,
+          error: err,
+        });
       }
     };
     loadLaboratories();
@@ -204,6 +217,18 @@ export const LaboratoryList: React.FC = () => {
 
   const laboratoriesList = Array.isArray(laboratories) ? laboratories : [];
 
+  console.log('[LaboratoryList] 📊 Estado atual:', {
+    loading,
+    error: error ? {
+      message: error.message,
+      status: (error as any).status,
+      error,
+    } : null,
+    laboratoriesCount: laboratoriesList.length,
+    laboratories,
+    pagination,
+  });
+
   if (error && (error as any).status === 403) return <AccessDeniedCard />;
 
   return (
@@ -319,7 +344,20 @@ export const LaboratoryList: React.FC = () => {
               ) : laboratoriesList.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="px-6 py-12 text-center">
-                    <span className="text-sm text-slate-500">Nenhum laboratório encontrado</span>
+                    <div className="space-y-2">
+                      <p className="text-sm font-medium text-slate-600">
+                        {activeFilters > 0 
+                          ? 'Nenhum laboratório encontrado com os filtros aplicados'
+                          : 'Nenhum laboratório encontrado'}
+                      </p>
+                      {activeFilters === 0 && (
+                        <p className="text-xs text-slate-400">
+                          {hasPermission('laboratories.create') 
+                            ? 'Clique em "Novo Laboratório" para cadastrar o primeiro.'
+                            : 'Entre em contato com o administrador para cadastrar laboratórios.'}
+                        </p>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ) : (

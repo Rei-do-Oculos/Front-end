@@ -80,35 +80,88 @@ class LaboratoriesService {
   }
 
   async getAll(params?: LaboratoriesQueryParams & { page?: number }): Promise<PaginatedResponse<Laboratory>> {
-    const response = await apiClient.get<LaboratoriesListResponse>(this.endpoint, {
+    console.log('[LaboratoriesService] 🔍 getAll chamado', {
+      endpoint: this.endpoint,
       params,
     });
     
-    const responseData = response.data;
-    
-    if (!responseData.success || !responseData.data?.laboratories) {
-      console.error('Resposta inválida da API de laboratórios:', responseData);
-      throw new Error('Resposta inválida da API');
+    try {
+      console.log('[LaboratoriesService] Fazendo requisição para:', this.endpoint);
+      const response = await apiClient.get<LaboratoriesListResponse>(this.endpoint, {
+        params,
+      });
+      
+      console.log('[LaboratoriesService] ✅ Resposta recebida:', {
+        status: response.status,
+        hasData: !!response.data,
+        responseData: response.data,
+        fullResponse: JSON.stringify(response.data, null, 2),
+      });
+      
+      const responseData = response.data;
+      
+      if (!responseData.success || !responseData.data?.laboratories) {
+        console.error('[LaboratoriesService] ❌ Resposta inválida da API:', {
+          success: responseData.success,
+          hasData: !!responseData.data,
+          hasLaboratories: !!responseData.data?.laboratories,
+          responseData,
+        });
+        throw new Error('Resposta inválida da API');
+      }
+      
+      const laravelPagination = responseData.data.laboratories;
+      console.log('[LaboratoriesService] Paginação Laravel:', {
+        current_page: laravelPagination.current_page,
+        last_page: laravelPagination.last_page,
+        total: laravelPagination.total,
+        dataType: typeof laravelPagination.data,
+        isArray: Array.isArray(laravelPagination.data),
+        dataLength: Array.isArray(laravelPagination.data) ? laravelPagination.data.length : 'N/A',
+        dataKeys: typeof laravelPagination.data === 'object' && laravelPagination.data ? Object.keys(laravelPagination.data) : [],
+        dataValue: laravelPagination.data,
+      });
+      
+      // Converter data para array se for objeto
+      let laboratoriesData: Laboratory[] = [];
+      if (Array.isArray(laravelPagination.data)) {
+        laboratoriesData = laravelPagination.data;
+        console.log('[LaboratoriesService] data é array, usando diretamente');
+      } else if (laravelPagination.data && typeof laravelPagination.data === 'object') {
+        const values = Object.values(laravelPagination.data);
+        console.log('[LaboratoriesService] data é objeto, convertendo com Object.values:', {
+          keys: Object.keys(laravelPagination.data),
+          valuesLength: values.length,
+          values,
+        });
+        laboratoriesData = values as Laboratory[];
+      } else {
+        console.log('[LaboratoriesService] data é null/undefined ou tipo inválido, retornando array vazio');
+        laboratoriesData = [];
+      }
+      
+      console.log('[LaboratoriesService] ✅ Laboratórios processados:', {
+        count: laboratoriesData.length,
+        laboratories: laboratoriesData,
+      });
+      
+      return {
+        data: laboratoriesData,
+        meta: {
+          currentPage: laravelPagination.current_page || 1,
+          totalPages: laravelPagination.last_page || 1,
+          totalItems: laravelPagination.total || 0,
+        },
+      };
+    } catch (error) {
+      console.error('[LaboratoriesService] ❌ Erro no getAll:', error);
+      console.error('[LaboratoriesService] Detalhes:', {
+        message: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined,
+        error,
+      });
+      throw error;
     }
-    
-    const laravelPagination = responseData.data.laboratories;
-    
-    // Converter data para array se for objeto
-    let laboratoriesData: Laboratory[] = [];
-    if (Array.isArray(laravelPagination.data)) {
-      laboratoriesData = laravelPagination.data;
-    } else if (laravelPagination.data && typeof laravelPagination.data === 'object') {
-      laboratoriesData = Object.values(laravelPagination.data) as Laboratory[];
-    }
-    
-    return {
-      data: laboratoriesData,
-      meta: {
-        currentPage: laravelPagination.current_page || 1,
-        totalPages: laravelPagination.last_page || 1,
-        totalItems: laravelPagination.total || 0,
-      },
-    };
   }
 
   async getById(id: string): Promise<Laboratory> {
