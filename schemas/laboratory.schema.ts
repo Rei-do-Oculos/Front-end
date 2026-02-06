@@ -42,10 +42,6 @@ export const laboratorySchema = z.object({
   active: z
     .boolean()
     .default(true),
-  stores: z
-    .array(z.number().int().positive())
-    .optional()
-    .default([]),
 });
 
 export type LaboratoryFormData = z.infer<typeof laboratorySchema>;
