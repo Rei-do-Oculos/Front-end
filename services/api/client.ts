@@ -1,7 +1,7 @@
 import axios, { AxiosInstance, AxiosError, InternalAxiosRequestConfig } from 'axios';
 import { sanitizeObject, validateId, generateRequestId, detectXssAttempt } from '../../utils/security';
 
-// Em dev com Vite, usa /api para o proxy (evita CORS). Em produção usa VITE_API_URL.
+// Em dev: usa /api (proxy do Vite evita CORS). Em prod: usa VITE_API_URL. O proxy target vem do .env.
 const API_BASE_URL = import.meta.env.DEV ? '/api' : (import.meta.env.VITE_API_URL || 'http://localhost:8080/api');
 
 class ApiClient {

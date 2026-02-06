@@ -5,16 +5,17 @@ import { VitePWA } from 'vite-plugin-pwa';
 
 export default defineConfig(({ mode }) => {
     const env = loadEnv(mode, '.', '');
+    // Proxy target: usa VITE_API_URL se definida (ex: https://app.reidooculos.online/api -> https://app.reidooculos.online)
+    const apiUrl = env.VITE_API_URL || 'http://localhost:8080/api';
+    const proxyTarget = apiUrl.replace(/\/api\/?$/, '') || 'http://localhost:8080';
     return {
       server: {
         port: 3000,
         host: '0.0.0.0',
-        // Redireciona todas as rotas para index.html (necessário para BrowserRouter)
         historyApiFallback: true,
-        // Proxy da API para evitar CORS e problemas de conexão
         proxy: {
           '/api': {
-            target: 'http://localhost:8080',
+            target: proxyTarget,
             changeOrigin: true,
           },
         },
