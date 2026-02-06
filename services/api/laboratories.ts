@@ -14,6 +14,11 @@ export interface Laboratory {
   created_at: string;
   updated_at: string;
   deleted_at: string | null;
+  stores?: Array<{
+    id: number;
+    name: string;
+    fancy_name?: string;
+  }>;
 }
 
 export interface CreateLaboratoryDto {
@@ -25,6 +30,7 @@ export interface CreateLaboratoryDto {
   contact_name?: string;
   notes?: string;
   active?: boolean;
+  stores?: number[]; // Array de IDs das lojas
 }
 
 export interface UpdateLaboratoryDto extends Partial<CreateLaboratoryDto> {}

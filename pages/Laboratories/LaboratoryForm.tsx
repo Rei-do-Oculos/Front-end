@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { Save, ArrowLeft, Building2, Loader2 } from 'lucide-react';
-import { Card, Button, Input } from '../../components/Common';
+import { Card, Button, Input, MultiSelect } from '../../components/Common';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useLaboratories } from '../../services/hooks/useLaboratories';
+import { usePlucks } from '../../services/hooks/usePlucks';
+import { storesService } from '../../services/api/stores';
 import { useNotification } from '../../hooks/useNotification';
 import { laboratorySchema, formatZodErrors } from '../../schemas/laboratory.schema';
 import { maskCnpjInput, maskPhoneInput } from '../../utils/formatters';
@@ -20,6 +22,13 @@ export const LaboratoryForm: React.FC = () => {
     autoFetch: false,
   });
 
+  const { plucks: storesPlucks, loading: storesPlucksLoading } = usePlucks({
+    service: storesService,
+    autoFetch: true,
+  });
+
+  const safeStoresPlucks = Array.isArray(storesPlucks) ? storesPlucks : [];
+
   const [formData, setFormData] = useState({
     name: '',
     cnpj: '',
@@ -29,6 +38,7 @@ export const LaboratoryForm: React.FC = () => {
     contact_name: '',
     notes: '',
     active: true,
+    stores: [] as number[],
   });
 
   useEffect(() => {
@@ -41,6 +51,10 @@ export const LaboratoryForm: React.FC = () => {
           if (laboratory) {
             const rawCnpj = (laboratory.cnpj || '').replace(/\D/g, '');
             const rawPhone = (laboratory.phone || '').replace(/\D/g, '');
+            // Extrair IDs das lojas vinculadas
+            const storesIds = laboratory.stores 
+              ? laboratory.stores.map((s: any) => s.id || s)
+              : [];
             setFormData({
               name: laboratory.name || '',
               cnpj: rawCnpj ? maskCnpjInput(rawCnpj) : '',
@@ -50,6 +64,7 @@ export const LaboratoryForm: React.FC = () => {
               contact_name: laboratory.contact_name || '',
               notes: laboratory.notes || '',
               active: laboratory.active ?? true,
+              stores: storesIds,
             });
           } else {
             setErrors({ form: 'Laboratório não encontrado' });
@@ -91,12 +106,28 @@ export const LaboratoryForm: React.FC = () => {
 
     try {
       const payload = result.data;
+      
+      // Preparar payload com stores
+      const finalPayload: any = { ...payload };
+      
+      if (isEditMode) {
+        // No modo de edição, só envia stores se houver seleção (para não remover todas as lojas)
+        if (formData.stores && formData.stores.length > 0) {
+          finalPayload.stores = formData.stores;
+        }
+        // Se não houver seleção, não envia stores (mantém as lojas existentes)
+      } else {
+        // No modo de criação, envia stores se houver seleção, senão o backend usa a loja do contexto
+        if (formData.stores && formData.stores.length > 0) {
+          finalPayload.stores = formData.stores;
+        }
+      }
 
       if (isEditMode && id) {
-        await updateLaboratory(id, payload);
+        await updateLaboratory(id, finalPayload);
         showSuccess('Laboratório atualizado com sucesso!');
       } else {
-        await createLaboratory(payload);
+        await createLaboratory(finalPayload);
         showSuccess('Laboratório criado com sucesso!');
       }
       navigate('/laboratories');
@@ -234,6 +265,33 @@ export const LaboratoryForm: React.FC = () => {
                 <p className="mt-1 text-xs text-red-500 font-medium">{errors.contact_name}</p>
               )}
             </div>
+          </div>
+
+          <div className="mt-6">
+            <label className="text-[10px] font-semibold text-slate-500 uppercase tracking-[0.15em] ml-1 mb-2 block">
+              Lojas
+            </label>
+            <MultiSelect
+              options={safeStoresPlucks.map((s: any) => ({ 
+                label: s.fancy_name || s.name, 
+                value: String(s.id) 
+              }))}
+              value={formData.stores.map(String)}
+              onChange={(values) => {
+                const newStores = values.map(Number);
+                handleFieldChange('stores', newStores);
+              }}
+              placeholder={storesPlucksLoading ? "Carregando lojas..." : "Selecione uma ou mais lojas"}
+            />
+            {errors.stores && (
+              <p className="mt-1 text-xs text-red-500 font-medium">{errors.stores}</p>
+            )}
+            <p className="text-xs text-slate-400 mt-2">
+              {isEditMode 
+                ? "Selecione as lojas onde este laboratório estará disponível. Se não selecionar nenhuma, as lojas atuais serão mantidas."
+                : "Selecione as lojas onde este laboratório estará disponível. Se não selecionar nenhuma, será vinculado à loja atual."
+              }
+            </p>
           </div>
 
           <div className="mt-6">
