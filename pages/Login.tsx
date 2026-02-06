@@ -188,24 +188,31 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
                 type="button"
                 onClick={testConnection}
                 disabled={connectionTest === 'checking' || isLoading}
-                className="w-full flex items-center justify-center gap-2 py-2 text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full flex flex-col items-center justify-center gap-1 py-2 text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {connectionTest === 'checking' ? (
-                  <Loader2 size={18} className="animate-spin" />
-                ) : connectionTest === 'ok' ? (
-                  <Wifi size={18} className="text-green-600" />
-                ) : connectionTest === 'error' ? (
-                  <WifiOff size={18} className="text-red-500" />
-                ) : (
-                  <Wifi size={18} className="text-gray-400" />
-                )}
-                <span>
-                  {connectionTest === 'checking'
-                    ? 'Testando conexão...'
-                    : connectionTest === 'idle'
-                    ? 'Testar conexão com o servidor'
-                    : connectionMessage}
+                <span className="flex items-center gap-2">
+                  {connectionTest === 'checking' ? (
+                    <Loader2 size={18} className="animate-spin" />
+                  ) : connectionTest === 'ok' ? (
+                    <Wifi size={18} className="text-green-600" />
+                  ) : connectionTest === 'error' ? (
+                    <WifiOff size={18} className="text-red-500" />
+                  ) : (
+                    <Wifi size={18} className="text-gray-400" />
+                  )}
+                  <span>
+                    {connectionTest === 'checking'
+                      ? 'Testando conexão...'
+                      : connectionTest === 'idle'
+                      ? 'Testar conexão com o servidor'
+                      : connectionMessage}
+                  </span>
                 </span>
+                {connectionTest === 'ok' && (
+                  <span className="text-xs text-gray-400 font-mono">
+                    {import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'localhost (proxy)' : '-')}
+                  </span>
+                )}
               </button>
             </div>
 

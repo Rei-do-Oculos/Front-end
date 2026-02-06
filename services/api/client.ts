@@ -1,8 +1,8 @@
 import axios, { AxiosInstance, AxiosError, InternalAxiosRequestConfig } from 'axios';
 import { sanitizeObject, validateId, generateRequestId, detectXssAttempt } from '../../utils/security';
 
-// Em dev: usa /api (proxy do Vite evita CORS). Em prod: usa VITE_API_URL. O proxy target vem do .env.
-const API_BASE_URL = import.meta.env.DEV ? '/api' : (import.meta.env.VITE_API_URL || 'http://localhost:8080/api');
+// Sempre usa VITE_API_URL. Em dev passa pelo proxy /api (evita CORS); em prod usa direto.
+const API_BASE_URL = import.meta.env.DEV ? '/api' : (import.meta.env.VITE_API_URL ?? '');
 
 class ApiClient {
   private client: AxiosInstance;
@@ -55,6 +55,10 @@ class ApiClient {
   private setupInterceptors() {
     this.client.interceptors.request.use(
       (config: InternalAxiosRequestConfig) => {
+        // Debug: mostra URL completa de cada requisição
+        const fullUrl = (config.baseURL || '') + (config.url || '');
+        console.log('[apiClient] Requisição:', config.method?.toUpperCase(), fullUrl);
+
         const token = this.getAuthToken();
         
         if (token) {

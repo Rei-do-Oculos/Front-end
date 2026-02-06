@@ -5,9 +5,9 @@ import { VitePWA } from 'vite-plugin-pwa';
 
 export default defineConfig(({ mode }) => {
     const env = loadEnv(mode, '.', '');
-    // Proxy target: usa VITE_API_URL se definida (ex: https://app.reidooculos.online/api -> https://app.reidooculos.online)
-    const apiUrl = env.VITE_API_URL || 'http://localhost:8080/api';
-    const proxyTarget = apiUrl.replace(/\/api\/?$/, '') || 'http://localhost:8080';
+    // Proxy target: sempre usa VITE_API_URL (ex: https://app.reidooculos.online/api -> https://app.reidooculos.online)
+    const apiUrl = env.VITE_API_URL ?? '';
+    const proxyTarget = apiUrl ? apiUrl.replace(/\/api\/?$/, '') : '';
     return {
       server: {
         port: 3000,
