@@ -113,6 +113,7 @@ export default defineConfig(({ mode }) => {
           },
           workbox: {
             globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
+            maximumFileSizeToCacheInBytes: 5 * 1024 * 1024, // 5 MB (aumentado de 2 MB padrão)
             runtimeCaching: [
               {
                 urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
@@ -177,6 +178,23 @@ export default defineConfig(({ mode }) => {
         alias: {
           '@': path.resolve(__dirname, '.'),
         }
+      },
+      build: {
+        rollupOptions: {
+          output: {
+            manualChunks: {
+              // Separar vendor chunks grandes
+              'react-vendor': ['react', 'react-dom', 'react-router-dom'],
+              'chart-vendor': ['chart.js', 'react-chartjs-2'],
+              'ui-vendor': ['lucide-react'],
+              'utils-vendor': ['axios', 'zod', 'clsx', 'tailwind-merge'],
+            },
+            // Aumentar limite de aviso de chunk size
+            chunkSizeWarningLimit: 1000, // 1 MB
+          },
+        },
+        // Otimizações adicionais
+        chunkSizeWarningLimit: 1000,
       }
     };
 });
