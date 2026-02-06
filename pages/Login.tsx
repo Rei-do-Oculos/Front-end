@@ -1,53 +1,17 @@
 import React, { useState } from 'react';
-import { Eye, EyeOff, Wifi, WifiOff, Loader2 } from 'lucide-react';
+import { Eye, EyeOff } from 'lucide-react';
 import { useAuth } from '../services/hooks/useAuth';
-import { apiClient } from '../services/api/client';
 
 interface LoginProps {
   onLogin: () => void;
 }
-
-type ConnectionTest = 'idle' | 'checking' | 'ok' | 'error';
 
 export const Login: React.FC<LoginProps> = ({ onLogin }) => {
   const [showPassword, setShowPassword] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
-  const [connectionTest, setConnectionTest] = useState<ConnectionTest>('idle');
-  const [connectionMessage, setConnectionMessage] = useState('');
   const { login, isLoading } = useAuth();
-
-  const testConnection = async () => {
-    setConnectionTest('checking');
-    setConnectionMessage('');
-    try {
-      // POST no login: 401 = API respondeu (credenciais erradas) = conexão OK
-      await apiClient.post('/v1/auth/login', { email: 'teste@conexao.com', password: 'teste' });
-      setConnectionTest('ok');
-      setConnectionMessage('Conectado ao servidor.');
-    } catch (err: unknown) {
-      try {
-        const status = err && typeof err === 'object' && 'response' in err
-          ? (err as { response?: { status?: number } }).response?.status
-          : undefined;
-        if (status === 401) {
-          setConnectionTest('ok');
-          setConnectionMessage('Conectado ao servidor.');
-        } else if (status !== undefined) {
-          setConnectionTest('error');
-          setConnectionMessage(`Servidor respondeu com erro ${status}.`);
-        } else {
-          setConnectionTest('error');
-          const msg = err instanceof Error ? err.message : 'Sem conexão. Verifique a rede e a URL da API.';
-          setConnectionMessage(msg);
-        }
-      } catch {
-        setConnectionTest('error');
-        setConnectionMessage('Erro inesperado ao testar conexão.');
-      }
-    }
-  };
 
   const getLoginErrorMessage = (err: any): string => {
     // Erro de rede/CORS
@@ -182,39 +146,6 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
               </button>
 
             </form>
-
-            <div className="mt-6 pt-6 border-t border-gray-100">
-              <button
-                type="button"
-                onClick={testConnection}
-                disabled={connectionTest === 'checking' || isLoading}
-                className="w-full flex flex-col items-center justify-center gap-1 py-2 text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                <span className="flex items-center gap-2">
-                  {connectionTest === 'checking' ? (
-                    <Loader2 size={18} className="animate-spin" />
-                  ) : connectionTest === 'ok' ? (
-                    <Wifi size={18} className="text-green-600" />
-                  ) : connectionTest === 'error' ? (
-                    <WifiOff size={18} className="text-red-500" />
-                  ) : (
-                    <Wifi size={18} className="text-gray-400" />
-                  )}
-                  <span>
-                    {connectionTest === 'checking'
-                      ? 'Testando conexão...'
-                      : connectionTest === 'idle'
-                      ? 'Testar conexão com o servidor'
-                      : connectionMessage}
-                  </span>
-                </span>
-                {connectionTest === 'ok' && (
-                  <span className="text-xs text-gray-400 font-mono">
-                    {import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'localhost (proxy)' : '-')}
-                  </span>
-                )}
-              </button>
-            </div>
 
             <div className="mt-6 text-center space-y-1">
               <p className="text-xs text-gray-400">Desenvolvido por TecWeb Digital</p>

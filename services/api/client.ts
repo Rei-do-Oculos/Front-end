@@ -24,11 +24,6 @@ class ApiClient {
           return '';
         }
         
-        // Debug: log dos parâmetros antes de serializar
-        if (process.env.NODE_ENV === 'development') {
-          console.log('[apiClient] Parâmetros antes de serializar:', params);
-        }
-        
         const parts: string[] = [];
         
         Object.keys(params).forEach(key => {
@@ -55,10 +50,6 @@ class ApiClient {
   private setupInterceptors() {
     this.client.interceptors.request.use(
       (config: InternalAxiosRequestConfig) => {
-        // Debug: mostra URL completa de cada requisição
-        const fullUrl = (config.baseURL || '') + (config.url || '');
-        console.log('[apiClient] Requisição:', config.method?.toUpperCase(), fullUrl);
-
         const token = this.getAuthToken();
         
         if (token) {
