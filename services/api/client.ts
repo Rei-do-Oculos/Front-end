@@ -1,8 +1,10 @@
 import axios, { AxiosInstance, AxiosError, InternalAxiosRequestConfig } from 'axios';
 import { sanitizeObject, validateId, generateRequestId, detectXssAttempt } from '../../utils/security';
 
-// Sempre usa /api (URL relativa). Em dev o proxy do Vite encaminha; em prod o reverse proxy (Nginx) deve encaminhar.
-const API_BASE_URL = '/api';
+// Em dev: /api (proxy do Vite redireciona). Em prod na Vercel: VITE_API_URL (frontend em outro domínio).
+const API_BASE_URL = import.meta.env.DEV
+  ? '/api'
+  : (import.meta.env.VITE_API_URL || '/api');
 
 class ApiClient {
   private client: AxiosInstance;
