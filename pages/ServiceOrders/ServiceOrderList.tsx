@@ -90,7 +90,7 @@ export const ServiceOrderList: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Carregar OS - usa apenas filtros já aplicados (não os valores do formulário)
+  // Carregar OS; refetch ao trocar de loja (API usa X-Store-ID / store_id)
   useEffect(() => {
     const loadOrders = async () => {
       try {
@@ -109,7 +109,7 @@ export const ServiceOrderList: React.FC = () => {
     };
     loadOrders();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [perPage, availableStores]);
+  }, [perPage, availableStores, selectedStore?.id]);
 
   const handleSort = (key: string, direction: SortDirection) => {
     const newDirection = direction || 'asc';

@@ -146,10 +146,38 @@ export const Pagination: React.FC<PaginationProps> = ({
     return null;
   }
 
-  const maxVisiblePages = 5;
-  const startPage = Math.max(1, pagination.currentPage - Math.floor(maxVisiblePages / 2));
-  const endPage = Math.min(pagination.totalPages, startPage + maxVisiblePages - 1);
-  const pages = Array.from({ length: endPage - startPage + 1 }, (_, i) => startPage + i);
+  // Construir lista de páginas: 1 2 3 ... [atual±1] ... 148 149 150
+  const total = pagination.totalPages;
+  const current = pagination.currentPage;
+  const edgeCount = 3; // primeiras e últimas N páginas sempre visíveis
+
+  const buildPageItems = (): (number | 'ellipsis')[] => {
+    if (total <= 9) {
+      return Array.from({ length: total }, (_, i) => i + 1);
+    }
+    const result: (number | 'ellipsis')[] = [];
+
+    // 1, 2, 3
+    for (let i = 1; i <= Math.min(edgeCount, total); i++) result.push(i);
+
+    const midStart = Math.max(edgeCount + 1, current - 1);
+    const midEnd = Math.min(total - edgeCount, current + 1);
+
+    if (midStart > edgeCount + 1) result.push('ellipsis');
+    for (let i = midStart; i <= midEnd; i++) {
+      if (i >= 1 && i <= total) result.push(i);
+    }
+    if (midEnd < total - edgeCount) result.push('ellipsis');
+
+    // Últimas 3 (ex: 148, 149, 150)
+    for (let i = Math.max(1, total - edgeCount + 1); i <= total; i++) {
+      if (!result.includes(i)) result.push(i);
+    }
+
+    return result;
+  };
+
+  const pageItems = buildPageItems();
 
   const perPageOptions = [
     { label: '10', value: '10' },
@@ -160,23 +188,45 @@ export const Pagination: React.FC<PaginationProps> = ({
 
   return (
     <div className="mt-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-t border-slate-100 pt-6 px-6">
-      <div className="flex items-center gap-2">
-        {pagination.totalPages > 1 && pages.map((page) => (
-          <button
-            key={page}
-            onClick={() => onPageChange(page)}
-            className={`w-8 h-8 flex items-center justify-center rounded-lg font-bold text-xs transition-all ${
-              pagination.currentPage === page
-                ? 'text-white'
-                : 'hover:bg-slate-100 text-slate-500'
-            }`}
-            style={pagination.currentPage === page ? {
-              backgroundColor: 'var(--store-color)',
-            } : undefined}
-          >
-            {page}
-          </button>
-        ))}
+      <div className="flex items-center gap-2 flex-wrap">
+        {pagination.totalPages > 1 && (
+          <>
+            <button
+              onClick={() => onPageChange(Math.max(1, current - 1))}
+              disabled={current <= 1}
+              className="w-8 h-8 flex items-center justify-center rounded-lg font-bold text-xs transition-all hover:bg-slate-100 text-slate-500 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent"
+              aria-label="Página anterior"
+            >
+              ‹
+            </button>
+            {pageItems.map((item, idx) =>
+              item === 'ellipsis' ? (
+                <span key={`ellipsis-${idx}`} className="w-8 h-8 flex items-center justify-center text-slate-400 text-xs px-1">
+                  …
+                </span>
+              ) : (
+                <button
+                  key={item}
+                  onClick={() => onPageChange(item)}
+                  className={`w-8 h-8 flex items-center justify-center rounded-lg font-bold text-xs transition-all ${
+                    current === item ? 'text-white' : 'hover:bg-slate-100 text-slate-500'
+                  }`}
+                  style={current === item ? { backgroundColor: 'var(--store-color)' } : undefined}
+                >
+                  {item}
+                </button>
+              )
+            )}
+            <button
+              onClick={() => onPageChange(Math.min(total, current + 1))}
+              disabled={current >= total}
+              className="w-8 h-8 flex items-center justify-center rounded-lg font-bold text-xs transition-all hover:bg-slate-100 text-slate-500 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent"
+              aria-label="Próxima página"
+            >
+              ›
+            </button>
+          </>
+        )}
       </div>
       <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
         {pagination.totalPages > 1 && `Página ${pagination.currentPage} de ${pagination.totalPages} • `}

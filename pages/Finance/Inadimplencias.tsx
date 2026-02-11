@@ -18,7 +18,7 @@ export const Inadimplencias: React.FC = () => {
   const navigate = useNavigate();
   const { showSuccess, showError } = useNotification();
   const { hasPermission } = usePermission();
-  const { availableStores } = useStore();
+  const { availableStores, selectedStore } = useStore();
   const { user } = useAuth();
   const { 
     actionLoading, 
@@ -88,7 +88,7 @@ export const Inadimplencias: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [fetchOverdueOrders, availableStores, sortBy, sortDirection, perPage]);
+  }, [fetchOverdueOrders, availableStores, selectedStore?.id, sortBy, sortDirection, perPage]);
 
   useEffect(() => {
     loadOrders();

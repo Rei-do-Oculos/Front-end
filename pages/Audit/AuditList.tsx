@@ -19,8 +19,10 @@ import { usePlucks } from '../../services/hooks/usePlucks';
 import { usersService } from '../../services/api/users';
 import { storesService } from '../../services/api/stores';
 import { useActiveFilters } from '../../hooks/useActiveFilters';
+import { useStore } from '../../contexts/StoreContext';
 
 export const AuditList: React.FC = () => {
+  const { selectedStore } = useStore();
   const [expandedRows, setExpandedRows] = useState<string[]>([]);
   const [eventFilter, setEventFilter] = useState<string[]>([]);
   const [auditableTypeFilter, setAuditableTypeFilter] = useState<string[]>([]);
@@ -73,6 +75,7 @@ export const AuditList: React.FC = () => {
   const safeUsersPlucks = Array.isArray(usersPlucks) ? usersPlucks : [];
   const safeStoresPlucks = Array.isArray(storesPlucks) ? storesPlucks : [];
 
+  // Refetch ao trocar de loja (API pode usar X-Store-ID)
   useEffect(() => {
     const loadAudits = async () => {
       try {
@@ -87,7 +90,7 @@ export const AuditList: React.FC = () => {
     };
     loadAudits();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [perPage]);
+  }, [perPage, selectedStore?.id]);
 
   const handleSort = (key: string, direction: SortDirection) => {
     const newDirection = direction || 'asc';

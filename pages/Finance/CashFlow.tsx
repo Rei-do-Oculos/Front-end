@@ -1,5 +1,15 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
+import {
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  BarElement,
+  Title,
+  Tooltip,
+  Legend,
+} from 'chart.js';
+import { Bar } from 'react-chartjs-2';
 import { 
   DollarSign, 
   TrendingUp, 
@@ -14,11 +24,24 @@ import {
   Loader2,
   Calendar,
   Filter,
-  RefreshCw
+  RefreshCw,
+  Receipt,
+  FileDown
 } from 'lucide-react';
+import { exportCashFlowPdf } from '../../utils/cashFlowExport';
+
+const API_BASE = import.meta.env.DEV ? 'http://localhost:8080' : (import.meta.env.VITE_API_URL || '').replace(/\/api(\/.*)?$/, '') || window.location.origin;
+const buildLogoUrl = (logoPath: string | null | undefined): string | null => {
+  if (!logoPath || typeof logoPath !== 'string') return null;
+  if (logoPath.startsWith('http://') || logoPath.startsWith('https://')) return logoPath;
+  if (logoPath.startsWith('/')) return `${API_BASE}${logoPath}`;
+  const path = logoPath.startsWith('storage/') ? logoPath : `storage/${logoPath}`;
+  return import.meta.env.DEV ? `/${path}` : `${API_BASE}/${path}`;
+};
 import { Card, Button, Badge, Input, SingleSelect } from '../../components/Common';
 import { useFinance } from '../../services/hooks/useFinance';
 import { useStores } from '../../services/hooks/useStores';
+import { useStore } from '../../contexts/StoreContext';
 import { usePermission } from '../../services/hooks/usePermission';
 import { 
   FinanceDashboardResponse, 
@@ -27,9 +50,12 @@ import {
   OverdueOrder 
 } from '../../services/api/finance';
 
+ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend);
+
 export const CashFlow: React.FC = () => {
   const navigate = useNavigate();
   const { hasPermission } = usePermission();
+  const { selectedStore } = useStore();
   const { getDashboard, loading } = useFinance();
   const { stores, fetchStores } = useStores({ autoFetch: false });
 
@@ -40,6 +66,9 @@ export const CashFlow: React.FC = () => {
 
   // Dados
   const [dashboardData, setDashboardData] = useState<FinanceDashboardResponse | null>(null);
+
+  // Exportação
+  const [exportingPdf, setExportingPdf] = useState(false);
 
   // Carregar lojas para filtro
   useEffect(() => {
@@ -76,11 +105,12 @@ export const CashFlow: React.FC = () => {
     }
   }, [getDashboard, filterStore, filterDateFrom, filterDateTo]);
 
+  // Refetch ao trocar de loja ou filtros (dashboard usa X-Store-ID quando filterStore vazio)
   useEffect(() => {
     if (filterDateFrom && filterDateTo) {
       loadData();
     }
-  }, [loadData, filterDateFrom, filterDateTo]);
+  }, [loadData, filterDateFrom, filterDateTo, filterStore, selectedStore?.id]);
 
   const handleApplyFilters = () => {
     loadData();
@@ -131,6 +161,41 @@ export const CashFlow: React.FC = () => {
     })),
   ];
 
+  const exportFilters = useMemo(() => {
+    const storeLabel = !filterStore
+      ? 'Todas as Lojas'
+      : (() => {
+          const s = stores.find((st) => String(st.id) === filterStore);
+          return s ? (s.unity ? `${s.name} (${s.unity})` : s.name) : 'Todas as Lojas';
+        })();
+    return {
+      dateFrom: filterDateFrom,
+      dateTo: filterDateTo,
+      storeId: filterStore,
+      storeLabel,
+    };
+  }, [filterDateFrom, filterDateTo, filterStore, stores]);
+
+  const handleExportPdf = async () => {
+    if (!dashboardData || !filterDateFrom || !filterDateTo) return;
+    setExportingPdf(true);
+    try {
+      await exportCashFlowPdf({
+        data: dashboardData,
+        filters: exportFilters,
+        storeData: selectedStore ? { name: selectedStore.name, fancy_name: selectedStore.fancy_name, color: selectedStore.color, logo: selectedStore.logo } : undefined,
+        storeColor: selectedStore?.color,
+        storeLogo: selectedStore?.logo,
+        logoUrlBuilder: buildLogoUrl,
+      });
+    } catch (err) {
+      console.error('Erro ao exportar PDF:', err);
+    } finally {
+      setExportingPdf(false);
+    }
+  };
+
+
   const dashboard = dashboardData?.dashboard;
 
   // Normalizar para array (API pode retornar objeto com chaves numéricas)
@@ -145,10 +210,96 @@ export const CashFlow: React.FC = () => {
   const topSellers = toArray<TopSeller>(dashboardData?.top_sellers);
   const overdueSummary = toArray<OverdueOrder>(dashboardData?.overdue_summary);
 
-  // Calcular totais para a barra de progresso
-  const totalRevenue = dashboard?.revenue || 0;
-  const maxStoreRevenue = revenueByStore.length > 0 ? Math.max(...revenueByStore.map(s => s.total)) : 0;
-  const maxSellerRevenue = topSellers.length > 0 ? Math.max(...topSellers.map(s => s.total)) : 0;
+  const baseBarOptions = useMemo(() => ({
+    indexAxis: 'y' as const,
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: { display: false },
+      tooltip: {
+        backgroundColor: 'rgba(255, 255, 255, 0.98)',
+        titleColor: '#1e293b',
+        bodyColor: '#64748b',
+        borderColor: '#e2e8f0',
+        borderWidth: 1,
+        padding: 12,
+        borderRadius: 12,
+      },
+    },
+    scales: {
+      x: {
+        beginAtZero: true,
+        grid: { color: '#f1f5f9' },
+        ticks: { font: { size: 11 }, color: '#64748b', callback: (v: string) => formatCurrency(Number(v)) },
+      },
+      y: {
+        grid: { display: false },
+        ticks: { font: { size: 11 }, color: '#475569', maxRotation: 0 },
+      },
+    },
+  }), []);
+
+  const optionsFaturamentoPorLoja = useMemo(() => ({
+    ...baseBarOptions,
+    plugins: {
+      ...baseBarOptions.plugins,
+      tooltip: {
+        ...baseBarOptions.plugins.tooltip,
+        callbacks: {
+          label: (ctx: { raw: number; dataIndex: number }) => {
+            const store = revenueByStore[ctx.dataIndex];
+            if (!store) return formatCurrency(ctx.raw);
+            return `${formatCurrency(ctx.raw)} • ${store.count} vendas • Ticket: ${formatCurrency(store.average_ticket)}`;
+          },
+        },
+      },
+    },
+  }), [baseBarOptions, revenueByStore]);
+
+  const optionsTopVendedores = useMemo(() => ({
+    ...baseBarOptions,
+    plugins: {
+      ...baseBarOptions.plugins,
+      tooltip: {
+        ...baseBarOptions.plugins.tooltip,
+        callbacks: {
+          label: (ctx: { raw: number; dataIndex: number }) => {
+            const seller = topSellers[ctx.dataIndex];
+            if (!seller) return formatCurrency(ctx.raw);
+            return `${formatCurrency(ctx.raw)} • ${seller.count} vendas • Ticket: ${formatCurrency(seller.average_ticket)}`;
+          },
+        },
+      },
+    },
+  }), [baseBarOptions, topSellers]);
+
+  const chartFaturamentoPorLoja = useMemo(() => ({
+    labels: revenueByStore.map((s) => (s.unity ? `${s.name} (${s.unity})` : s.name)),
+    datasets: [{
+      label: 'Faturamento',
+      data: revenueByStore.map((s) => s.total),
+      backgroundColor: 'rgba(220, 38, 38, 0.75)',
+      borderColor: '#dc2626',
+      borderWidth: 1,
+      borderRadius: 6,
+    }],
+  }), [revenueByStore]);
+
+  const chartTopVendedores = useMemo(() => {
+    const rankColors = ['rgba(245, 158, 11, 0.85)', 'rgba(148, 163, 184, 0.85)', 'rgba(180, 83, 9, 0.85)'];
+    const defaultColor = 'rgba(220, 38, 38, 0.75)';
+    return {
+      labels: topSellers.map((s) => s.name),
+      datasets: [{
+        label: 'Faturamento',
+        data: topSellers.map((s) => s.total),
+        backgroundColor: topSellers.map((_, i) => (i < 3 ? rankColors[i] : defaultColor)),
+        borderColor: topSellers.map((_, i) => (i === 0 ? '#f59e0b' : i === 1 ? '#94a3b8' : i === 2 ? '#b45309' : '#dc2626')),
+        borderWidth: 1,
+        borderRadius: 6,
+      }],
+    };
+  }, [topSellers]);
 
   return (
     <div className="space-y-8 animate-in fade-in duration-700 pb-20">
@@ -158,7 +309,15 @@ export const CashFlow: React.FC = () => {
           <h1 className="text-3xl font-black text-slate-950 tracking-tight">Fluxo de Caixa</h1>
           <p className="text-gray-500 font-medium mt-1">Acompanhe o desempenho financeiro</p>
         </div>
-        <div className="flex gap-3">
+        <div className="flex flex-wrap gap-3">
+          <Button
+            variant="outline"
+            onClick={handleExportPdf}
+            disabled={!dashboardData || loading || exportingPdf}
+          >
+            {exportingPdf ? <Loader2 size={18} className="animate-spin" /> : <FileDown size={18} />}
+            {exportingPdf ? 'Exportando…' : 'Exportar'}
+          </Button>
           <Button variant="outline" onClick={handleClearFilters}>
             <RefreshCw size={18} /> Limpar Filtros
           </Button>
@@ -241,11 +400,11 @@ export const CashFlow: React.FC = () => {
                   <TrendingUp size={24} />
                 </div>
                 <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-1 rounded-full">
-                  {dashboard?.profit_margin || 0}% margem
+                  {dashboard?.profit_margin ?? 0}% margem
                 </span>
               </div>
               <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Lucro</p>
-              <p className="text-2xl font-black text-emerald-600">{formatCurrency(dashboard?.profit || 0)}</p>
+              <p className="text-2xl font-black text-emerald-600">{formatCurrency(dashboard?.profit ?? 0)}</p>
             </div>
 
             {/* Ticket Médio */}
@@ -263,8 +422,8 @@ export const CashFlow: React.FC = () => {
             </div>
           </div>
 
-          {/* Cards Secundários */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          {/* Cards Secundários (mesma linha): Aguardando Retirada, Inadimplências, Despesas */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             {/* Aguardando Retirada */}
             <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm hover:shadow-lg transition-all">
               <div className="flex items-center justify-between mb-4">
@@ -296,9 +455,24 @@ export const CashFlow: React.FC = () => {
               <p className="text-2xl font-black text-red-600">{formatCurrency(dashboard?.overdue?.total || 0)}</p>
               <p className="text-xs text-slate-500 mt-2">Clique para ver detalhes</p>
             </div>
+
+            {/* Despesas (valor conforme filtro de data/loja, mesmo estilo Inadimplências) */}
+            <div 
+              className="bg-white p-6 rounded-2xl border border-orange-200 shadow-sm hover:shadow-lg transition-all cursor-pointer"
+              onClick={() => navigate('/finance/expenses')}
+            >
+              <div className="flex items-center justify-between mb-4">
+                <div className="p-3 rounded-xl bg-orange-50 text-orange-600">
+                  <Receipt size={24} />
+                </div>
+              </div>
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Despesas</p>
+              <p className="text-2xl font-black text-orange-600">{formatCurrency(dashboard?.expenses ?? 0)}</p>
+              <p className="text-xs text-slate-500 mt-2">Clique para ver detalhes</p>
+            </div>
           </div>
 
-          {/* Faturamento por Loja e Ranking de Vendedores */}
+          {/* Faturamento por Loja e Top Vendedores (2 na linha, meio a meio) */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Faturamento por Loja */}
             {hasPermission('finance.revenue-by-store') && (
@@ -321,40 +495,13 @@ export const CashFlow: React.FC = () => {
                   {revenueByStore.length === 0 ? (
                     <p className="text-sm text-slate-500 text-center py-8">Nenhum faturamento no período</p>
                   ) : (
-                    <div className="space-y-4">
-                      {revenueByStore.map((store, index) => (
-                        <div key={store.id} className="group">
-                          <div className="flex items-center justify-between mb-2">
-                            <div className="flex items-center gap-3">
-                              <span 
-                                className="w-8 h-8 rounded-lg flex items-center justify-center text-sm font-bold text-white"
-                                style={{ backgroundColor: 'var(--store-color)' }}
-                              >
-                                {index + 1}
-                              </span>
-                              <div>
-                                <p className="text-sm font-bold text-slate-900">
-                                  {store.name}
-                                  {store.unity && <span className="text-slate-400 font-normal"> ({store.unity})</span>}
-                                </p>
-                                <p className="text-[10px] text-slate-400">{store.count} vendas • Ticket: {formatCurrency(store.average_ticket)}</p>
-                              </div>
-                            </div>
-                            <p className="text-sm font-black" style={{ color: 'var(--store-color)' }}>
-                              {formatCurrency(store.total)}
-                            </p>
-                          </div>
-                          <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
-                            <div 
-                              className="h-full rounded-full transition-all"
-                              style={{ 
-                                width: `${(store.total / maxStoreRevenue) * 100}%`,
-                                backgroundColor: 'var(--store-color)',
-                              }}
-                            />
-                          </div>
-                        </div>
-                      ))}
+                    <div className="max-h-[520px] overflow-y-auto overflow-x-hidden">
+                      <div className="w-full" style={{ minHeight: 280, height: Math.max(280, revenueByStore.length * 44) }}>
+                        <Bar
+                          data={chartFaturamentoPorLoja}
+                          options={optionsFaturamentoPorLoja}
+                        />
+                      </div>
                     </div>
                   )}
                 </div>
@@ -382,41 +529,13 @@ export const CashFlow: React.FC = () => {
                   {topSellers.length === 0 ? (
                     <p className="text-sm text-slate-500 text-center py-8">Nenhuma venda no período</p>
                   ) : (
-                    <div className="space-y-4">
-                      {topSellers.map((seller, index) => (
-                        <div key={seller.id} className="group">
-                          <div className="flex items-center justify-between mb-2">
-                            <div className="flex items-center gap-3">
-                              <span 
-                                className={`w-8 h-8 rounded-lg flex items-center justify-center text-sm font-bold text-white ${
-                                  index === 0 ? 'bg-amber-500' : 
-                                  index === 1 ? 'bg-slate-400' : 
-                                  index === 2 ? 'bg-amber-700' : ''
-                                }`}
-                                style={index > 2 ? { backgroundColor: 'var(--store-color)' } : undefined}
-                              >
-                                {index + 1}
-                              </span>
-                              <div>
-                                <p className="text-sm font-bold text-slate-900">{seller.name}</p>
-                                <p className="text-[10px] text-slate-400">{seller.count} vendas • Ticket: {formatCurrency(seller.average_ticket)}</p>
-                              </div>
-                            </div>
-                            <p className="text-sm font-black" style={{ color: 'var(--store-color)' }}>
-                              {formatCurrency(seller.total)}
-                            </p>
-                          </div>
-                          <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
-                            <div 
-                              className="h-full rounded-full transition-all"
-                              style={{ 
-                                width: `${(seller.total / maxSellerRevenue) * 100}%`,
-                                backgroundColor: index === 0 ? '#f59e0b' : index === 1 ? '#94a3b8' : index === 2 ? '#b45309' : 'var(--store-color)',
-                              }}
-                            />
-                          </div>
-                        </div>
-                      ))}
+                    <div className="max-h-[520px] overflow-y-auto overflow-x-hidden">
+                      <div className="w-full" style={{ minHeight: 280, height: Math.max(280, topSellers.length * 44) }}>
+                        <Bar
+                          data={chartTopVendedores}
+                          options={optionsTopVendedores}
+                        />
+                      </div>
                     </div>
                   )}
                 </div>

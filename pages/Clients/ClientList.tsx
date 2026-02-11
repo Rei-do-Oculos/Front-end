@@ -49,7 +49,7 @@ export const ClientList: React.FC = () => {
     fetchStoresForFilter(1, { per_page: 500 }).catch(() => {});
   }, [fetchStoresForFilter]);
 
-  // Carregar dados iniciais - SEM filtro de lojas (mostrar todos)
+  // Carregar dados iniciais; refetch ao trocar de loja (API usa X-Store-ID)
   useEffect(() => {
     const loadClients = async () => {
       try {
@@ -64,7 +64,7 @@ export const ClientList: React.FC = () => {
     };
     loadClients();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [perPage]);
+  }, [perPage, selectedStore?.id]);
 
   const handleSort = (key: string, direction: SortDirection) => {
     // Sempre manter uma ordenação ativa (asc ou desc)

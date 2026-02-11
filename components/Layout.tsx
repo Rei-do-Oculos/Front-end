@@ -92,6 +92,7 @@ const menuItems: MenuItem[] = [
     path: '/finance',
     submenu: [
       { title: 'Fluxo de Caixa', path: '/finance' },
+      { title: 'Despesas', path: '/finance/expenses' },
       { title: 'Inadimplências', path: '/finance/overdue' },
       { title: 'Notas Fiscais', path: '/notas-fiscais' }
     ]
@@ -117,6 +118,162 @@ const menuItems: MenuItem[] = [
     ]
   },
 ];
+
+interface SidebarContentProps {
+  filteredMenuItems: MenuItem[];
+  openSubmenus: string[];
+  toggleSubmenu: (title: string) => void;
+  isSidebarOpen: boolean;
+  isMobileMenuOpen: boolean;
+  storeColor: string;
+  storeUnity: string;
+  isActive: (path: string, submenu?: { title: string; path: string }[]) => boolean;
+}
+
+const SidebarContent: React.FC<SidebarContentProps> = ({
+  filteredMenuItems,
+  openSubmenus,
+  toggleSubmenu,
+  isSidebarOpen,
+  isMobileMenuOpen,
+  storeColor,
+  storeUnity,
+  isActive,
+}) => {
+  const location = useLocation();
+  return (
+    <div className="flex flex-col h-full bg-slate-950 text-white font-sans min-h-0">
+      <div className="p-4 sm:p-6 flex items-center gap-3 h-16 sm:h-20 shrink-0 border-b border-white/5">
+        <div 
+          className="w-10 h-10 rounded-xl flex items-center justify-center text-white shadow-lg shrink-0"
+          style={{ backgroundColor: storeColor }}
+        >
+          <Store size={20} />
+        </div>
+        {(isSidebarOpen || isMobileMenuOpen) && (
+          <span className="font-semibold text-lg tracking-tight whitespace-nowrap">
+            {storeUnity || ''}
+          </span>
+        )}
+      </div>
+      <div className="flex-1 overflow-y-auto overflow-x-hidden px-4 py-2 space-y-6 min-h-0">
+        <nav className="space-y-1">
+          {filteredMenuItems.map((item) => (
+            <div key={item.title} className="group">
+              {item.path === '/pdv' ? (
+                <a
+                  href="#/pdv"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={`w-full flex items-center justify-between p-3 ${styles.button.default} cursor-pointer transition-all duration-300 ${
+                    item.highlight ? 'border border-[var(--store-color-opacity-20)] text-[var(--store-color-dark)] hover:bg-[var(--store-color)] hover:text-white mb-2' : ''
+                  } ${item.highlight && isActive(item.path, item.submenu) ? 'text-white border-transparent shadow-lg' : ''}`}
+                  style={item.highlight && isActive(item.path, item.submenu) ? {
+                    backgroundColor: 'var(--store-color)',
+                    boxShadow: '0 10px 15px -3px var(--store-color-opacity-20)',
+                  } : item.highlight ? {
+                    backgroundColor: 'var(--store-color-opacity-10)',
+                  } : undefined}
+                >
+                  <div className="flex items-center gap-3.5">
+                    <span className={`${isActive(item.path) ? 'text-white' : ''} group-hover:scale-110 transition-transform`}>
+                      {item.icon}
+                    </span>
+                    {(isSidebarOpen || isMobileMenuOpen) && <span className="text-sm font-medium tracking-wide">{item.title}</span>}
+                  </div>
+                </a>
+              ) : (
+                <Link
+                  to={item.path}
+                  onClick={(e) => {
+                    if (item.submenu) {
+                      e.preventDefault();
+                      toggleSubmenu(item.title);
+                    }
+                  }}
+                  className={`w-full flex items-center justify-between p-3 ${styles.button.default} cursor-pointer transition-all duration-300 ${
+                    item.highlight ? 'mb-2' : ''
+                  } ${
+                    isActive(item.path, item.submenu) && !item.highlight
+                      ? 'text-white shadow-lg' 
+                      : !item.highlight ? 'text-slate-400 hover:bg-white/5 hover:text-white' : ''
+                  }`}
+                  style={item.highlight && isActive(item.path, item.submenu) ? {
+                    backgroundColor: 'var(--store-color)',
+                    color: 'white',
+                    borderColor: 'transparent',
+                    boxShadow: '0 10px 15px -3px var(--store-color-opacity-20)',
+                  } : item.highlight ? {
+                    backgroundColor: 'var(--store-color-opacity-10)',
+                    borderColor: 'var(--store-color-opacity-20)',
+                    color: 'var(--store-color-dark)',
+                  } : isActive(item.path, item.submenu) ? {
+                    backgroundColor: 'var(--store-color)',
+                    boxShadow: '0 10px 15px -3px var(--store-color-opacity-10)',
+                  } : undefined}
+                  onMouseEnter={(e) => {
+                    if (item.highlight && !isActive(item.path, item.submenu)) {
+                      e.currentTarget.style.backgroundColor = 'var(--store-color)';
+                      e.currentTarget.style.color = 'white';
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    if (item.highlight && !isActive(item.path, item.submenu)) {
+                      e.currentTarget.style.backgroundColor = 'var(--store-color-opacity-10)';
+                      e.currentTarget.style.color = 'var(--store-color-dark)';
+                    }
+                  }}
+                >
+                  <div className="flex items-center gap-3.5">
+                    <span className={`${isActive(item.path) ? 'text-white' : ''} group-hover:scale-110 transition-transform`}>
+                      {item.icon}
+                    </span>
+                    {(isSidebarOpen || isMobileMenuOpen) && <span className="text-sm font-medium tracking-wide">{item.title}</span>}
+                  </div>
+                  {(isSidebarOpen || isMobileMenuOpen) && item.submenu && (
+                    <ChevronDown size={14} className={`transition-transform duration-300 ${openSubmenus.includes(item.title) ? 'rotate-180' : ''}`} />
+                  )}
+                </Link>
+              )}
+              {(isSidebarOpen || isMobileMenuOpen) && item.submenu && openSubmenus.includes(item.title) && (
+                <div 
+                  className="mt-1 ml-6 pl-4 border-l space-y-1 animate-in slide-in-from-top-2"
+                  style={{ borderColor: 'var(--store-color-opacity-40)' }}
+                >
+                  {item.submenu.map((sub) => (
+                    <Link
+                      key={sub.title}
+                      to={sub.path}
+                      className={`flex items-center gap-2 p-2 text-xs font-medium ${styles.button.small} transition-all text-white ${
+                        location.pathname === sub.path ? 'bg-white/5' : 'hover:translate-x-1'
+                      }`}
+                      onMouseEnter={(e) => {
+                        if (location.pathname !== sub.path) {
+                          e.currentTarget.style.color = 'var(--store-color)';
+                        }
+                      }}
+                      onMouseLeave={(e) => {
+                        if (location.pathname !== sub.path) {
+                          e.currentTarget.style.color = 'white';
+                        }
+                      }}
+                    >
+                      <div 
+                        className="w-1.5 h-1.5 rounded-full shrink-0"
+                        style={{ backgroundColor: location.pathname === sub.path ? 'var(--store-color)' : 'var(--store-color-opacity-50)' }}
+                      ></div>
+                      <span>{sub.title}</span>
+                    </Link>
+                  ))}
+                </div>
+              )}
+            </div>
+          ))}
+        </nav>
+      </div>
+    </div>
+  );
+};
 
 // Componente de Dropdown do Usuário
 const UserDropdown: React.FC<{ user: any; onLogout: () => void }> = ({ user, onLogout }) => {
@@ -232,7 +389,7 @@ export const Layout: React.FC<{ children: React.ReactNode; onLogout: () => void 
       '/laboratories': ['laboratories', 'laboratory-lenses'],
       '/permissions': ['roles', 'permissions', 'users', 'audits', 'trash'], // Sistema
       '/service-orders': ['service-orders', 'service-orders-lab'], // Pedidos (OS)
-      '/finance': ['finance', 'service-orders-overdue'],
+      '/finance': ['finance', 'service-orders-overdue', 'expenses'],
       // Módulos ainda sem permissões específicas (públicos por enquanto)
 //'/pdv': [],
       '/pedidos': [],
@@ -439,25 +596,30 @@ export const Layout: React.FC<{ children: React.ReactNode; onLogout: () => void 
     return crumbs;
   };
 
-  // Atualizar data e hora
+  // Atualizar data e hora (horário de Brasília)
+  const BRASILIA_TZ = 'America/Sao_Paulo';
   useEffect(() => {
     const updateDateTime = () => {
       const now = new Date();
-      const months = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
-      const day = now.getDate();
-      const month = months[now.getMonth()];
-      const year = now.getFullYear();
-      
-      setCurrentDate(`${day} de ${month}. de ${year}`);
-      
-      const hours = String(now.getHours()).padStart(2, '0');
-      const minutes = String(now.getMinutes()).padStart(2, '0');
-      const seconds = String(now.getSeconds()).padStart(2, '0');
-      setCurrentTime(`${hours}:${minutes}:${seconds}`);
+      const dateFormatter = new Intl.DateTimeFormat('pt-BR', {
+        timeZone: BRASILIA_TZ,
+        day: 'numeric',
+        month: 'short',
+        year: 'numeric',
+      });
+      const timeFormatter = new Intl.DateTimeFormat('pt-BR', {
+        timeZone: BRASILIA_TZ,
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: false,
+      });
+      setCurrentDate(dateFormatter.format(now));
+      setCurrentTime(timeFormatter.format(now));
     };
 
     updateDateTime();
-    const interval = setInterval(updateDateTime, 1000); // Atualizar a cada segundo
+    const interval = setInterval(updateDateTime, 1000);
 
     return () => clearInterval(interval);
   }, []);
@@ -498,143 +660,16 @@ export const Layout: React.FC<{ children: React.ReactNode; onLogout: () => void 
     };
   }, [storeColor]);
 
-  const SidebarContent = () => (
-    <div className="flex flex-col h-full bg-slate-950 text-white font-sans min-h-0">
-      {/* Header fixo */}
-      <div className="p-4 sm:p-6 flex items-center gap-3 h-16 sm:h-20 shrink-0 border-b border-white/5">
-        <div 
-          className="w-10 h-10 rounded-xl flex items-center justify-center text-white shadow-lg shrink-0"
-          style={{ backgroundColor: storeColor }}
-        >
-          <Store size={20} />
-        </div>
-        {(isSidebarOpen || isMobileMenuOpen) && (
-          <span className="font-semibold text-lg tracking-tight whitespace-nowrap">
-            {storeUnity || ''}
-          </span>
-        )}
-      </div>
-
-      {/* Conteúdo scrollável */}
-      <div className="flex-1 overflow-y-auto px-4 py-2 space-y-6 min-h-0 scrollbar-hide">
-        <nav className="space-y-1">
-          {filteredMenuItems.map((item) => (
-            <div key={item.title} className="group">
-              {item.path === '/pdv' ? (
-                <a
-                  href="#/pdv"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className={`w-full flex items-center justify-between p-3 ${styles.button.default} cursor-pointer transition-all duration-300 ${
-                    item.highlight ? 'border border-[var(--store-color-opacity-20)] text-[var(--store-color-dark)] hover:bg-[var(--store-color)] hover:text-white mb-2' : ''
-                  } ${item.highlight && isActive(item.path, item.submenu) ? 'text-white border-transparent shadow-lg' : ''}`}
-                  style={item.highlight && isActive(item.path, item.submenu) ? {
-                    backgroundColor: 'var(--store-color)',
-                    boxShadow: '0 10px 15px -3px var(--store-color-opacity-20)',
-                  } : item.highlight ? {
-                    backgroundColor: 'var(--store-color-opacity-10)',
-                  } : undefined}
-                >
-                  <div className="flex items-center gap-3.5">
-                    <span className={`${isActive(item.path) ? 'text-white' : ''} group-hover:scale-110 transition-transform`}>
-                      {item.icon}
-                    </span>
-                    {(isSidebarOpen || isMobileMenuOpen) && <span className="text-sm font-medium tracking-wide">{item.title}</span>}
-                  </div>
-                </a>
-              ) : (
-                <Link
-                  to={item.path}
-                  onClick={(e) => {
-                    if (item.submenu) {
-                      e.preventDefault();
-                      toggleSubmenu(item.title);
-                    }
-                  }}
-                  className={`w-full flex items-center justify-between p-3 ${styles.button.default} cursor-pointer transition-all duration-300 ${
-                    item.highlight ? 'mb-2' : ''
-                  } ${
-                    isActive(item.path, item.submenu) && !item.highlight
-                      ? 'text-white shadow-lg' 
-                      : !item.highlight ? 'text-slate-400 hover:bg-white/5 hover:text-white' : ''
-                  }`}
-                  style={item.highlight && isActive(item.path, item.submenu) ? {
-                    backgroundColor: 'var(--store-color)',
-                    color: 'white',
-                    borderColor: 'transparent',
-                    boxShadow: '0 10px 15px -3px var(--store-color-opacity-20)',
-                  } : item.highlight ? {
-                    backgroundColor: 'var(--store-color-opacity-10)',
-                    borderColor: 'var(--store-color-opacity-20)',
-                    color: 'var(--store-color-dark)',
-                  } : isActive(item.path, item.submenu) ? {
-                    backgroundColor: 'var(--store-color)',
-                    boxShadow: '0 10px 15px -3px var(--store-color-opacity-10)',
-                  } : undefined}
-                  onMouseEnter={(e) => {
-                    if (item.highlight && !isActive(item.path, item.submenu)) {
-                      e.currentTarget.style.backgroundColor = 'var(--store-color)';
-                      e.currentTarget.style.color = 'white';
-                    }
-                  }}
-                  onMouseLeave={(e) => {
-                    if (item.highlight && !isActive(item.path, item.submenu)) {
-                      e.currentTarget.style.backgroundColor = 'var(--store-color-opacity-10)';
-                      e.currentTarget.style.color = 'var(--store-color-dark)';
-                    }
-                  }}
-                >
-                  <div className="flex items-center gap-3.5">
-                    <span className={`${isActive(item.path) ? 'text-white' : ''} group-hover:scale-110 transition-transform`}>
-                      {item.icon}
-                    </span>
-                    {(isSidebarOpen || isMobileMenuOpen) && <span className="text-sm font-medium tracking-wide">{item.title}</span>}
-                  </div>
-                  {(isSidebarOpen || isMobileMenuOpen) && item.submenu && (
-                    <ChevronDown size={14} className={`transition-transform duration-300 ${openSubmenus.includes(item.title) ? 'rotate-180' : ''}`} />
-                  )}
-                </Link>
-              )}
-              {(isSidebarOpen || isMobileMenuOpen) && item.submenu && openSubmenus.includes(item.title) && (
-                <div 
-                  className="mt-1 ml-6 pl-4 border-l space-y-1 animate-in slide-in-from-top-2"
-                  style={{ borderColor: 'var(--store-color-opacity-40)' }}
-                >
-                  {item.submenu.map((sub) => (
-                    <Link
-                      key={sub.title}
-                      to={sub.path}
-                      className={`flex items-center gap-2 p-2 text-xs font-medium ${styles.button.small} transition-all ${
-                        location.pathname === sub.path ? 'text-white bg-white/5' : 'text-slate-500 hover:translate-x-1'
-                      }
-                      style={location.pathname !== sub.path ? { color: 'var(--store-color-opacity-50)' } : undefined}
-                      onMouseEnter={(e) => {
-                        if (location.pathname !== sub.path) {
-                          e.currentTarget.style.color = 'var(--store-color)';
-                        }
-                      }}
-                      onMouseLeave={(e) => {
-                        if (location.pathname !== sub.path) {
-                          e.currentTarget.style.color = 'var(--store-color-opacity-50)';
-                        }
-                      }}
-                      }`}
-                    >
-                      <div 
-                        className="w-1.5 h-1.5 rounded-full shrink-0"
-                        style={{ backgroundColor: location.pathname === sub.path ? 'var(--store-color)' : 'var(--store-color-opacity-50)' }}
-                      ></div>
-                      <span>{sub.title}</span>
-                    </Link>
-                  ))}
-                </div>
-              )}
-            </div>
-          ))}
-        </nav>
-      </div>
-    </div>
-  );
+  const sidebarContentProps: SidebarContentProps = {
+    filteredMenuItems,
+    openSubmenus,
+    toggleSubmenu,
+    isSidebarOpen,
+    isMobileMenuOpen,
+    storeColor,
+    storeUnity,
+    isActive,
+  };
 
   const isPDVPage = location.pathname === '/pdv';
 
@@ -644,11 +679,11 @@ export const Layout: React.FC<{ children: React.ReactNode; onLogout: () => void 
         <>
           {/* Sidebar Desktop */}
           <aside 
-            className={`hidden lg:flex flex-col shadow-2xl transition-all duration-500 ease-in-out relative ${
+            className={`hidden lg:flex flex-col h-screen shrink-0 shadow-2xl transition-all duration-500 ease-in-out relative ${
               isSidebarOpen ? 'w-72' : 'w-24'
             }`}
           >
-            <SidebarContent />
+            <SidebarContent {...sidebarContentProps} />
             <button 
               onClick={() => setIsSidebarOpen(!isSidebarOpen)}
               className="absolute -right-3 top-10 text-white p-1.5 rounded-full shadow-lg hover:scale-110 transition-transform border-2 border-white z-50"
@@ -706,7 +741,7 @@ export const Layout: React.FC<{ children: React.ReactNode; onLogout: () => void 
                     </div>
                   </div>
                   <div className="flex-1 min-h-0 overflow-hidden">
-                    <SidebarContent />
+                    <SidebarContent {...sidebarContentProps} />
                   </div>
                 </div>
               </aside>

@@ -35,7 +35,7 @@ export const FrameTypeList: React.FC = () => {
   const [saving, setSaving] = useState(false);
   const [loadingFrameType, setLoadingFrameType] = useState(false);
 
-  // Carregar dados iniciais
+  // Carregar dados iniciais; refetch ao trocar de loja (API pode usar X-Store-ID)
   useEffect(() => {
     const loadFrameTypes = async () => {
       try {
@@ -50,7 +50,7 @@ export const FrameTypeList: React.FC = () => {
     };
     loadFrameTypes();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [perPage]);
+  }, [perPage, selectedStore?.id]);
 
   const handleSort = (key: string, direction: SortDirection) => {
     const newDirection = direction || 'asc';

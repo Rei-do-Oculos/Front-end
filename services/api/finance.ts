@@ -1,8 +1,16 @@
 import { apiClient } from './client';
 
+export interface StoreExpense {
+  id: number;
+  name: string;
+  unity?: string | null;
+  total: number;
+}
+
 export interface DashboardStats {
   revenue: number;
   costs: number;
+  expenses: number;
   profit: number;
   profit_margin: number;
   total_orders: number;
@@ -15,6 +23,7 @@ export interface DashboardStats {
     count: number;
     total: number;
   };
+  expenses_by_store?: StoreExpense[];
 }
 
 export interface StoreRevenue {
@@ -91,8 +100,13 @@ class FinanceService {
     }
 
     const raw = response.data.data;
+    const dash = raw.dashboard || {};
     return {
-      dashboard: raw.dashboard,
+      dashboard: {
+        ...dash,
+        expenses: dash.expenses ?? 0,
+        expenses_by_store: this.toArray<StoreExpense>(dash.expenses_by_store),
+      },
       revenue_by_store: this.toArray<StoreRevenue>(raw.revenue_by_store),
       top_sellers: this.toArray<TopSeller>(raw.top_sellers),
       revenue_by_period: this.toArray(raw.revenue_by_period),

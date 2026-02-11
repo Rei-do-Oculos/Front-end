@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import { StatCard, Card, Button } from '../components/Common';
 import { usePermission } from '../services/hooks/usePermission';
+import { useAuth } from '../services/hooks/useAuth';
 import { getDashboardCards, getDashboardCharts, DashboardCards, DashboardCharts } from '../services/api/dashboard';
 import {
   Chart as ChartJS,
@@ -86,6 +87,7 @@ const chartOptions = {
 
 export const Dashboard: React.FC = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const { hasPermission } = usePermission();
   const [cards, setCards] = useState<DashboardCards | null>(null);
   const [charts, setCharts] = useState<DashboardCharts | null>(null);
@@ -136,8 +138,8 @@ export const Dashboard: React.FC = () => {
     <div className="space-y-8 lg:space-y-10 animate-in fade-in duration-700">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6">
         <div>
-          <h1 className="text-2xl lg:text-3xl font-bold text-slate-950 tracking-tight">Painel Executivo</h1>
-          <p className="text-xs lg:text-sm text-slate-500 font-medium mt-1">Resumo do dia e por mês.</p>
+          <h1 className="text-2xl lg:text-3xl font-bold text-slate-950 tracking-tight">Seja bem-vindo{user?.name ? `, ${user.name}` : ''}</h1>
+          <p className="text-xs lg:text-sm text-slate-500 font-medium mt-1">Resumo Painel Administrativo</p>
         </div>
         {hasPermission('service-orders.create') && (
           <Button className="shadow-red-600/20" onClick={() => navigate('/service-orders/create')}>

@@ -4,6 +4,7 @@ export * from './useAudits';
 export * from './useClients';
 export * from './useLaboratories';
 export * from './useLaboratoryLenses';
+export * from './useExpenses';
 export * from './useOrders';
 export * from './usePermissions';
 export * from './usePlucks';

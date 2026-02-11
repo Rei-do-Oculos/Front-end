@@ -20,6 +20,8 @@ import { AuditList } from './pages/Audit/AuditList';
 import { POS } from './pages/Sales/POS';
 import { CashFlow } from './pages/Finance/CashFlow';
 import { Inadimplencias } from './pages/Finance/Inadimplencias';
+import { ExpenseList } from './pages/Finance/ExpenseList';
+import { ExpenseForm } from './pages/Finance/ExpenseForm';
 import { InvoiceList } from './pages/Finance/InvoiceList';
 import { InvoiceDetail } from './pages/Finance/InvoiceDetail';
 import { Permissions } from './pages/Permissions/Permissions';
@@ -195,6 +197,9 @@ const StoreSelectorWrapper: React.FC<{ onLogout: () => void }> = ({ onLogout }) 
         <Route path="/service-orders/:id/edit" element={<ProtectedRoute><ServiceOrderForm /></ProtectedRoute>} />
         <Route path="/finance" element={<ProtectedRoute><CashFlow /></ProtectedRoute>} />
         <Route path="/finance/overdue" element={<ProtectedRoute><Inadimplencias /></ProtectedRoute>} />
+        <Route path="/finance/expenses" element={<ProtectedRoute><ExpenseList /></ProtectedRoute>} />
+        <Route path="/finance/expenses/create" element={<ProtectedRoute><ExpenseForm /></ProtectedRoute>} />
+        <Route path="/finance/expenses/:id/edit" element={<ProtectedRoute><ExpenseForm /></ProtectedRoute>} />
         <Route path="/notas-fiscais" element={<ProtectedRoute><InvoiceList /></ProtectedRoute>} />
         <Route path="/notas-fiscais/:id" element={<ProtectedRoute><InvoiceDetail /></ProtectedRoute>} />
         <Route path="/pedidos" element={<ProtectedRoute><OrderList /></ProtectedRoute>} />

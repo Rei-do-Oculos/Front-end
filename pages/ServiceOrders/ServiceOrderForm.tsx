@@ -195,6 +195,16 @@ export const ServiceOrderForm: React.FC = () => {
   const { stores, fetchStores } = useStores({ autoFetch: false });
   
   const [loadedOrder, setLoadedOrder] = useState<{ status?: string } | null>(null);
+  /** Snapshot das lentes da OS no momento da venda (para exibir preço e promoção históricos ao visualizar) */
+  const [orderLaboratoryLensesSnapshot, setOrderLaboratoryLensesSnapshot] = useState<Array<{
+    id: number;
+    name: string;
+    cost_price: number;
+    sale_price: number;
+    cost_price_at_sale?: number | null;
+    sale_price_at_sale?: number | null;
+    promotion_applied?: boolean;
+  }> | null>(null);
   // Estado para o modal de recibo
   const [showReceiptModal, setShowReceiptModal] = useState(false);
   const [showEntryReceiptModal, setShowEntryReceiptModal] = useState(false);
@@ -337,6 +347,15 @@ export const ServiceOrderForm: React.FC = () => {
           const order = await getServiceOrder(id);
           if (order) {
             setLoadedOrder(order);
+            setOrderLaboratoryLensesSnapshot(toArray(order.laboratory_lenses).map((l: any) => ({
+              id: l.id,
+              name: l.name || '',
+              cost_price: l.cost_price ?? 0,
+              sale_price: l.sale_price ?? 0,
+              cost_price_at_sale: l.cost_price_at_sale ?? null,
+              sale_price_at_sale: l.sale_price_at_sale ?? null,
+              promotion_applied: !!l.promotion_applied,
+            })));
             
             // Verificar se OS é de outra loja (superadmin pode editar qualquer OS)
             const orderStoreId = order.store_id;
@@ -424,6 +443,7 @@ export const ServiceOrderForm: React.FC = () => {
       loadOrder();
     } else {
       setLoadedOrder(null);
+      setOrderLaboratoryLensesSnapshot(null);
       setLoading(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1222,14 +1242,29 @@ export const ServiceOrderForm: React.FC = () => {
                   label="Produtos do Laboratório"
                   value={formData.laboratory_lenses}
                   onChange={(vals) => handleFieldChange('laboratory_lenses', vals)}
-                  options={filteredLaboratoryLenses.map((lens) => ({ 
-                value: String(lens.id), 
-                label: `${lens.name} - R$ ${formatFromNumber(
-                  lens.promotion_active && lens.promotional_cost_price != null
-                    ? lens.promotional_cost_price
-                    : lens.cost_price
-                )}${lens.promotion_active ? ' • Promoção' : ''}` 
-                  }))}
+                  options={(() => {
+                    const snapshotLabels: Record<string, string> = {};
+                    if (orderLaboratoryLensesSnapshot?.length) {
+                      orderLaboratoryLensesSnapshot.forEach((lens) => {
+                        const priceAtSale = lens.sale_price_at_sale ?? lens.sale_price ?? lens.cost_price;
+                        snapshotLabels[String(lens.id)] = `${lens.name} - R$ ${formatFromNumber(priceAtSale)}${lens.promotion_applied ? ' • Promoção' : ''}`;
+                      });
+                    }
+                    if (isViewMode && orderLaboratoryLensesSnapshot && orderLaboratoryLensesSnapshot.length > 0) {
+                      return orderLaboratoryLensesSnapshot.map((lens) => ({
+                        value: String(lens.id),
+                        label: snapshotLabels[String(lens.id)] ?? `${lens.name} - R$ ${formatFromNumber(lens.sale_price ?? lens.cost_price)}`,
+                      }));
+                    }
+                    return filteredLaboratoryLenses.map((lens) => ({
+                      value: String(lens.id),
+                      label: snapshotLabels[String(lens.id)] ?? `${lens.name} - R$ ${formatFromNumber(
+                        lens.promotion_active && lens.promotional_cost_price != null
+                          ? lens.promotional_cost_price
+                          : lens.cost_price
+                      )}${lens.promotion_active ? ' • Promoção' : ''}`,
+                    }));
+                  })()}
                   placeholder="Selecione produtos..."
                   disabled={isViewMode || !formData.laboratory_id}
                   disabledMessage={isViewMode ? undefined : "Selecione um laboratório"}

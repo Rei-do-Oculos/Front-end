@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Loader2 } from 'lucide-react';
 import { Card, Button, Input, FilterSection, ActiveFiltersBadge, SortableHeader, SortDirection, Pagination, SingleSelect, AccessDeniedCard } from '../../components/Common';
 import { useStoreFrames } from '../../services/hooks/useStoreFrames';
+import { useStore } from '../../contexts/StoreContext';
 import { StoreFrame } from '../../services/api/storeFrames';
 import { useStores } from '../../services/hooks/useStores';
 import { useNotification } from '../../hooks/useNotification';
@@ -9,6 +10,7 @@ import { usePermission } from '../../services/hooks/usePermission';
 import { useActiveFilters } from '../../hooks/useActiveFilters';
 
 export const StoreFrameList: React.FC = () => {
+  const { selectedStore } = useStore();
   const { showSuccess, showError } = useNotification();
   const { hasPermission } = usePermission();
   const { storeFrames, loading, error, pagination, fetchStoreFrames } = useStoreFrames({
@@ -59,7 +61,7 @@ export const StoreFrameList: React.FC = () => {
   }, [fetchStoresForFilter]);
 
 
-  // Carregar dados iniciais
+  // Carregar dados iniciais; refetch ao trocar de loja
   useEffect(() => {
     const loadStoreFrames = async () => {
       try {
@@ -74,7 +76,7 @@ export const StoreFrameList: React.FC = () => {
     };
     loadStoreFrames();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [perPage]);
+  }, [perPage, selectedStore?.id]);
 
   const handleSort = (key: string, direction: SortDirection) => {
     const newDirection = direction || 'asc';

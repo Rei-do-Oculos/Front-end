@@ -21,6 +21,7 @@ const resourceTranslations: Record<string, string> = {
   'dashboard': 'Dashboard',
   'pdv': 'PDV',
   'finance': 'Financeiro',
+  'expenses': 'Despesas',
   'frames': 'Armações',
   'frame-types': 'Tipos de Armação',
   'store-frames': 'Transferências',

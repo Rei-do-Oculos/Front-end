@@ -147,7 +147,7 @@ export const ServiceOrderSheetPage: React.FC = () => {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center gap-4 p-8">
         <p className="text-slate-600">Ordem de serviço não encontrada.</p>
-        <Button variant="outline" onClick={() => navigate(-1)}>
+        <Button variant="outline" onClick={() => navigate('/service-orders')}>
           <ArrowLeft size={18} /> Voltar
         </Button>
       </div>
@@ -158,7 +158,7 @@ export const ServiceOrderSheetPage: React.FC = () => {
     <div className="min-h-screen bg-slate-100">
       {/* Barra de ações - oculta na impressão */}
       <div className="print:hidden sticky top-0 z-10 bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between">
-        <Button variant="outline" onClick={() => navigate(-1)}>
+        <Button variant="outline" onClick={() => navigate('/service-orders')}>
           <ArrowLeft size={18} /> Voltar
         </Button>
         <Button onClick={handlePrint} style={{ backgroundColor: 'var(--store-color)' }}>

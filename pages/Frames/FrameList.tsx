@@ -89,7 +89,7 @@ export const FrameList: React.FC = () => {
     loadStores();
   }, [fetchStoresForFilter]);
 
-  // Carregar dados iniciais
+  // Carregar dados iniciais; refetch ao trocar de loja (API pode usar X-Store-ID)
   useEffect(() => {
     const loadFrames = async () => {
       try {
@@ -104,7 +104,7 @@ export const FrameList: React.FC = () => {
     };
     loadFrames();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [perPage]);
+  }, [perPage, selectedStore?.id]);
 
   const handleSort = (key: string, direction: SortDirection) => {
     const newDirection = direction || 'asc';
