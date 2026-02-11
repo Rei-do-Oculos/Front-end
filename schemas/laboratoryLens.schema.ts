@@ -46,6 +46,25 @@ export const laboratoryLensSchema = z.object({
   active: z
     .boolean()
     .default(true),
+  promotion_active: z
+    .boolean()
+    .default(false),
+  promotional_cost_price: z
+    .union([z.string(), z.number()])
+    .optional()
+    .nullable()
+    .transform((val) => {
+      if (val === '' || val === null || val === undefined) return null;
+      const num = Number(String(val).replace(',', '.'));
+      return isNaN(num) ? null : num;
+    })
+    .refine(
+      (val, ctx) => {
+        const promoActive = ctx?.parent?.promotion_active;
+        return !promoActive || val === null || val >= 0;
+      },
+      'Preço promocional de custo deve ser maior ou igual a zero'
+    ),
 });
 
 export type LaboratoryLensFormData = z.infer<typeof laboratoryLensSchema>;

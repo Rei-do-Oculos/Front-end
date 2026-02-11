@@ -10,6 +10,10 @@ export interface LaboratoryLens {
   cost_price: number;
   sale_price: number;
   active: boolean;
+  promotion_active?: boolean;
+  promotional_cost_price?: number | null;
+  effective_cost_price?: number;
+  effective_sale_price?: number;
   created_at: string;
   updated_at: string;
   deleted_at: string | null;
@@ -27,6 +31,8 @@ export interface CreateLaboratoryLensDto {
   cost_price: number;
   sale_price: number;
   active?: boolean;
+  promotion_active?: boolean;
+  promotional_cost_price?: number | null;
 }
 
 export interface UpdateLaboratoryLensDto extends Partial<CreateLaboratoryLensDto> {}

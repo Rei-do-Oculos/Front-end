@@ -85,6 +85,9 @@ export interface ServiceOrder {
     delivery_days?: number | null;
     cost_price: number;
     sale_price: number;
+    cost_price_at_sale?: number | null;
+    sale_price_at_sale?: number | null;
+    promotion_applied?: boolean;
   }>;
   frames?: Array<{
     id: number;

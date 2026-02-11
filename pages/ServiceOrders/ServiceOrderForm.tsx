@@ -1218,13 +1218,17 @@ export const ServiceOrderForm: React.FC = () => {
                 })()}
               </div>
               <div>
-                <MultiSelect
+            <MultiSelect
                   label="Produtos do Laboratório"
                   value={formData.laboratory_lenses}
                   onChange={(vals) => handleFieldChange('laboratory_lenses', vals)}
                   options={filteredLaboratoryLenses.map((lens) => ({ 
-                    value: String(lens.id), 
-                    label: `${lens.name} - R$ ${formatFromNumber(lens.sale_price)}` 
+                value: String(lens.id), 
+                label: `${lens.name} - R$ ${formatFromNumber(
+                  lens.promotion_active && lens.promotional_cost_price != null
+                    ? lens.promotional_cost_price
+                    : lens.cost_price
+                )}${lens.promotion_active ? ' • Promoção' : ''}` 
                   }))}
                   placeholder="Selecione produtos..."
                   disabled={isViewMode || !formData.laboratory_id}

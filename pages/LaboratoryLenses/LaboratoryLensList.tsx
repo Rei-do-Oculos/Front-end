@@ -267,6 +267,14 @@ export const LaboratoryLensList: React.FC = () => {
                   className="px-6 py-4"
                 />
                 <SortableHeader
+                  label="Preço Venda"
+                  sortKey="sale_price"
+                  currentSort={sortBy}
+                  currentDirection={sortDirection}
+                  onSort={handleSort}
+                  className="px-6 py-4"
+                />
+                <SortableHeader
                   label="Previsão"
                   sortKey="delivery_days"
                   currentSort={sortBy}
@@ -350,7 +358,17 @@ export const LaboratoryLensList: React.FC = () => {
                       )}
                     </td>
                     <td className="px-6 py-4 text-sm font-medium text-slate-600">
-                      {formatCurrency(lens.cost_price)}
+                      <div className="flex items-center gap-2">
+                        <span>{formatCurrency(lens.promotion_active && lens.promotional_cost_price != null ? lens.promotional_cost_price : lens.cost_price)}</span>
+                        {lens.promotion_active && (
+                          <Badge variant="warning">
+                            Promoção
+                          </Badge>
+                        )}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 text-sm font-bold text-slate-700">
+                      {formatCurrency(lens.sale_price)}
                     </td>
                     <td className="px-6 py-4 text-sm text-slate-600">
                       {lens.delivery_days != null ? `${lens.delivery_days} dias` : '-'}

@@ -634,7 +634,20 @@ export const LaboratoryDetail: React.FC = () => {
                               </div>
                             </td>
                             <td className="px-6 py-4 text-sm font-medium text-slate-600">
-                              {formatCurrency(lens.cost_price)}
+                              <div className="flex items-center gap-2">
+                                <span>
+                                  {formatCurrency(
+                                    lens.promotion_active && lens.promotional_cost_price != null
+                                      ? lens.promotional_cost_price
+                                      : lens.cost_price
+                                  )}
+                                </span>
+                                {lens.promotion_active && (
+                                  <span className="text-[10px] font-bold text-amber-600 bg-amber-100 px-2 py-0.5 rounded-full">
+                                    Promo
+                                  </span>
+                                )}
+                              </div>
                             </td>
                             <td className="px-6 py-4 text-sm font-bold" style={{ color: 'var(--store-color)' }}>
                               {formatCurrency(lens.sale_price)}
@@ -734,7 +747,10 @@ export const LaboratoryDetail: React.FC = () => {
                             ? formatCurrency(historyReportData.total_cost)
                             : formatCurrency(historyOrdersList.reduce((acc, order) => {
                                 const lenses = Array.isArray(order.laboratory_lenses) ? order.laboratory_lenses : Object.values(order.laboratory_lenses || {});
-                                const lensCost = lenses.reduce((s, l) => s + (Number(l.cost_price) || 0), 0);
+                        const lensCost = lenses.reduce((s, l) => {
+                          const cost = l.cost_price_at_sale ?? l.cost_price;
+                          return s + (Number(cost) || 0);
+                        }, 0);
                                 return acc + lensCost;
                               }, 0))}
                         </h3>

@@ -69,6 +69,8 @@ export const LaboratoryLensForm: React.FC = () => {
     cost_price: '',
     sale_price: '',
     active: true,
+    promotion_active: false,
+    promotional_cost_price: '',
   });
 
   useEffect(() => {
@@ -92,6 +94,8 @@ export const LaboratoryLensForm: React.FC = () => {
               cost_price: formatFromNumber(lens.cost_price),
               sale_price: formatFromNumber(lens.sale_price),
               active: lens.active ?? true,
+              promotion_active: lens.promotion_active ?? false,
+              promotional_cost_price: lens.promotional_cost_price != null ? formatFromNumber(lens.promotional_cost_price) : '',
             });
           } else {
             setErrors({ form: 'Lente não encontrada' });
@@ -119,6 +123,7 @@ export const LaboratoryLensForm: React.FC = () => {
       ...formData,
       cost_price: parseCurrency(formData.cost_price),
       sale_price: parseCurrency(formData.sale_price),
+      promotional_cost_price: parseCurrency(formData.promotional_cost_price),
     };
 
     // Validar com Zod
@@ -316,6 +321,76 @@ export const LaboratoryLensForm: React.FC = () => {
                 <p className="mt-1 text-xs text-red-500 font-medium">{errors.sale_price}</p>
               )}
             </div>
+          </div>
+
+          <div className="mt-8 border border-slate-100 rounded-2xl p-6 bg-slate-50/40">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-semibold text-slate-700">Promoção</p>
+                <p className="text-xs text-slate-500">Defina um preço de custo promocional temporário para esta lente (venda continua usando o valor padrão).</p>
+              </div>
+              <label className="inline-flex items-center gap-3 cursor-pointer select-none">
+                <div className="relative">
+                <input
+                  type="checkbox"
+                  checked={formData.promotion_active}
+                  onChange={(e) => {
+                    const checked = e.target.checked;
+                    setFormData((prev) => ({
+                      ...prev,
+                      promotion_active: checked,
+                      ...(checked ? {} : { promotional_cost_price: '' }),
+                    }));
+                    if (!checked && errors.promotional_cost_price) {
+                      setErrors((prev) => ({ ...prev, promotional_cost_price: '' }));
+                    }
+                  }}
+                  className="sr-only peer"
+                />
+                  <div className="w-11 h-6 bg-slate-200 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[var(--store-color)]" />
+                </div>
+                <span
+                  className="text-sm font-medium"
+                  style={{ color: formData.promotion_active ? 'var(--store-color)' : '#94a3b8' }}
+                >
+                  {formData.promotion_active ? 'Promoção ativa' : 'Sem promoção'}
+                </span>
+              </label>
+            </div>
+
+            {formData.promotion_active && (
+              <div className="mt-6 space-y-4">
+                <label className="block text-[10px] font-semibold text-slate-500 uppercase tracking-widest mb-2">
+                  Preço Promocional (Custo)
+                </label>
+                <div className="relative">
+                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm font-bold text-slate-400">
+                    R$
+                  </span>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    placeholder="0,00"
+                    value={formData.promotional_cost_price}
+                    onChange={(e) => {
+                      const formatted = formatCurrency(e.target.value);
+                      handleFieldChange('promotional_cost_price', formatted);
+                    }}
+                    className={`w-full pl-12 pr-4 py-3 text-sm border rounded-xl focus:outline-none transition-all ${
+                      errors.promotional_cost_price
+                        ? 'border-red-500 focus:border-red-500 focus:ring-2 focus:ring-red-500/20'
+                        : 'border-slate-200 focus:border-[var(--store-color)] focus:ring-2 focus:ring-[var(--store-color-opacity-5)]'
+                    }`}
+                  />
+                </div>
+                {errors.promotional_cost_price && (
+                  <p className="mt-1 text-xs text-red-500 font-medium">{errors.promotional_cost_price}</p>
+                )}
+                <p className="text-xs text-slate-500">
+                  O preço promocional de custo será aplicado em novas OS automaticamente. Para encerrar a promoção, desative o botão acima.
+                </p>
+              </div>
+            )}
           </div>
 
           <div className="mt-6">
