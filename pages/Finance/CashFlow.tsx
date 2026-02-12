@@ -390,6 +390,49 @@ export const CashFlow: React.FC = () => {
         </div>
       ) : (
         <>
+          {/* Totais por forma de pagamento: Cartão, Dinheiro, PIX - compactos acima */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
+            <div className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm flex items-center gap-3">
+              <div className="p-2 rounded-lg bg-blue-50 text-blue-600 shrink-0">
+                <CreditCard size={18} />
+              </div>
+              <div className="min-w-0">
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Cartão</p>
+                <p className="text-lg font-black text-blue-600 truncate">
+                  {formatCurrency(
+                    ((dashboard?.revenue_by_payment_method?.credit_card ?? 0) +
+                      (dashboard?.revenue_by_payment_method?.debit_card ?? 0)) || 0
+                  )}
+                </p>
+              </div>
+            </div>
+            <div className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm flex items-center gap-3">
+              <div className="p-2 rounded-lg bg-green-50 text-green-600 shrink-0">
+                <Banknote size={18} />
+              </div>
+              <div className="min-w-0">
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Dinheiro</p>
+                <p className="text-lg font-black text-green-600 truncate">
+                  {formatCurrency(dashboard?.revenue_by_payment_method?.cash ?? 0)}
+                </p>
+              </div>
+            </div>
+            <div className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm flex items-center gap-3">
+              <div 
+                className="p-2 rounded-lg shrink-0"
+                style={{ backgroundColor: 'var(--store-color-light)', color: 'var(--store-color)' }}
+              >
+                <QrCode size={18} />
+              </div>
+              <div className="min-w-0">
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">PIX</p>
+                <p className="text-lg font-black truncate" style={{ color: 'var(--store-color)' }}>
+                  {formatCurrency(dashboard?.revenue_by_payment_method?.pix ?? 0)}
+                </p>
+              </div>
+            </div>
+          </div>
+
           {/* Cards Principais */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             {/* Faturamento */}
@@ -496,49 +539,6 @@ export const CashFlow: React.FC = () => {
               <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Despesas</p>
               <p className="text-2xl font-black text-orange-600">{formatCurrency(dashboard?.expenses ?? 0)}</p>
               <p className="text-xs text-slate-500 mt-2">Clique para ver detalhes</p>
-            </div>
-          </div>
-
-          {/* Totais por forma de pagamento: Cartão, Dinheiro, PIX */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm hover:shadow-lg transition-all">
-              <div className="flex items-center justify-between mb-4">
-                <div className="p-3 rounded-xl bg-blue-50 text-blue-600">
-                  <CreditCard size={24} />
-                </div>
-              </div>
-              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Cartão</p>
-              <p className="text-2xl font-black text-blue-600">
-                {formatCurrency(
-                  ((dashboard?.revenue_by_payment_method?.credit_card ?? 0) +
-                    (dashboard?.revenue_by_payment_method?.debit_card ?? 0)) || 0
-                )}
-              </p>
-            </div>
-            <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm hover:shadow-lg transition-all">
-              <div className="flex items-center justify-between mb-4">
-                <div className="p-3 rounded-xl bg-green-50 text-green-600">
-                  <Banknote size={24} />
-                </div>
-              </div>
-              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Dinheiro</p>
-              <p className="text-2xl font-black text-green-600">
-                {formatCurrency(dashboard?.revenue_by_payment_method?.cash ?? 0)}
-              </p>
-            </div>
-            <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm hover:shadow-lg transition-all">
-              <div className="flex items-center justify-between mb-4">
-                <div 
-                  className="p-3 rounded-xl"
-                  style={{ backgroundColor: 'var(--store-color-light)', color: 'var(--store-color)' }}
-                >
-                  <QrCode size={24} />
-                </div>
-              </div>
-              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">PIX</p>
-              <p className="text-2xl font-black" style={{ color: 'var(--store-color)' }}>
-                {formatCurrency(dashboard?.revenue_by_payment_method?.pix ?? 0)}
-              </p>
             </div>
           </div>
 
