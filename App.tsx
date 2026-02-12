@@ -28,6 +28,7 @@ import { Permissions } from './pages/Permissions/Permissions';
 import { ProfileForm } from './pages/Permissions/ProfileForm';
 import { Users } from './pages/Users/Users';
 import { UserForm } from './pages/Users/UserForm';
+import { ProfilePage } from './pages/Profile/ProfilePage';
 import { BrandList } from './pages/Brands/BrandList';
 import { BrandForm } from './pages/Brands/BrandForm';
 import { LensList } from './pages/Lenses/LensList';
@@ -209,6 +210,7 @@ const StoreSelectorWrapper: React.FC<{ onLogout: () => void }> = ({ onLogout }) 
         <Route path="/permissions" element={<ProtectedRoute><Permissions /></ProtectedRoute>} />
         <Route path="/profiles/create" element={<ProtectedRoute><ProfileForm /></ProtectedRoute>} />
         <Route path="/profiles/:id/edit" element={<ProtectedRoute><ProfileForm /></ProtectedRoute>} />
+        <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
         <Route path="/users" element={<ProtectedRoute><Users /></ProtectedRoute>} />
         <Route path="/users/create" element={<ProtectedRoute><UserForm /></ProtectedRoute>} />
         <Route path="/users/:id/edit" element={<ProtectedRoute><UserForm /></ProtectedRoute>} />

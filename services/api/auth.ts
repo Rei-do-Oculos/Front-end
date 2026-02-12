@@ -68,6 +68,13 @@ export interface MeResponse {
   };
 }
 
+export interface ProfileUpdateDto {
+  name: string;
+  email: string;
+  password?: string;
+  password_confirmation?: string;
+}
+
 class AuthService {
   private readonly endpoint = '/v1/auth';
 
@@ -257,6 +264,14 @@ class AuthService {
       allPermissions: Array.isArray(data.data?.user?.all_permissions) ? data.data.user.all_permissions.map(p => p.name || p.slug) : [],
     });
     
+    return data;
+  }
+
+  async updateProfile(payload: ProfileUpdateDto): Promise<MeResponse> {
+    const { data } = await apiClient.put<MeResponse>(`${this.endpoint}/profile`, payload);
+    if (!data.success || !data.data?.user) {
+      throw new Error('Erro ao atualizar perfil');
+    }
     return data;
   }
 

@@ -14,7 +14,6 @@ import {
   ChevronRight,
   LogOut,
   Settings,
-  Bell,
   Eye,
   Target,
   Store,
@@ -30,7 +29,7 @@ import {
   Clock,
   Calendar
 } from 'lucide-react';
-import { useLocation, Link } from 'react-router-dom';
+import { useLocation, Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../services/hooks/useAuth';
 import { hasRoutePermission, getEffectiveUserPermissions, isSuperAdmin, hasAnyModulePermission, routePermissionMap } from '../utils/menuPermissions';
 import { useStore } from '../contexts/StoreContext';
@@ -279,6 +278,7 @@ const SidebarContent: React.FC<SidebarContentProps> = ({
 const UserDropdown: React.FC<{ user: any; onLogout: () => void }> = ({ user, onLogout }) => {
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const navigate = useNavigate();
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -321,6 +321,21 @@ const UserDropdown: React.FC<{ user: any; onLogout: () => void }> = ({ user, onL
                 <p className="text-xs text-slate-500 truncate">{user?.email || ''}</p>
               </div>
             </div>
+          </div>
+          
+          {/* Meu Perfil */}
+          <div className="p-2 border-t border-slate-100">
+            <button
+              type="button"
+              onClick={() => {
+                setIsOpen(false);
+                navigate('/profile');
+              }}
+              className="w-full flex items-center gap-3 px-3 py-2.5 text-sm text-slate-600 hover:bg-slate-50 transition-all rounded-lg"
+            >
+              <User size={16} />
+              <span className="font-medium">Meu perfil</span>
+            </button>
           </div>
           
           {/* Botão de Logout */}
@@ -753,7 +768,7 @@ export const Layout: React.FC<{ children: React.ReactNode; onLogout: () => void 
       <div className={`flex-1 flex flex-col overflow-hidden ${isPDVPage ? 'w-full' : ''}`}>
         {!isPDVPage && (
           <header className="bg-white border-b border-gray-100 shrink-0 z-40">
-          {/* Tudo na mesma linha: Horário + Breadcrumbs à esquerda | Seletor de Loja + Notificação + Usuário à direita */}
+          {/* Tudo na mesma linha: Horário + Breadcrumbs à esquerda | Seletor de Loja + Usuário à direita */}
           <div className="min-h-14 flex flex-col sm:flex-row items-start sm:items-center justify-between px-4 sm:px-6 lg:px-10 py-2 sm:py-0 gap-2 sm:gap-0">
             {/* Esquerda: Horário + Breadcrumbs */}
             <div className="flex items-center gap-3 sm:gap-4 md:gap-6 min-w-0 flex-1">
@@ -788,7 +803,7 @@ export const Layout: React.FC<{ children: React.ReactNode; onLogout: () => void 
               
             </div>
             
-            {/* Direita: Seletor de Loja + Notificação + Usuário */}
+            {/* Direita: Seletor de Loja + Usuário */}
             <div className="flex items-center gap-2 sm:gap-3 shrink-0">
               {/* Seletor de Loja */}
               {availableStores.length > 1 && (
@@ -871,25 +886,8 @@ export const Layout: React.FC<{ children: React.ReactNode; onLogout: () => void 
                 </div>
               )}
 
-              {/* Notificação e Usuário */}
+              {/* Usuário */}
               <div className={`flex items-center bg-slate-50 p-1 sm:p-1.5 ${styles.button.default} border border-slate-100`}>
-                <button 
-                  className="p-1.5 sm:p-2 text-slate-400 transition-colors relative"
-                  style={{ color: 'var(--store-color-opacity-50)' }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.color = 'var(--store-color-dark)';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.color = 'var(--store-color-opacity-50)';
-                  }}
-                >
-                  <Bell size={16} className="sm:w-[18px] sm:h-[18px]" />
-                  <span 
-                    className="absolute top-1 right-1 sm:top-1.5 sm:right-1.5 w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full border-2 border-white"
-                    style={{ backgroundColor: 'var(--store-color)' }}
-                  ></span>
-                </button>
-                <div className="w-px h-5 sm:h-6 bg-slate-200 mx-0.5 sm:mx-1"></div>
                 <UserDropdown user={user} onLogout={onLogout} />
               </div>
             </div>
