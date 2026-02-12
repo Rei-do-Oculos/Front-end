@@ -8,6 +8,18 @@ import { permissionsService } from '../../services/api/permissions';
 import { translatePermission, translateResource } from '../../utils/translations';
 import { useNotification } from '../../hooks/useNotification';
 
+/** Setores na ordem da sidebar com seus módulos */
+const SECTOR_ORDER: { label: string; modules: string[] }[] = [
+  { label: 'Lojas', modules: ['stores'] },
+  { label: 'Clientes', modules: ['clients'] },
+  { label: 'Estoque', modules: ['frames', 'frame-types', 'store-frames'] },
+  { label: 'Lentes', modules: ['lenses'] },
+  { label: 'Laboratórios', modules: ['laboratories', 'laboratory-lenses'] },
+  { label: 'Financeiro', modules: ['finance', 'expenses', 'service-orders-overdue'] },
+  { label: 'Pedidos (OS)', modules: ['service-orders', 'service-orders-lab'] },
+  { label: 'Sistema', modules: ['roles', 'permissions', 'users', 'audits', 'trash'] },
+];
+
 export const ProfileForm: React.FC = () => {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
@@ -31,6 +43,7 @@ export const ProfileForm: React.FC = () => {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
   const [loadingRole, setLoadingRole] = useState(false);
+  const [expandedSectors, setExpandedSectors] = useState<Set<string>>(new Set());
   const [expandedModules, setExpandedModules] = useState<Set<string>>(new Set());
 
   // Agrupar permissões por módulo
@@ -123,7 +136,20 @@ export const ProfileForm: React.FC = () => {
     }));
   };
 
-  // Toggle de expansão de módulo
+  // Toggle de expansão de setor
+  const toggleSector = (sectorLabel: string) => {
+    setExpandedSectors(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(sectorLabel)) {
+        newSet.delete(sectorLabel);
+      } else {
+        newSet.add(sectorLabel);
+      }
+      return newSet;
+    });
+  };
+
+  // Toggle de expansão de módulo (dentro do setor)
   const toggleModule = (module: string) => {
     setExpandedModules(prev => {
       const newSet = new Set(prev);
@@ -134,6 +160,52 @@ export const ProfileForm: React.FC = () => {
       }
       return newSet;
     });
+  };
+
+  // Módulos que não pertencem a nenhum setor (avulsos)
+  const allSectorModules = useMemo(() => new Set(SECTOR_ORDER.flatMap(s => s.modules)), []);
+  const standaloneModules = useMemo(() => {
+    return Object.keys(permissionsByModule).filter(m => !allSectorModules.has(m));
+  }, [permissionsByModule, allSectorModules]);
+
+  // Setores com apenas os módulos que existem em permissionsByModule
+  const sectorsWithData = useMemo(() => {
+    return SECTOR_ORDER.map(sector => ({
+      ...sector,
+      modules: sector.modules.filter(m => permissionsByModule[m]?.length > 0),
+    })).filter(s => s.modules.length > 0);
+  }, [permissionsByModule]);
+
+  // Contagem selecionada para setor
+  const getSectorSelectedCount = (sectorLabel: string) => {
+    const sector = SECTOR_ORDER.find(s => s.label === sectorLabel);
+    if (!sector) return { selected: 0, total: 0 };
+    let selected = 0, total = 0;
+    sector.modules.forEach(m => {
+      const perms = permissionsByModule[m] || [];
+      total += perms.length;
+      selected += perms.filter(p => formData.permissions.includes(p.id)).length;
+    });
+    return { selected, total };
+  };
+
+  // Selecionar todas as permissões de um setor
+  const selectSectorPermissions = (sectorLabel: string) => {
+    const sector = SECTOR_ORDER.find(s => s.label === sectorLabel);
+    if (!sector) return;
+    const moduleIds = sector.modules.flatMap(m => (permissionsByModule[m] || []).map(p => p.id));
+    const sectorSelected = getSectorSelectedCount(sectorLabel);
+    const isFullySelected = sectorSelected.selected === sectorSelected.total && sectorSelected.total > 0;
+    if (isFullySelected) {
+      setFormData(prev => ({ ...prev, permissions: prev.permissions.filter(id => !moduleIds.includes(id)) }));
+    } else {
+      setFormData(prev => ({ ...prev, permissions: [...new Set([...prev.permissions, ...moduleIds])] }));
+    }
+  };
+
+  const isSectorFullySelected = (sectorLabel: string) => {
+    const { selected, total } = getSectorSelectedCount(sectorLabel);
+    return total > 0 && selected === total;
   };
 
   // Carregar dados do perfil ao editar
@@ -297,121 +369,173 @@ export const ProfileForm: React.FC = () => {
             ) : Object.keys(permissionsByModule).length === 0 ? (
               <p className="text-xs text-slate-400 text-center py-4">Nenhuma permissão disponível</p>
             ) : (
-              <div className="space-y-2 border border-slate-200 rounded-xl p-4 bg-white">
-                {/* Tags dos módulos */}
-                <div className="flex flex-wrap gap-2 mb-4 pb-4 border-b border-slate-100">
-                  {Object.keys(permissionsByModule).map((module) => {
-                    const modulePerms = permissionsByModule[module];
-                    const isExpanded = expandedModules.has(module);
-                    const isFullySelected = isModuleFullySelected(module);
-                    const selectedCount = modulePerms.filter(p => formData.permissions.includes(p.id)).length;
-                    
-                    return (
-                      <button
-                        key={module}
-                        type="button"
-                        onClick={() => toggleModule(module)}
-                        className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-                          isExpanded
-                            ? 'text-white'
-                            : isFullySelected
-                            ? 'border-2'
-                            : selectedCount > 0
-                            ? 'bg-slate-100 text-slate-700 border-2 border-slate-200'
-                            : 'bg-white text-slate-600 border-2 border-slate-200 hover:bg-slate-50'
-                        }`}
-                        style={isExpanded ? {
-                          backgroundColor: 'var(--store-color)',
-                        } : isFullySelected ? {
-                          backgroundColor: 'var(--store-color-light)',
-                          color: 'var(--store-color)',
-                          borderColor: 'var(--store-color)',
-                        } : undefined}
-                      >
-                        {translateResource(module)}
-                        {selectedCount > 0 && (
-                          <span 
-                            className={`px-1.5 py-0.5 rounded text-[10px] ${
-                              isExpanded ? 'bg-white/20' : 'text-white'
-                            }`}
-                            style={!isExpanded ? {
-                              backgroundColor: 'var(--store-color)',
-                            } : undefined}
-                          >
-                            {selectedCount}/{modulePerms.length}
-                          </span>
-                        )}
-                        {isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-                      </button>
-                    );
-                  })}
-                </div>
+              <div className="space-y-3 border border-slate-200 rounded-xl p-4 bg-white">
+                {/* Setores (ordem da sidebar) */}
+                {sectorsWithData.map((sector) => {
+                  const isSectorExpanded = expandedSectors.has(sector.label);
+                  const { selected: sectorSelected, total: sectorTotal } = getSectorSelectedCount(sector.label);
+                  const sectorFullySelected = isSectorFullySelected(sector.label);
 
-                {/* Permissões expandidas por módulo */}
-                {Object.keys(permissionsByModule).map((module) => {
-                  if (!expandedModules.has(module)) return null;
-                  
-                  const modulePerms = permissionsByModule[module];
-                  const isFullySelected = isModuleFullySelected(module);
-                  
                   return (
-                    <div key={module} className="mb-4 last:mb-0">
-                      <div className="flex items-center justify-between mb-2 pb-2 border-b border-slate-100">
-                        <button
-                          type="button"
-                          onClick={() => selectModulePermissions(module)}
-                          className="flex items-center gap-2 text-sm font-bold text-slate-900 hover:opacity-80 transition-colors"
-                        >
-                          <div 
-                            className={`w-4 h-4 border-2 rounded flex items-center justify-center ${
-                              isFullySelected ? '' : 'border-slate-300'
-                            }`}
-                            style={isFullySelected ? {
-                              backgroundColor: 'var(--store-color)',
-                              borderColor: 'var(--store-color)',
-                            } : undefined}
-                          >
-                            {isFullySelected && <Check size={12} className="text-white" />}
-                          </div>
-                          {translateResource(module)}
-                        </button>
-                        <span className="text-xs text-slate-400">
-                          {modulePerms.filter(p => formData.permissions.includes(p.id)).length} de {modulePerms.length} selecionadas
+                    <div key={sector.label} className="border border-slate-100 rounded-lg overflow-hidden">
+                      <button
+                        type="button"
+                        onClick={() => toggleSector(sector.label)}
+                        className={`w-full flex items-center justify-between px-4 py-3 text-left transition-all ${
+                          isSectorExpanded
+                            ? 'text-white'
+                            : sectorFullySelected
+                            ? 'border-l-4'
+                            : sectorSelected > 0
+                            ? 'bg-slate-50'
+                            : 'hover:bg-slate-50'
+                        }`}
+                        style={isSectorExpanded
+                          ? { backgroundColor: 'var(--store-color)' }
+                          : sectorFullySelected
+                          ? { backgroundColor: 'var(--store-color-light)', color: 'var(--store-color)', borderLeftColor: 'var(--store-color)' }
+                          : undefined}
+                      >
+                        <span className="font-semibold text-sm">{sector.label}</span>
+                        <span className="flex items-center gap-2">
+                          {sectorTotal > 0 && (
+                            <span className={`px-2 py-0.5 rounded text-xs font-medium ${isSectorExpanded ? 'bg-white/20' : ''}`}
+                              style={!isSectorExpanded ? { backgroundColor: 'var(--store-color)', color: 'white' } : undefined}>
+                              {sectorSelected}/{sectorTotal}
+                            </span>
+                          )}
+                          {isSectorExpanded ? <ChevronDown size={18} /> : <ChevronRight size={18} />}
                         </span>
-                      </div>
-                      
-                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2 ml-6">
-                        {modulePerms.map((perm) => {
-                          const isSelected = formData.permissions.includes(perm.id);
-                          return (
-                            <label
-                              key={perm.id}
-                              className="flex items-center gap-2 p-2 hover:bg-slate-50 rounded-lg cursor-pointer"
+                      </button>
+
+                      {isSectorExpanded && (
+                        <div className="p-4 pt-2 bg-slate-50/50 border-t border-slate-100">
+                          <div className="flex items-center justify-between mb-3">
+                            <button
+                              type="button"
+                              onClick={(e) => { e.stopPropagation(); selectSectorPermissions(sector.label); }}
+                              className="flex items-center gap-2 text-xs font-semibold text-slate-600 hover:text-slate-900"
                             >
-                              <div 
-                                className={`w-4 h-4 border-2 rounded flex items-center justify-center cursor-pointer ${
-                                  isSelected ? '' : 'border-slate-300'
-                                }`}
-                                style={isSelected ? {
-                                  backgroundColor: 'var(--store-color)',
-                                  borderColor: 'var(--store-color)',
-                                } : undefined}
-                                onClick={() => togglePermission(perm.id)}
-                              >
-                                {isSelected && <Check size={12} className="text-white" />}
+                              <div className={`w-3.5 h-3.5 border-2 rounded flex items-center justify-center ${sectorFullySelected ? '' : 'border-slate-300'}`}
+                                style={sectorFullySelected ? { backgroundColor: 'var(--store-color)', borderColor: 'var(--store-color)' } : undefined}>
+                                {sectorFullySelected && <Check size={10} className="text-white" />}
                               </div>
-                              <span className="text-sm text-slate-700">{translatePermission(perm.name)}</span>
-                            </label>
-                          );
-                        })}
-                      </div>
+                              {sectorFullySelected ? 'Desmarcar setor' : 'Marcar todo o setor'}
+                            </button>
+                          </div>
+                          <div className="space-y-3">
+                            {sector.modules.map((module) => {
+                              const modulePerms = permissionsByModule[module] || [];
+                              const isModuleExpanded = expandedModules.has(module);
+                              const isFullySelected = isModuleFullySelected(module);
+                              const selectedCount = modulePerms.filter(p => formData.permissions.includes(p.id)).length;
+
+                              return (
+                                <div key={module} className="bg-white rounded-lg border border-slate-100 overflow-hidden">
+                                  <button
+                                    type="button"
+                                    onClick={() => toggleModule(module)}
+                                    className={`w-full flex items-center justify-between px-3 py-2.5 text-left text-sm transition-colors ${
+                                      isModuleExpanded ? 'bg-slate-100' : 'hover:bg-slate-50'
+                                    }`}
+                                  >
+                                    <div className="flex items-center gap-2">
+                                      <div
+                                        role="button"
+                                        tabIndex={0}
+                                        className={`w-3.5 h-3.5 border-2 rounded flex items-center justify-center flex-shrink-0 cursor-pointer ${isFullySelected ? '' : 'border-slate-300'}`}
+                                        style={isFullySelected ? { backgroundColor: 'var(--store-color)', borderColor: 'var(--store-color)' } : undefined}
+                                        onClick={(e) => { e.stopPropagation(); selectModulePermissions(module); }}
+                                        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); selectModulePermissions(module); } }}
+                                      >
+                                        {isFullySelected && <Check size={10} className="text-white" />}
+                                      </div>
+                                      <span className="font-medium text-slate-700">{translateResource(module)}</span>
+                                      {selectedCount > 0 && (
+                                        <span className="text-xs text-slate-400">({selectedCount}/{modulePerms.length})</span>
+                                      )}
+                                    </div>
+                                    {isModuleExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+                                  </button>
+                                  {isModuleExpanded && (
+                                    <div className="px-3 py-2 pb-3 border-t border-slate-50">
+                                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-1.5 ml-5">
+                                        {modulePerms.map((perm) => {
+                                          const isSelected = formData.permissions.includes(perm.id);
+                                          return (
+                                            <label key={perm.id} className="flex items-center gap-2 p-1.5 hover:bg-slate-50 rounded cursor-pointer" onClick={() => togglePermission(perm.id)}>
+                                              <div className={`w-4 h-4 border-2 rounded flex items-center justify-center flex-shrink-0 ${isSelected ? '' : 'border-slate-300'}`}
+                                                style={isSelected ? { backgroundColor: 'var(--store-color)', borderColor: 'var(--store-color)' } : undefined}>
+                                                {isSelected && <Check size={10} className="text-white" />}
+                                              </div>
+                                              <span className="text-xs text-slate-700">{translatePermission(perm.name)}</span>
+                                            </label>
+                                          );
+                                        })}
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   );
                 })}
+
+                {/* Módulos avulsos (fora dos setores) */}
+                {standaloneModules.length > 0 && (
+                  <div className="pt-2 border-t border-slate-200">
+                    <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-2">Outros</p>
+                    <div className="flex flex-wrap gap-2">
+                      {standaloneModules.map((module) => {
+                        const modulePerms = permissionsByModule[module] || [];
+                        const isExpanded = expandedModules.has(module);
+                        const isFullySelected = isModuleFullySelected(module);
+                        const selectedCount = modulePerms.filter(p => formData.permissions.includes(p.id)).length;
+                        return (
+                          <div key={module} className="flex-1 min-w-[140px]">
+                            <button
+                              type="button"
+                              onClick={() => toggleModule(module)}
+                              className={`w-full inline-flex items-center justify-between gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                                isExpanded ? 'text-white' : isFullySelected ? 'border-2' : selectedCount > 0 ? 'bg-slate-100 border-2 border-slate-200' : 'bg-white border-2 border-slate-200 hover:bg-slate-50'
+                              }`}
+                              style={isExpanded ? { backgroundColor: 'var(--store-color)' } : isFullySelected ? { backgroundColor: 'var(--store-color-light)', color: 'var(--store-color)', borderColor: 'var(--store-color)' } : undefined}
+                            >
+                              {translateResource(module)}
+                              {selectedCount > 0 && <span className="text-[10px]">{selectedCount}/{modulePerms.length}</span>}
+                              {isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                            </button>
+                            {isExpanded && (
+                              <div className="mt-2 p-2 bg-slate-50 rounded-lg border border-slate-100">
+                                {modulePerms.map((perm) => {
+                                  const isSelected = formData.permissions.includes(perm.id);
+                                  return (
+                                    <label key={perm.id} className="flex items-center gap-2 p-1.5 hover:bg-white rounded cursor-pointer text-xs">
+                                      <div className={`w-3.5 h-3.5 border-2 rounded flex items-center justify-center ${isSelected ? '' : 'border-slate-300'}`}
+                                        style={isSelected ? { backgroundColor: 'var(--store-color)', borderColor: 'var(--store-color)' } : undefined}
+                                        onClick={() => togglePermission(perm.id)}>
+                                        {isSelected && <Check size={8} className="text-white" />}
+                                      </div>
+                                      <span onClick={() => togglePermission(perm.id)}>{translatePermission(perm.name)}</span>
+                                    </label>
+                                  );
+                                })}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
             <p className="text-xs text-slate-400 mt-2">
-              Clique nos módulos para expandir e selecionar permissões específicas
+              Clique nos setores para expandir e selecionar permissões por módulo
             </p>
           </div>
 

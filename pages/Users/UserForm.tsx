@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Save, ArrowLeft, Loader2, Check, ChevronDown, ChevronRight } from 'lucide-react';
-import { Card, Button, Input, MultiSelect, Badge } from '../../components/Common';
+import { Save, ArrowLeft, Loader2, Check } from 'lucide-react';
+import { Card, Button, Input, MultiSelect } from '../../components/Common';
+import { PermissionsSelector } from '../../components/PermissionsSelector';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useUsers } from '../../services/hooks/useUsers';
 import { usePlucks } from '../../services/hooks/usePlucks';
@@ -8,7 +9,6 @@ import { usersService } from '../../services/api/users';
 import { rolesService } from '../../services/api/roles';
 import { permissionsService } from '../../services/api/permissions';
 import { storesService } from '../../services/api/stores';
-import { translatePermission, translateResource } from '../../utils/translations';
 import { useNotification } from '../../hooks/useNotification';
 import { useAuth } from '../../services/hooks/useAuth';
 
@@ -43,7 +43,6 @@ export const UserForm: React.FC = () => {
   const safePermissionsPlucks = Array.isArray(permissionsPlucks) ? permissionsPlucks : [];
   const safeStoresPlucks = Array.isArray(storesPlucks) ? storesPlucks : [];
   
-  const [expandedModules, setExpandedModules] = useState<Set<string>>(new Set());
   const [formError, setFormError] = useState<string | null>(null);
   const [loadingUser, setLoadingUser] = useState(false);
   const [permissionsFromRoles, setPermissionsFromRoles] = useState<number[]>([]);
@@ -67,111 +66,6 @@ export const UserForm: React.FC = () => {
     );
     return superAdminRole ? formData.roles.includes(superAdminRole.id) : false;
   }, [formData.roles, safeRolesPlucks]);
-
-  // Agrupar permissões por módulo
-  const permissionsByModule = useMemo(() => {
-    const grouped: Record<string, Array<{ id: number; name: string; action: string }>> = {};
-    
-    safePermissionsPlucks.forEach((perm: any) => {
-      const parts = perm.name.split('.');
-      if (parts.length >= 2) {
-        const module = parts[0];
-        const action = parts.slice(1).join('.');
-        
-        // Filtrar permissões de modelo (são relacionamentos técnicos, não módulos)
-        if (module === 'model-has-permissions' || module === 'model-has-roles' || module === 'role-has-permissions') {
-          return;
-        }
-        
-        if (!grouped[module]) {
-          grouped[module] = [];
-        }
-        
-        grouped[module].push({
-          id: perm.id,
-          name: perm.name,
-          action: action,
-        });
-      }
-    });
-    
-    return grouped;
-  }, [safePermissionsPlucks]);
-
-  // Obter todos os IDs de permissões
-  const allPermissionIds = useMemo(() => {
-    return safePermissionsPlucks.map((p: any) => p.id);
-  }, [safePermissionsPlucks]);
-
-  // Verificar se todas as permissões estão selecionadas
-  const allSelected = useMemo(() => {
-    if (allPermissionIds.length === 0) return false;
-    return allPermissionIds.every(id => formData.permissions.includes(id));
-  }, [allPermissionIds, formData.permissions]);
-
-  // Verificar se todas as permissões de um módulo estão selecionadas
-  const isModuleFullySelected = (module: string) => {
-    const modulePerms = permissionsByModule[module] || [];
-    if (modulePerms.length === 0) return false;
-    return modulePerms.every(perm => formData.permissions.includes(perm.id));
-  };
-
-  // Selecionar todas as permissões
-  const selectAllPermissions = () => {
-    if (allSelected) {
-      setFormData(prev => ({
-        ...prev,
-        permissions: [],
-      }));
-    } else {
-      setFormData(prev => ({
-        ...prev,
-        permissions: [...allPermissionIds],
-      }));
-    }
-  };
-
-  // Selecionar todas as permissões de um módulo
-  const selectModulePermissions = (module: string) => {
-    const modulePerms = permissionsByModule[module] || [];
-    const moduleIds = modulePerms.map(p => p.id);
-    const isFullySelected = isModuleFullySelected(module);
-    
-    if (isFullySelected) {
-      setFormData(prev => ({
-        ...prev,
-        permissions: prev.permissions.filter(id => !moduleIds.includes(id)),
-      }));
-    } else {
-      setFormData(prev => ({
-        ...prev,
-        permissions: [...new Set([...prev.permissions, ...moduleIds])],
-      }));
-    }
-  };
-
-  // Toggle de uma permissão individual
-  const togglePermission = (permissionId: number) => {
-    setFormData(prev => ({
-      ...prev,
-      permissions: prev.permissions.includes(permissionId)
-        ? prev.permissions.filter(id => id !== permissionId)
-        : [...prev.permissions, permissionId],
-    }));
-  };
-
-  // Toggle de expansão de módulo
-  const toggleModule = (module: string) => {
-    setExpandedModules(prev => {
-      const newSet = new Set(prev);
-      if (newSet.has(module)) {
-        newSet.delete(module);
-      } else {
-        newSet.add(module);
-      }
-      return newSet;
-    });
-  };
 
   // Carregar dados do usuário se estiver editando
   useEffect(() => {
@@ -593,241 +487,28 @@ export const UserForm: React.FC = () => {
           </div>
 
           <div>
-            <div className="flex items-center justify-between mb-4">
-              <div>
-                <label className="text-[10px] font-semibold text-slate-500 uppercase tracking-[0.15em] ml-1 block">
-                  Permissões
-                </label>
-                {permissionsFromRoles.length > 0 && (
-                  <p className="text-xs text-slate-400 mt-1">
-                    {permissionsFromRoles.length} permissões vêm do(s) perfil(is) selecionado(s). 
-                    Você pode desmarcar para bloquear apenas para este usuário (o perfil não será alterado).
+            <PermissionsSelector
+              permissions={safePermissionsPlucks.map((p: any) => ({ id: p.id, name: p.name || p.label || '' }))}
+              value={formData.permissions}
+              onChange={(ids) => setFormData(prev => ({ ...prev, permissions: ids }))}
+              loading={permissionsPlucksLoading}
+              permissionsFromRoles={permissionsFromRoles}
+              hint={
+                <>
+                  {permissionsFromRoles.length > 0 && (
+                    <p className="text-xs text-slate-400">
+                      {permissionsFromRoles.length} permissões vêm do(s) perfil(is) selecionado(s). 
+                      Você pode desmarcar para bloquear apenas para este usuário (o perfil não será alterado).
+                    </p>
+                  )}
+                  <p className="text-xs text-slate-400 mt-2">
+                    Permissões marcadas em <span style={{ color: 'var(--store-color)' }}>vermelho</span> vêm do(s) perfil(is) selecionado(s). 
+                    Você pode desmarcar para bloquear apenas para este usuário (o perfil não será alterado). 
+                    Você também pode adicionar permissões extras além das do perfil.
                   </p>
-                )}
-              </div>
-              <button
-                type="button"
-                onClick={selectAllPermissions}
-                className="flex items-center gap-2 px-3 py-1.5 text-xs font-semibold text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-              >
-                <div 
-                  className={`w-4 h-4 border-2 rounded flex items-center justify-center ${
-                    allSelected ? '' : 'border-slate-300'
-                  }`}
-                  style={allSelected ? {
-                    backgroundColor: 'var(--store-color)',
-                    borderColor: 'var(--store-color)',
-                  } : undefined}
-                >
-                  {allSelected && <Check size={12} className="text-white" />}
-                </div>
-                Selecionar Todas
-              </button>
-            </div>
-
-            {permissionsPlucksLoading ? (
-              <div className="flex items-center justify-center py-8">
-                <Loader2 className="w-6 h-6 animate-spin text-red-600" />
-              </div>
-            ) : Object.keys(permissionsByModule).length === 0 ? (
-              <p className="text-xs text-slate-400 text-center py-4">Nenhuma permissão disponível</p>
-            ) : (
-              <div className="space-y-4 border border-slate-200 rounded-xl p-6 bg-white">
-                {/* Tags dos módulos */}
-                <div className="flex flex-wrap gap-2 mb-6 pb-6 border-b border-slate-100">
-                  {Object.keys(permissionsByModule).map((module) => {
-                    const modulePerms = permissionsByModule[module];
-                    const isExpanded = expandedModules.has(module);
-                    const isFullySelected = isModuleFullySelected(module);
-                    const selectedCount = modulePerms.filter(p => {
-                      const pid = Number(p.id);
-                      return formData.permissions.some(id => Number(id) === pid);
-                    }).length;
-                    const fromRoleCount = modulePerms.filter(p => {
-                      const pid = Number(p.id);
-                      return permissionsFromRoles.some(id => Number(id) === pid);
-                    }).length;
-                    const totalActiveCount = modulePerms.filter(p => {
-                      const pid = Number(p.id);
-                      return formData.permissions.some(id => Number(id) === pid) || 
-                             permissionsFromRoles.some(id => Number(id) === pid);
-                    }).length;
-                    
-                    return (
-                      <button
-                        key={module}
-                        type="button"
-                        onClick={() => toggleModule(module)}
-                        className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-                          isExpanded
-                            ? 'bg-red-600 text-white'
-                            : isFullySelected || totalActiveCount > 0
-                            ? 'border-2'
-                            : 'bg-white text-slate-600 border-2 border-slate-200 hover:bg-slate-50'
-                        }`}
-                        style={isFullySelected || totalActiveCount > 0 ? {
-                          backgroundColor: 'var(--store-color-light)',
-                          color: 'var(--store-color-dark)',
-                          borderColor: 'var(--store-color-opacity-20)',
-                        } : undefined}
-                      >
-                        {translateResource(module)}
-                        {totalActiveCount > 0 && (
-                          <span 
-                            className={`px-1.5 py-0.5 rounded text-[10px] ${
-                              isExpanded ? 'bg-white/20' : 'text-white'
-                            }`}
-                            style={!isExpanded ? {
-                              backgroundColor: 'var(--store-color)',
-                            } : undefined}
-                          >
-                            {totalActiveCount}/{modulePerms.length}
-                            {fromRoleCount > 0 && ` (${fromRoleCount} do perfil)`}
-                          </span>
-                        )}
-                        {isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-                      </button>
-                    );
-                  })}
-                </div>
-
-                {/* Permissões expandidas por módulo */}
-                {Object.keys(permissionsByModule).map((module) => {
-                  if (!expandedModules.has(module)) return null;
-                  
-                  const modulePerms = permissionsByModule[module];
-                  const isFullySelected = isModuleFullySelected(module);
-                  
-                  return (
-                    <div key={module} className="mb-6 last:mb-0">
-                      <div className="flex items-center justify-between mb-3 pb-3 border-b border-slate-100">
-                        <button
-                          type="button"
-                          onClick={() => selectModulePermissions(module)}
-                          className="flex items-center gap-2 text-sm font-bold text-slate-900 hover:text-red-600 transition-colors"
-                        >
-                          <div 
-                            className={`w-4 h-4 border-2 rounded flex items-center justify-center ${
-                              isFullySelected ? '' : 'border-slate-300'
-                            }`}
-                            style={isFullySelected ? {
-                              backgroundColor: 'var(--store-color)',
-                              borderColor: 'var(--store-color)',
-                            } : undefined}
-                          >
-                            {isFullySelected && <Check size={12} className="text-white" />}
-                          </div>
-                          {translateResource(module)}
-                        </button>
-                        <span className="text-xs text-slate-400">
-                          {modulePerms.filter(p => {
-                            const pid = Number(p.id);
-                            return formData.permissions.some(id => Number(id) === pid) || 
-                                   permissionsFromRoles.some(id => Number(id) === pid);
-                          }).length} de {modulePerms.length} ativas
-                          {modulePerms.filter(p => {
-                            const pid = Number(p.id);
-                            return permissionsFromRoles.some(id => Number(id) === pid);
-                          }).length > 0 && (
-                            <span className="ml-1" style={{ color: 'var(--store-color)' }}>
-                              ({modulePerms.filter(p => {
-                                const pid = Number(p.id);
-                                return permissionsFromRoles.some(id => Number(id) === pid);
-                              }).length} do perfil)
-                            </span>
-                          )}
-                        </span>
-                      </div>
-                      
-                      <div className="space-y-2">
-                        {modulePerms.map((perm) => {
-                          const permId = Number(perm.id);
-                          const isSelected = formData.permissions.some(id => {
-                            const formPermId = Number(id);
-                            return formPermId === permId;
-                          });
-                          const isFromRole = permissionsFromRoles.some(id => {
-                            const rolePermId = Number(id);
-                            return rolePermId === permId;
-                          });
-                          
-                          return (
-                            <label
-                              key={perm.id}
-                              className={`flex items-center gap-3 p-3 rounded-lg transition-colors ${
-                                isFromRole 
-                                  ? 'cursor-pointer' 
-                                  : 'hover:bg-slate-50 cursor-pointer'
-                              }`}
-                              style={isFromRole ? {
-                                backgroundColor: 'var(--store-color-light)',
-                              } : undefined}
-                              onMouseEnter={isFromRole ? (e) => {
-                                e.currentTarget.style.backgroundColor = 'var(--store-color-opacity-20)';
-                              } : undefined}
-                              onMouseLeave={isFromRole ? (e) => {
-                                e.currentTarget.style.backgroundColor = 'var(--store-color-light)';
-                              } : undefined}
-                              onClick={() => togglePermission(permId)}
-                            >
-                              <div className={`w-4 h-4 border-2 rounded flex items-center justify-center shrink-0 ${
-                                isSelected
-                                  ? isFromRole
-                                    ? ''
-                                    : 'bg-red-600 border-red-600'
-                                  : isFromRole
-                                    ? ''
-                                    : 'border-slate-300'
-                              }`}
-                              style={isSelected && isFromRole ? {
-                                backgroundColor: 'var(--store-color)',
-                                borderColor: 'var(--store-color)',
-                              } : isFromRole && !isSelected ? {
-                                borderColor: 'var(--store-color-opacity-40)',
-                                backgroundColor: 'var(--store-color-light)',
-                              } : undefined}>
-                                {isSelected && <Check size={12} className="text-white" />}
-                              </div>
-                              <span className={`text-sm flex-1 ${
-                                isFromRole ? 'font-medium' : 'text-slate-700'
-                              }`}
-                              style={isFromRole ? {
-                                color: 'var(--store-color-dark)',
-                              } : undefined}>
-                                {translatePermission(perm.name)}
-                              </span>
-                              {isFromRole && isSelected && (
-                                <Badge variant="info" className="text-[10px] text-white" style={{
-                                  backgroundColor: 'var(--store-color)',
-                                }}>
-                                  Do Perfil
-                                </Badge>
-                              )}
-                              {isFromRole && !isSelected && (
-                                <Badge variant="warning" className="text-[10px] bg-orange-500 text-white">
-                                  Bloqueada
-                                </Badge>
-                              )}
-                              {isSelected && !isFromRole && (
-                                <Badge variant="success" className="text-[10px]">
-                                  Extra
-                                </Badge>
-                              )}
-                            </label>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-
-            <p className="text-xs text-slate-400 mt-4">
-              Permissões marcadas em <span style={{ color: 'var(--store-color)' }}>vermelho</span> vêm do(s) perfil(is) selecionado(s). 
-              Você pode desmarcar para bloquear apenas para este usuário (o perfil não será alterado). 
-              Você também pode adicionar permissões extras além das do perfil.
-            </p>
+                </>
+              }
+            />
           </div>
 
           <div className="flex gap-3 pt-6 mt-6 border-t border-slate-200">
