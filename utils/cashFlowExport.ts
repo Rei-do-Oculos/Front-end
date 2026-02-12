@@ -13,6 +13,7 @@ export interface CashFlowExportFilters {
   dateTo: string;
   storeId: string;
   storeLabel: string; // "Todas as Lojas" ou nome da loja
+  paymentMethods?: string | null; // ex: "Cartão de Crédito, PIX"
 }
 
 export interface CashFlowExportPdfOptions {
@@ -43,7 +44,7 @@ const pageHeaderBlock = (filters: CashFlowExportFilters, color: string) => `
   <div class="pdf-page-header" style="margin-bottom: 18px; padding: 12px 16px; background: #f8fafc; border: 1px solid #e2e8f0; border-left: 4px solid ${color}; border-radius: 8px;">
     <div style="font-size: 10px; font-weight: 800; color: #1e293b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px;">Relatório Financeiro — Fluxo de Caixa</div>
     <div style="font-size: 10px; color: #64748b;">
-      <strong>Filtros aplicados:</strong> Período: ${formatDateBr(filters.dateFrom)} a ${formatDateBr(filters.dateTo)} • Loja: ${filters.storeLabel}
+      <strong>Filtros aplicados:</strong> Período: ${formatDateBr(filters.dateFrom)} a ${formatDateBr(filters.dateTo)} • Loja: ${filters.storeLabel}${filters.paymentMethods ? ` • Forma de pagamento: ${filters.paymentMethods}` : ''}
     </div>
   </div>
 `;
@@ -106,6 +107,24 @@ function buildPdfContent(
         <td style="padding: 10px; background: #fff7ed; border-radius: 8px; border-left: 4px solid #ea580c; width: 33%;">
           <div style="font-size: 9px; color: #6b7280;">Despesas</div>
           <div style="font-size: 14px; font-weight: 700; color: #ea580c;">${formatCurrency(d?.expenses ?? 0)}</div>
+        </td>
+      </tr>
+    </table>
+    <table style="width: 100%; border-collapse: collapse; margin-bottom: 24px;">
+      <tr>
+        <td style="padding: 10px; background: #eff6ff; border-radius: 8px; border-left: 4px solid #2563eb; width: 33%;">
+          <div style="font-size: 9px; color: #6b7280;">Cartão</div>
+          <div style="font-size: 14px; font-weight: 700; color: #2563eb;">${formatCurrency((d?.revenue_by_payment_method?.credit_card ?? 0) + (d?.revenue_by_payment_method?.debit_card ?? 0))}</div>
+        </td>
+        <td style="width: 1%;"></td>
+        <td style="padding: 10px; background: #f0fdf4; border-radius: 8px; border-left: 4px solid #16a34a; width: 33%;">
+          <div style="font-size: 9px; color: #6b7280;">Dinheiro</div>
+          <div style="font-size: 14px; font-weight: 700; color: #16a34a;">${formatCurrency(d?.revenue_by_payment_method?.cash ?? 0)}</div>
+        </td>
+        <td style="width: 1%;"></td>
+        <td style="padding: 10px; background: #fef3c7; border-radius: 8px; border-left: 4px solid ${color}; width: 33%;">
+          <div style="font-size: 9px; color: #6b7280;">PIX</div>
+          <div style="font-size: 14px; font-weight: 700; color: #b45309;">${formatCurrency(d?.revenue_by_payment_method?.pix ?? 0)}</div>
         </td>
       </tr>
     </table>

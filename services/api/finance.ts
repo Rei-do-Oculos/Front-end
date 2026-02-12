@@ -7,6 +7,13 @@ export interface StoreExpense {
   total: number;
 }
 
+export interface RevenueByPaymentMethod {
+  credit_card: number;
+  debit_card: number;
+  cash: number;
+  pix: number;
+}
+
 export interface DashboardStats {
   revenue: number;
   costs: number;
@@ -24,6 +31,7 @@ export interface DashboardStats {
     total: number;
   };
   expenses_by_store?: StoreExpense[];
+  revenue_by_payment_method?: RevenueByPaymentMethod;
 }
 
 export interface StoreRevenue {
@@ -73,6 +81,7 @@ export interface FinanceFilters {
   store_id?: number;
   date_from?: string;
   date_to?: string;
+  payment_method?: string[];
 }
 
 class FinanceService {

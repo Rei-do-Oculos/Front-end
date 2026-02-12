@@ -1246,14 +1246,14 @@ export const ServiceOrderForm: React.FC = () => {
                     const snapshotLabels: Record<string, string> = {};
                     if (orderLaboratoryLensesSnapshot?.length) {
                       orderLaboratoryLensesSnapshot.forEach((lens) => {
-                        const priceAtSale = lens.sale_price_at_sale ?? lens.sale_price ?? lens.cost_price;
-                        snapshotLabels[String(lens.id)] = `${lens.name} - R$ ${formatFromNumber(priceAtSale)}${lens.promotion_applied ? ' • Promoção' : ''}`;
+                        const costAtSale = lens.cost_price_at_sale ?? lens.cost_price;
+                        snapshotLabels[String(lens.id)] = `${lens.name} - R$ ${formatFromNumber(costAtSale)}${lens.promotion_applied ? ' • Promoção' : ''}`;
                       });
                     }
                     if (isViewMode && orderLaboratoryLensesSnapshot && orderLaboratoryLensesSnapshot.length > 0) {
                       return orderLaboratoryLensesSnapshot.map((lens) => ({
                         value: String(lens.id),
-                        label: snapshotLabels[String(lens.id)] ?? `${lens.name} - R$ ${formatFromNumber(lens.sale_price ?? lens.cost_price)}`,
+                        label: snapshotLabels[String(lens.id)] ?? `${lens.name} - R$ ${formatFromNumber(lens.cost_price_at_sale ?? lens.cost_price)}`,
                       }));
                     }
                     return filteredLaboratoryLenses.map((lens) => ({

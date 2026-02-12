@@ -22,11 +22,13 @@ import {
   Phone,
   Eye,
   Loader2,
-  Calendar,
   Filter,
   RefreshCw,
   Receipt,
-  FileDown
+  FileDown,
+  CreditCard,
+  Banknote,
+  QrCode
 } from 'lucide-react';
 import { exportCashFlowPdf } from '../../utils/cashFlowExport';
 
@@ -38,7 +40,7 @@ const buildLogoUrl = (logoPath: string | null | undefined): string | null => {
   const path = logoPath.startsWith('storage/') ? logoPath : `storage/${logoPath}`;
   return import.meta.env.DEV ? `/${path}` : `${API_BASE}/${path}`;
 };
-import { Card, Button, Badge, Input, SingleSelect } from '../../components/Common';
+import { Card, Button, Badge, Input, SingleSelect, MultiSelect } from '../../components/Common';
 import { useFinance } from '../../services/hooks/useFinance';
 import { useStores } from '../../services/hooks/useStores';
 import { useStore } from '../../contexts/StoreContext';
@@ -63,6 +65,7 @@ export const CashFlow: React.FC = () => {
   const [filterStore, setFilterStore] = useState<string>('');
   const [filterDateFrom, setFilterDateFrom] = useState<string>('');
   const [filterDateTo, setFilterDateTo] = useState<string>('');
+  const [filterPaymentMethods, setFilterPaymentMethods] = useState<string[]>([]);
 
   // Dados
   const [dashboardData, setDashboardData] = useState<FinanceDashboardResponse | null>(null);
@@ -85,6 +88,13 @@ export const CashFlow: React.FC = () => {
     setFilterDateFrom(thirtyDaysAgo.toISOString().split('T')[0]);
   }, []);
 
+  const paymentMethodOptions = useMemo(() => [
+    { value: 'credit_card', label: 'Cartão de Crédito' },
+    { value: 'debit_card', label: 'Cartão de Débito' },
+    { value: 'cash', label: 'Dinheiro' },
+    { value: 'pix', label: 'PIX' },
+  ], []);
+
   // Carregar dados
   const loadData = useCallback(async () => {
     const filters: any = {};
@@ -98,12 +108,15 @@ export const CashFlow: React.FC = () => {
     if (filterDateTo) {
       filters.date_to = filterDateTo;
     }
+    if (filterPaymentMethods.length > 0) {
+      filters.payment_method = filterPaymentMethods;
+    }
 
     const data = await getDashboard(filters);
     if (data) {
       setDashboardData(data);
     }
-  }, [getDashboard, filterStore, filterDateFrom, filterDateTo]);
+  }, [getDashboard, filterStore, filterDateFrom, filterDateTo, filterPaymentMethods]);
 
   // Refetch ao trocar de loja ou filtros (dashboard usa X-Store-ID quando filterStore vazio)
   useEffect(() => {
@@ -118,6 +131,7 @@ export const CashFlow: React.FC = () => {
 
   const handleClearFilters = () => {
     setFilterStore('');
+    setFilterPaymentMethods([]);
     const today = new Date();
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(today.getDate() - 30);
@@ -168,13 +182,19 @@ export const CashFlow: React.FC = () => {
           const s = stores.find((st) => String(st.id) === filterStore);
           return s ? (s.unity ? `${s.name} (${s.unity})` : s.name) : 'Todas as Lojas';
         })();
+    const paymentMethodLabels = filterPaymentMethods.length > 0
+      ? filterPaymentMethods
+          .map((v) => paymentMethodOptions.find((o) => o.value === v)?.label ?? v)
+          .join(', ')
+      : null;
     return {
       dateFrom: filterDateFrom,
       dateTo: filterDateTo,
       storeId: filterStore,
       storeLabel,
+      paymentMethods: paymentMethodLabels,
     };
-  }, [filterDateFrom, filterDateTo, filterStore, stores]);
+  }, [filterDateFrom, filterDateTo, filterStore, filterPaymentMethods, paymentMethodOptions, stores]);
 
   const handleExportPdf = async () => {
     if (!dashboardData || !filterDateFrom || !filterDateTo) return;
@@ -330,7 +350,7 @@ export const CashFlow: React.FC = () => {
           <Filter size={18} style={{ color: 'var(--store-color)' }} />
           <h3 className="text-sm font-bold text-slate-900">Filtros</h3>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
           <SingleSelect
             label="Loja"
             options={storeOptions}
@@ -348,6 +368,13 @@ export const CashFlow: React.FC = () => {
             type="date"
             value={filterDateTo}
             onChange={(e) => setFilterDateTo(e.target.value)}
+          />
+          <MultiSelect
+            label="Forma de pagamento"
+            options={paymentMethodOptions}
+            value={filterPaymentMethods}
+            onChange={setFilterPaymentMethods}
+            placeholder="Todas"
           />
           <div className="flex items-end">
             <Button onClick={handleApplyFilters} className="w-full">
@@ -469,6 +496,49 @@ export const CashFlow: React.FC = () => {
               <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Despesas</p>
               <p className="text-2xl font-black text-orange-600">{formatCurrency(dashboard?.expenses ?? 0)}</p>
               <p className="text-xs text-slate-500 mt-2">Clique para ver detalhes</p>
+            </div>
+          </div>
+
+          {/* Totais por forma de pagamento: Cartão, Dinheiro, PIX */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm hover:shadow-lg transition-all">
+              <div className="flex items-center justify-between mb-4">
+                <div className="p-3 rounded-xl bg-blue-50 text-blue-600">
+                  <CreditCard size={24} />
+                </div>
+              </div>
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Cartão</p>
+              <p className="text-2xl font-black text-blue-600">
+                {formatCurrency(
+                  ((dashboard?.revenue_by_payment_method?.credit_card ?? 0) +
+                    (dashboard?.revenue_by_payment_method?.debit_card ?? 0)) || 0
+                )}
+              </p>
+            </div>
+            <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm hover:shadow-lg transition-all">
+              <div className="flex items-center justify-between mb-4">
+                <div className="p-3 rounded-xl bg-green-50 text-green-600">
+                  <Banknote size={24} />
+                </div>
+              </div>
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Dinheiro</p>
+              <p className="text-2xl font-black text-green-600">
+                {formatCurrency(dashboard?.revenue_by_payment_method?.cash ?? 0)}
+              </p>
+            </div>
+            <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm hover:shadow-lg transition-all">
+              <div className="flex items-center justify-between mb-4">
+                <div 
+                  className="p-3 rounded-xl"
+                  style={{ backgroundColor: 'var(--store-color-light)', color: 'var(--store-color)' }}
+                >
+                  <QrCode size={24} />
+                </div>
+              </div>
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">PIX</p>
+              <p className="text-2xl font-black" style={{ color: 'var(--store-color)' }}>
+                {formatCurrency(dashboard?.revenue_by_payment_method?.pix ?? 0)}
+              </p>
             </div>
           </div>
 
