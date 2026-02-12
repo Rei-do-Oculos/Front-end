@@ -5,6 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import { authService, type ProfileUpdateDto } from '../../services/api/auth';
 import { useAuth } from '../../services/hooks/useAuth';
 import { useNotification } from '../../hooks/useNotification';
+import { normalizeEmail, normalizeToTitleCase } from '../../utils/formatters';
 
 export const ProfilePage: React.FC = () => {
   const navigate = useNavigate();
@@ -115,6 +116,10 @@ export const ProfilePage: React.FC = () => {
               placeholder="Seu nome"
               value={formData.name}
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+              onBlur={(e) => {
+                const normalized = normalizeToTitleCase(e.target.value);
+                if (normalized !== e.target.value) setFormData({ ...formData, name: normalized });
+              }}
               required
             />
             <Input
@@ -123,6 +128,10 @@ export const ProfilePage: React.FC = () => {
               placeholder="seu@email.com"
               value={formData.email}
               onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+              onBlur={(e) => {
+                const normalized = normalizeEmail(e.target.value);
+                if (normalized !== e.target.value) setFormData({ ...formData, email: normalized });
+              }}
               required
             />
           </div>

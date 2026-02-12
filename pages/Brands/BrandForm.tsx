@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { Save, ArrowLeft, Trash2 } from 'lucide-react';
 import { Card, Button, Input } from '../../components/Common';
 import { useParams } from 'react-router-dom';
+import { normalizeToTitleCase } from '../../utils/formatters';
 
 // Mock de dados - substituir por chamada de API
 const mockBrands = [
@@ -71,6 +72,10 @@ export const BrandForm: React.FC = () => {
               placeholder="Ex: Essilor, Hoya, Zeiss..."
               value={name}
               onChange={(e) => setName(e.target.value)}
+              onBlur={(e) => {
+                const normalized = normalizeToTitleCase(e.target.value);
+                if (normalized !== e.target.value) setName(normalized);
+              }}
               required
             />
           </div>

@@ -7,6 +7,7 @@ import { CreateClientDto, UpdateClientDto } from '../../services/api/clients';
 import { useStore } from '../../contexts/StoreContext';
 import { usePermission } from '../../services/hooks/usePermission';
 import { useNotification } from '../../hooks/useNotification';
+import { normalizeEmail, normalizeToTitleCase } from '../../utils/formatters';
 
 export const ClientForm: React.FC = () => {
   const { id } = useParams();
@@ -227,6 +228,10 @@ export const ClientForm: React.FC = () => {
               placeholder="Nome completo do cliente" 
               value={formData.name}
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+              onBlur={(e) => {
+                const normalized = normalizeToTitleCase(e.target.value);
+                if (normalized !== e.target.value) setFormData({ ...formData, name: normalized });
+              }}
               required 
             />
             <Input 
@@ -257,6 +262,10 @@ export const ClientForm: React.FC = () => {
               placeholder="cliente@exemplo.com" 
               value={formData.email || ''}
               onChange={(e) => setFormData({ ...formData, email: e.target.value || null })}
+              onBlur={(e) => {
+                const normalized = normalizeEmail(e.target.value);
+                if (normalized !== e.target.value) setFormData({ ...formData, email: normalized || null });
+              }}
             />
           </div>
 

@@ -7,6 +7,7 @@ import { usePlucks } from '../../services/hooks/usePlucks';
 import { permissionsService } from '../../services/api/permissions';
 import { translatePermission, translateResource } from '../../utils/translations';
 import { useNotification } from '../../hooks/useNotification';
+import { normalizeToTitleCase } from '../../utils/formatters';
 
 /** Setores na ordem da sidebar com seus módulos */
 const SECTOR_ORDER: { label: string; modules: string[] }[] = [
@@ -331,6 +332,10 @@ export const ProfileForm: React.FC = () => {
             placeholder="Ex: Supervisor"
             value={formData.name}
             onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+            onBlur={(e) => {
+              const normalized = normalizeToTitleCase(e.target.value);
+              if (normalized !== e.target.value) setFormData({ ...formData, name: normalized });
+            }}
             required
             error={errors.name}
           />

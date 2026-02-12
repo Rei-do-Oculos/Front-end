@@ -7,6 +7,7 @@ import { useNotification } from '../../hooks/useNotification';
 import { usePermission } from '../../services/hooks/usePermission';
 import { useActiveFilters } from '../../hooks/useActiveFilters';
 import { useStore } from '../../contexts/StoreContext';
+import { normalizeToTitleCase } from '../../utils/formatters';
 
 export const FrameTypeList: React.FC = () => {
   const { showSuccess, showError } = useNotification();
@@ -478,6 +479,10 @@ export const FrameTypeList: React.FC = () => {
               placeholder="Ex: Acetato"
               value={formData.name}
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+              onBlur={(e) => {
+                const normalized = normalizeToTitleCase(e.target.value);
+                if (normalized !== e.target.value) setFormData({ ...formData, name: normalized });
+              }}
               required
             />
 

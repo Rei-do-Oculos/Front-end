@@ -5,7 +5,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useLaboratories } from '../../services/hooks/useLaboratories';
 import { useNotification } from '../../hooks/useNotification';
 import { laboratorySchema, formatZodErrors } from '../../schemas/laboratory.schema';
-import { maskCnpjInput, maskPhoneInput } from '../../utils/formatters';
+import { maskCnpjInput, maskPhoneInput, normalizeEmail, normalizeToTitleCase } from '../../utils/formatters';
 
 export const LaboratoryForm: React.FC = () => {
   const { id } = useParams();
@@ -175,6 +175,10 @@ export const LaboratoryForm: React.FC = () => {
                 placeholder="Ex: Essilor"
                 value={formData.name}
                 onChange={(e) => handleFieldChange('name', e.target.value)}
+                onBlur={(e) => {
+                  const normalized = normalizeToTitleCase(e.target.value);
+                  if (normalized !== e.target.value) handleFieldChange('name', normalized);
+                }}
                 required
                 className={errors.name ? 'border-red-500 focus:border-red-500 focus:ring-red-500/20' : ''}
               />
@@ -216,6 +220,10 @@ export const LaboratoryForm: React.FC = () => {
                 placeholder="contato@laboratorio.com"
                 value={formData.email}
                 onChange={(e) => handleFieldChange('email', e.target.value)}
+                onBlur={(e) => {
+                  const normalized = normalizeEmail(e.target.value);
+                  if (normalized !== e.target.value) handleFieldChange('email', normalized);
+                }}
               />
               {errors.email && (
                 <p className="mt-1 text-xs text-red-500 font-medium">{errors.email}</p>
@@ -230,6 +238,10 @@ export const LaboratoryForm: React.FC = () => {
                 placeholder="Nome do responsável"
                 value={formData.contact_name}
                 onChange={(e) => handleFieldChange('contact_name', e.target.value)}
+                onBlur={(e) => {
+                  const normalized = normalizeToTitleCase(e.target.value);
+                  if (normalized !== e.target.value) handleFieldChange('contact_name', normalized);
+                }}
               />
               {errors.contact_name && (
                 <p className="mt-1 text-xs text-red-500 font-medium">{errors.contact_name}</p>

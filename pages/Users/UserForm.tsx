@@ -10,6 +10,7 @@ import { rolesService } from '../../services/api/roles';
 import { permissionsService } from '../../services/api/permissions';
 import { storesService } from '../../services/api/stores';
 import { useNotification } from '../../hooks/useNotification';
+import { normalizeEmail, normalizeToTitleCase } from '../../utils/formatters';
 import { useAuth } from '../../services/hooks/useAuth';
 
 export const UserForm: React.FC = () => {
@@ -271,6 +272,10 @@ export const UserForm: React.FC = () => {
               placeholder="Nome do usuário"
               value={formData.name}
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+              onBlur={(e) => {
+                const normalized = normalizeToTitleCase(e.target.value);
+                if (normalized !== e.target.value) setFormData({ ...formData, name: normalized });
+              }}
               required
             />
             <Input
@@ -279,6 +284,10 @@ export const UserForm: React.FC = () => {
               placeholder="usuario@reidooculos.com.br"
               value={formData.email}
               onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+              onBlur={(e) => {
+                const normalized = normalizeEmail(e.target.value);
+                if (normalized !== e.target.value) setFormData({ ...formData, email: normalized });
+              }}
               required
             />
             {!isEditMode && (

@@ -8,6 +8,7 @@ import { useNotification } from '../../hooks/useNotification';
 import { usePermission } from '../../services/hooks/usePermission';
 import { PAYMENT_METHOD_LABELS, PaymentMethod } from '../../services/api/expenses';
 import { AccessDeniedCard } from '../../components/Common';
+import { normalizeToTitleCase } from '../../utils/formatters';
 
 const formatCurrency = (value: string): string => {
   const numbers = value.replace(/\D/g, '');
@@ -203,6 +204,10 @@ export const ExpenseForm: React.FC = () => {
               placeholder="Ex: Aluguel, Energia, Material"
               value={formData.name}
               onChange={(e) => handleFieldChange('name', e.target.value)}
+              onBlur={(e) => {
+                const normalized = normalizeToTitleCase(e.target.value);
+                if (normalized !== e.target.value) handleFieldChange('name', normalized);
+              }}
               required
             />
             <div>

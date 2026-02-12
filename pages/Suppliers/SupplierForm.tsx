@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { Save, ArrowLeft, Building2, User, Phone, Globe, Briefcase, Trash2 } from 'lucide-react';
 import { Card, Button, Input, Select } from '../../components/Common';
 import { useParams } from 'react-router-dom';
+import { normalizeEmail, normalizeToTitleCase } from '../../utils/formatters';
 
 // Mock de dados - substituir por chamada de API
 const mockSuppliers = [
@@ -97,6 +98,10 @@ export const SupplierForm: React.FC = () => {
                  placeholder="Ex: Laboratório Óptico Maringá"
                  value={formData.name}
                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                 onBlur={(e) => {
+                   const normalized = normalizeToTitleCase(e.target.value);
+                   if (normalized !== e.target.value) setFormData({ ...formData, name: normalized });
+                 }}
                />
              </div>
              <Input 
@@ -138,6 +143,10 @@ export const SupplierForm: React.FC = () => {
                placeholder="Nome do contato principal"
                value={formData.consultant}
                onChange={(e) => setFormData({ ...formData, consultant: e.target.value })}
+               onBlur={(e) => {
+                 const normalized = normalizeToTitleCase(e.target.value);
+                 if (normalized !== e.target.value) setFormData({ ...formData, consultant: normalized });
+               }}
              />
              <Input 
                label="Telefone de Contato" 
@@ -150,6 +159,10 @@ export const SupplierForm: React.FC = () => {
                placeholder="comercial@fornecedor.com.br"
                value={formData.email}
                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+               onBlur={(e) => {
+                 const normalized = normalizeEmail(e.target.value);
+                 if (normalized !== e.target.value) setFormData({ ...formData, email: normalized });
+               }}
              />
              <Input 
                label="Site / Portal de Pedidos" 

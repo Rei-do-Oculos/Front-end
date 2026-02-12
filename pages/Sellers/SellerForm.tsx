@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { ArrowLeft, Save, User, Phone, Mail, Target, Percent, Store, Trash2 } from 'lucide-react';
 import { Card, Button, Input, Select } from '../../components/Common';
 import { useParams } from 'react-router-dom';
+import { normalizeEmail, normalizeToTitleCase } from '../../utils/formatters';
 
 // Mock de dados - substituir por chamada de API
 const mockSellers = [
@@ -95,6 +96,10 @@ export const SellerForm: React.FC = () => {
                   placeholder="Ex: Carla Nascimento" 
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  onBlur={(e) => {
+                    const normalized = normalizeToTitleCase(e.target.value);
+                    if (normalized !== e.target.value) setFormData({ ...formData, name: normalized });
+                  }}
                   required 
                 />
               </div>
@@ -104,6 +109,10 @@ export const SellerForm: React.FC = () => {
                 type="email"
                 value={formData.email}
                 onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                onBlur={(e) => {
+                  const normalized = normalizeEmail(e.target.value);
+                  if (normalized !== e.target.value) setFormData({ ...formData, email: normalized });
+                }}
               />
               <Input 
                 label="Telefone" 

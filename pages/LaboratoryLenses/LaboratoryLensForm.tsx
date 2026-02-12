@@ -6,6 +6,7 @@ import { useLaboratoryLenses } from '../../services/hooks/useLaboratoryLenses';
 import { useLaboratories } from '../../services/hooks/useLaboratories';
 import { useNotification } from '../../hooks/useNotification';
 import { laboratoryLensSchema, formatZodErrors } from '../../schemas/laboratoryLens.schema';
+import { normalizeToTitleCase } from '../../utils/formatters';
 
 // Função para formatar valor como moeda brasileira
 const formatCurrency = (value: string): string => {
@@ -240,6 +241,10 @@ export const LaboratoryLensForm: React.FC = () => {
                 placeholder="Ex: Varilux Physio 3.0"
                 value={formData.name}
                 onChange={(e) => handleFieldChange('name', e.target.value)}
+                onBlur={(e) => {
+                  const normalized = normalizeToTitleCase(e.target.value);
+                  if (normalized !== e.target.value) handleFieldChange('name', normalized);
+                }}
                 required
               />
               {errors.name && (

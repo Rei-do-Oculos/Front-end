@@ -5,6 +5,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useFrameTypes } from '../../services/hooks/useFrameTypes';
 import { CreateFrameTypeDto, UpdateFrameTypeDto } from '../../services/api/frameTypes';
 import { useNotification } from '../../hooks/useNotification';
+import { normalizeToTitleCase } from '../../utils/formatters';
 
 export const FrameTypeForm: React.FC = () => {
   const { id } = useParams();
@@ -165,6 +166,10 @@ export const FrameTypeForm: React.FC = () => {
               placeholder="Ex: Acetato"
               value={formData.name}
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+              onBlur={(e) => {
+                const normalized = normalizeToTitleCase(e.target.value);
+                if (normalized !== e.target.value) setFormData({ ...formData, name: normalized });
+              }}
               required
             />
           </div>

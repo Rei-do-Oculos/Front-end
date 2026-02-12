@@ -5,6 +5,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useLenses } from '../../services/hooks/useLenses';
 import { CreateLensDto, UpdateLensDto } from '../../services/api/lenses';
 import { useNotification } from '../../hooks/useNotification';
+import { normalizeToTitleCase } from '../../utils/formatters';
 
 export const LensForm: React.FC = () => {
   const { id } = useParams();
@@ -165,6 +166,10 @@ export const LensForm: React.FC = () => {
               placeholder="Ex: Varilux Physio 3.0"
               value={formData.name}
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+              onBlur={(e) => {
+                const normalized = normalizeToTitleCase(e.target.value);
+                if (normalized !== e.target.value) setFormData({ ...formData, name: normalized });
+              }}
               required
             />
           </div>

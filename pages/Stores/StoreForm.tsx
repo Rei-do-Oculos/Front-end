@@ -6,6 +6,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useStores } from '../../services/hooks/useStores';
 import { Store } from '../../services/api/stores';
 import { useNotification } from '../../hooks/useNotification';
+import { normalizeEmail, normalizeToTitleCase } from '../../utils/formatters';
 
 const API_BASE_URL = (import.meta.env.DEV ? '/api' : ((import.meta as any).env?.VITE_API_URL || 'http://localhost:8080/api')) as string;
 // Para assets (logo etc), em dev usa o backend direto pois /storage não passa pelo proxy
@@ -311,6 +312,10 @@ export const StoreForm: React.FC = () => {
                     placeholder="Ex: Rei do Óculos - Maringá Centro"
                     value={formData.name}
                     onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                    onBlur={(e) => {
+                      const normalized = normalizeToTitleCase(e.target.value);
+                      if (normalized !== e.target.value) setFormData({ ...formData, name: normalized });
+                    }}
                   />
                 </div>
                 <div className="md:col-span-2">
@@ -331,6 +336,10 @@ export const StoreForm: React.FC = () => {
                     placeholder="Empresa Óptica LTDA"
                     value={formData.fancy_name}
                     onChange={(e) => setFormData({ ...formData, fancy_name: e.target.value })}
+                    onBlur={(e) => {
+                      const normalized = normalizeToTitleCase(e.target.value);
+                      if (normalized !== e.target.value) setFormData({ ...formData, fancy_name: normalized });
+                    }}
                   />
                 </div>
                 <Input 
@@ -418,6 +427,10 @@ export const StoreForm: React.FC = () => {
                     type="email"
                     value={formData.email}
                     onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                    onBlur={(e) => {
+                      const normalized = normalizeEmail(e.target.value);
+                      if (normalized !== e.target.value) setFormData({ ...formData, email: normalized });
+                    }}
                   />
                 </div>
              </div>

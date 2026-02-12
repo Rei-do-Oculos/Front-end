@@ -80,3 +80,36 @@ export const formatCNPJ = (cnpj: string): string => {
   if (cleaned.length !== 14) return cnpj;
   return maskCnpjInput(cleaned);
 };
+
+/**
+ * Palavras que permanecem em minúsculo no meio de nomes (exceto no início)
+ */
+const PT_LOWER_WORDS = new Set(['de', 'da', 'do', 'das', 'dos', 'e', 'o', 'a', 'em', 'no', 'na', 'nos', 'nas', 'um', 'uma']);
+
+/**
+ * Normaliza texto para formato título (primeira letra maiúscula em cada palavra).
+ * Evita nomes em MAIÚSCULAS. Palavras como "de", "da", "do" ficam minúsculas no meio.
+ * Ex: "JOÃO DA SILVA" → "João da Silva"
+ */
+export const normalizeToTitleCase = (value: string): string => {
+  if (!value || typeof value !== 'string') return value;
+  const trimmed = value.trim();
+  if (!trimmed) return value;
+  return trimmed
+    .toLowerCase()
+    .split(/\s+/)
+    .map((word, i) => {
+      if (i > 0 && PT_LOWER_WORDS.has(word)) return word;
+      return word.charAt(0).toUpperCase() + word.slice(1);
+    })
+    .join(' ');
+};
+
+/**
+ * Normaliza e-mail para consistência de cadastro.
+ * Remove espaços nas pontas e converte para minúsculo.
+ */
+export const normalizeEmail = (value: string): string => {
+  if (!value || typeof value !== 'string') return value;
+  return value.trim().toLowerCase();
+};
