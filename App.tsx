@@ -1,5 +1,5 @@
 import React from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { Layout } from './components/Layout';
 import { Dashboard } from './pages/Dashboard';
 import { ClientList } from './pages/Clients/ClientList';
@@ -45,6 +45,7 @@ import { LaboratoryLensForm } from './pages/LaboratoryLenses/LaboratoryLensForm'
 import { ServiceOrderList, ServiceOrderForm, ServiceOrderLabList, ServiceOrderChangePayment, ServiceOrderSheetPage } from './pages/ServiceOrders';
 import { Chat } from './pages/Chat';
 import { Login } from './pages/Login';
+import { NotFound404 } from './pages/NotFound404';
 import { PWAUpdatePrompt } from './components/PWAUpdatePrompt';
 import { useAuth } from './services/hooks/useAuth';
 import { StoreProvider, useStore } from './contexts/StoreContext';
@@ -217,7 +218,7 @@ const StoreSelectorWrapper: React.FC<{ onLogout: () => void }> = ({ onLogout }) 
         <Route path="/audit" element={<ProtectedRoute><AuditList /></ProtectedRoute>} />
         <Route path="/trash" element={<ProtectedRoute><TrashList /></ProtectedRoute>} />
         <Route path="/trash/item/:model/:id" element={<ProtectedRoute><TrashDetail /></ProtectedRoute>} />
-        <Route path="*" element={<Navigate to="/" />} />
+        <Route path="*" element={<ProtectedRoute><NotFound404 /></ProtectedRoute>} />
       </Routes>
     </Layout>
   );
