@@ -174,81 +174,57 @@ const SidebarContent: React.FC<SidebarContentProps> = ({
         <nav className="space-y-1">
           {filteredMenuItems.map((item) => (
             <div key={item.title} className="group">
-              {item.path === '/pdv' ? (
-                <a
-                  href="#/pdv"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className={`w-full flex items-center justify-between p-3 ${styles.button.default} cursor-pointer transition-all duration-300 ${
-                    item.highlight ? 'border border-[var(--store-color-opacity-20)] text-[var(--store-color-dark)] hover:bg-[var(--store-color)] hover:text-white mb-2' : ''
-                  } ${item.highlight && isActive(item.path, item.submenu) ? 'text-white border-transparent shadow-lg' : ''}`}
-                  style={item.highlight && isActive(item.path, item.submenu) ? {
-                    backgroundColor: 'var(--store-color)',
-                    boxShadow: '0 10px 15px -3px var(--store-color-opacity-20)',
-                  } : item.highlight ? {
-                    backgroundColor: 'var(--store-color-opacity-10)',
-                  } : undefined}
-                >
-                  <div className="flex items-center gap-3.5">
-                    <span className={`${isActive(item.path) ? 'text-white' : ''} group-hover:scale-110 transition-transform`}>
-                      {item.icon}
-                    </span>
-                    {(isSidebarOpen || isMobileMenuOpen) && <span className="text-sm font-medium tracking-wide">{item.title}</span>}
-                  </div>
-                </a>
-              ) : (
-                <Link
-                  to={item.path}
-                  onClick={(e) => {
-                    if (item.submenu) {
-                      e.preventDefault();
-                      toggleSubmenu(item.title);
-                    }
-                  }}
-                  className={`w-full flex items-center justify-between p-3 ${styles.button.default} cursor-pointer transition-all duration-300 ${
-                    item.highlight ? 'mb-2' : ''
-                  } ${
-                    isActive(item.path, item.submenu) && !item.highlight
-                      ? 'text-white shadow-lg' 
-                      : !item.highlight ? 'text-slate-400 hover:bg-white/5 hover:text-white' : ''
-                  }`}
-                  style={item.highlight && isActive(item.path, item.submenu) ? {
-                    backgroundColor: 'var(--store-color)',
-                    color: 'white',
-                    borderColor: 'transparent',
-                    boxShadow: '0 10px 15px -3px var(--store-color-opacity-20)',
-                  } : item.highlight ? {
-                    backgroundColor: 'var(--store-color-opacity-10)',
-                    borderColor: 'var(--store-color-opacity-20)',
-                    color: 'var(--store-color-dark)',
-                  } : isActive(item.path, item.submenu) ? {
-                    backgroundColor: 'var(--store-color)',
-                    boxShadow: '0 10px 15px -3px var(--store-color-opacity-10)',
-                  } : undefined}
-                  onMouseEnter={(e) => {
-                    if (item.highlight && !isActive(item.path, item.submenu)) {
-                      e.currentTarget.style.backgroundColor = 'var(--store-color)';
-                      e.currentTarget.style.color = 'white';
-                    }
-                  }}
-                  onMouseLeave={(e) => {
-                    if (item.highlight && !isActive(item.path, item.submenu)) {
-                      e.currentTarget.style.backgroundColor = 'var(--store-color-opacity-10)';
-                      e.currentTarget.style.color = 'var(--store-color-dark)';
-                    }
-                  }}
-                >
-                  <div className="flex items-center gap-3.5">
-                    <span className={`${isActive(item.path) ? 'text-white' : ''} group-hover:scale-110 transition-transform`}>
-                      {item.icon}
-                    </span>
-                    {(isSidebarOpen || isMobileMenuOpen) && <span className="text-sm font-medium tracking-wide">{item.title}</span>}
-                  </div>
-                  {(isSidebarOpen || isMobileMenuOpen) && item.submenu && (
-                    <ChevronDown size={14} className={`transition-transform duration-300 ${openSubmenus.includes(item.title) ? 'rotate-180' : ''}`} />
-                  )}
-                </Link>
-              )}
+              <Link
+                to={item.path}
+                onClick={(e) => {
+                  if (item.submenu) {
+                    e.preventDefault();
+                    toggleSubmenu(item.title);
+                  }
+                }}
+                className={`w-full flex items-center justify-between p-3 ${styles.button.default} cursor-pointer transition-all duration-300 ${
+                  item.highlight ? 'border border-[var(--store-color-opacity-20)] text-[var(--store-color-dark)] hover:bg-[var(--store-color)] hover:text-white mb-2' : 'mb-2'
+                } ${
+                  item.highlight
+                    ? (isActive(item.path, item.submenu) ? 'text-white border-transparent shadow-lg' : '')
+                    : (isActive(item.path, item.submenu) ? 'text-white shadow-lg' : 'text-slate-400 hover:bg-white/5 hover:text-white')
+                }`}
+                style={item.highlight && isActive(item.path, item.submenu) ? {
+                  backgroundColor: 'var(--store-color)',
+                  boxShadow: '0 10px 15px -3px var(--store-color-opacity-20)',
+                } : item.highlight ? {
+                  backgroundColor: 'var(--store-color-opacity-10)',
+                } : item.highlight && !isActive(item.path, item.submenu) ? {
+                  backgroundColor: 'var(--store-color-opacity-10)',
+                  borderColor: 'var(--store-color-opacity-20)',
+                  color: 'var(--store-color-dark)',
+                } : isActive(item.path, item.submenu) ? {
+                  backgroundColor: 'var(--store-color)',
+                  boxShadow: '0 10px 15px -3px var(--store-color-opacity-10)',
+                } : undefined}
+                onMouseEnter={(e) => {
+                  if (item.highlight && !isActive(item.path, item.submenu)) {
+                    e.currentTarget.style.backgroundColor = 'var(--store-color)';
+                    e.currentTarget.style.color = 'white';
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (item.highlight && !isActive(item.path, item.submenu)) {
+                    e.currentTarget.style.backgroundColor = 'var(--store-color-opacity-10)';
+                    e.currentTarget.style.color = 'var(--store-color-dark)';
+                  }
+                }}
+              >
+                <div className="flex items-center gap-3.5">
+                  <span className={`${isActive(item.path) ? 'text-white' : ''} group-hover:scale-110 transition-transform`}>
+                    {item.icon}
+                  </span>
+                  {(isSidebarOpen || isMobileMenuOpen) && <span className="text-sm font-medium tracking-wide">{item.title}</span>}
+                </div>
+                {(isSidebarOpen || isMobileMenuOpen) && item.submenu && (
+                  <ChevronDown size={14} className={`transition-transform duration-300 ${openSubmenus.includes(item.title) ? 'rotate-180' : ''}`} />
+                )}
+              </Link>
               {(isSidebarOpen || isMobileMenuOpen) && item.submenu && openSubmenus.includes(item.title) && (
                 <div 
                   className="mt-1 ml-6 pl-4 border-l space-y-1 animate-in slide-in-from-top-2"
