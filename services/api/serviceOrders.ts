@@ -301,9 +301,11 @@ class ServiceOrdersService {
     }
   }
 
-  async plucks(): Promise<any[]> {
+  async plucks(params?: { client_id?: number }): Promise<any[]> {
     try {
-      const { data } = await apiClient.get<{ success: boolean; data: { plucks: any[] } }>(`${this.endpoint}/plucks`);
+      const { data } = await apiClient.get<{ success: boolean; data: { plucks: any[] } }>(`${this.endpoint}/plucks`, {
+        params: params ?? {},
+      });
       let plucks = data.data?.plucks || [];
       if (!Array.isArray(plucks) && typeof plucks === 'object') {
         plucks = Object.values(plucks);

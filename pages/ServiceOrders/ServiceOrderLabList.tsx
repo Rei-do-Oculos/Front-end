@@ -836,7 +836,7 @@ export const ServiceOrderLabList: React.FC = () => {
                           <div>
                             <p 
                               className="text-sm font-bold text-slate-900 transition-colors cursor-pointer"
-                              onClick={() => navigate(`/service-orders/${order.id}`)}
+                              onClick={() => order.client_id && navigate(`/clients/${order.client_id}`)}
                               onMouseEnter={(e) => {
                                 e.currentTarget.style.color = 'var(--store-color-dark)';
                               }}

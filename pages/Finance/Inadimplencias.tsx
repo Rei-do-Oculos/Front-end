@@ -292,14 +292,15 @@ export const Inadimplencias: React.FC = () => {
     return String(osNumber).padStart(4, '0');
   };
 
-  // Calcular dias de atraso
-  const getDaysOverdue = (arrivedAt: string | null, overdueDays: number) => {
+  // Calcular dias de atraso (na tela de inadimplências todas as OS já são overdue)
+  // Para OS inadimplentes: dias desde arrived_at (quando deveria retirar), não usa grace period
+  const getDaysOverdue = (arrivedAt: string | null) => {
     if (!arrivedAt) return 0;
     const arrived = new Date(arrivedAt);
-    const overdueDate = new Date(arrived);
-    overdueDate.setDate(overdueDate.getDate() + (overdueDays || 5));
     const today = new Date();
-    const diffTime = today.getTime() - overdueDate.getTime();
+    today.setHours(0, 0, 0, 0);
+    arrived.setHours(0, 0, 0, 0);
+    const diffTime = today.getTime() - arrived.getTime();
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
     return Math.max(0, diffDays);
   };
@@ -444,7 +445,7 @@ export const Inadimplencias: React.FC = () => {
                 </tr>
               ) : (
                 ordersList.map((order) => {
-                  const daysOverdue = getDaysOverdue(order.arrived_at, order.overdue_days);
+                  const daysOverdue = getDaysOverdue(order.arrived_at);
                   
                   return (
                     <tr key={order.id} className="group hover:bg-red-50/30 transition-colors">
@@ -461,7 +462,7 @@ export const Inadimplencias: React.FC = () => {
                           <div>
                             <p 
                               className="text-sm font-bold text-slate-900 hover:text-red-600 transition-colors cursor-pointer"
-                              onClick={() => navigate(`/service-orders/${order.id}`)}
+                              onClick={() => order.client_id && navigate(`/clients/${order.client_id}`)}
                             >
                               {order.client?.name || '-'}
                             </p>

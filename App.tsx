@@ -83,8 +83,11 @@ const App: React.FC = () => {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-white flex items-center justify-center">
-        <div className="w-8 h-8 border-2 border-t-transparent rounded-full animate-spin" style={{ borderColor: 'var(--store-color, #dc2626)' }}></div>
+      <div className="min-h-screen w-full bg-white flex items-center justify-center">
+        <div
+          className="w-12 h-12 border-4 border-slate-100 rounded-full animate-spin"
+          style={{ borderTopColor: 'var(--store-color, #dc2626)' }}
+        />
       </div>
     );
   }

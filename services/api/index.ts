@@ -10,5 +10,6 @@ export * from './orders';
 export * from './permissions';
 export * from './roles';
 export * from './serviceOrders';
+export * from './clientPrescriptions';
 export * from './stores';
 export * from './users';

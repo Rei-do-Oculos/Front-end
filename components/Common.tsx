@@ -187,7 +187,7 @@ export const Pagination: React.FC<PaginationProps> = ({
   ];
 
   return (
-    <div className="mt-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-t border-slate-100 pt-6 px-6">
+    <div className="mt-6 sm:mt-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-t border-slate-100 pt-4 sm:pt-6 px-4 sm:px-6">
       <div className="flex items-center gap-2 flex-wrap">
         {pagination.totalPages > 1 && (
           <>
@@ -1059,7 +1059,7 @@ export const Modal: React.FC<ModalProps> = ({
 
   const modalContent = (
     <div 
-      className="fixed inset-0 z-[100] flex items-center justify-center p-4"
+      className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-0 sm:p-4 min-h-screen max-h-[100dvh] overflow-y-auto"
       onClick={(e) => {
         if (e.target === e.currentTarget) {
           handleCancel();
@@ -1069,13 +1069,13 @@ export const Modal: React.FC<ModalProps> = ({
       {/* Backdrop - cobre toda a viewport incluindo header */}
       <div className="fixed inset-0 bg-black/50 backdrop-blur-sm" aria-hidden />
       
-      {/* Modal */}
+      {/* Modal - em mobile ocupa a base da tela (estilo bottom sheet), em desktop centralizado */}
       <div 
-        className={`relative z-[101] bg-white rounded-2xl shadow-2xl w-full ${sizeClasses[size]} overflow-hidden`}
+        className={`relative z-[101] bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl w-full sm:max-h-[90vh] max-h-[85dvh] flex flex-col ${sizeClasses[size]} overflow-hidden`}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="px-6 py-5 border-b border-slate-100 flex items-start gap-4">
+        <div className="px-4 sm:px-6 py-4 sm:py-5 border-b border-slate-100 flex items-start gap-3 sm:gap-4 shrink-0">
           <div className={`${config.iconBg} p-3 rounded-xl shrink-0`}>
             {config.icon}
           </div>
@@ -1096,16 +1096,16 @@ export const Modal: React.FC<ModalProps> = ({
           </button>
         </div>
 
-        {/* Content */}
+        {/* Content - scrollável em mobile quando longo */}
         {children && (
-          <div className="px-6 py-6">
+          <div className="px-4 sm:px-6 py-4 sm:py-6 overflow-y-auto flex-1 min-h-0">
             {children}
           </div>
         )}
 
         {/* Footer - só mostra se houver onConfirm ou se não houver children */}
         {(onConfirm || (!children && confirmText)) && (
-          <div className="px-6 py-4 bg-slate-50/50 flex items-center justify-end gap-3">
+          <div className="px-4 sm:px-6 py-4 bg-slate-50/50 flex items-center justify-end gap-3 shrink-0">
             {showCancel && (
               <button
                 onClick={handleCancel}
@@ -1173,7 +1173,7 @@ export const FilterSection: React.FC<{ children: React.ReactNode; onApply?: () =
               </div>
             )}
           </div>
-          <div className="flex items-center justify-end gap-3 mt-8 pt-6 border-t border-slate-100">
+          <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-3 mt-6 sm:mt-8 pt-6 border-t border-slate-100">
             <button 
               onClick={onClear}
               className="px-6 py-2.5 text-[10px] font-bold uppercase tracking-widest text-slate-400 hover:text-red-600 transition-colors border-2 rounded-xl"

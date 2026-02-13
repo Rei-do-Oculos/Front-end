@@ -156,8 +156,8 @@ export const StoreList: React.FC = () => {
       </div>
 
       <Card className="p-0 overflow-hidden border-none shadow-xl shadow-slate-200/40">
-        <div className="overflow-x-auto">
-          <table className="w-full border-collapse">
+        <div className="overflow-x-auto overscroll-x-contain">
+          <table className="w-full border-collapse min-w-[600px]">
             <thead>
               <tr className="bg-slate-50/50 border-b border-slate-100">
                 <th className="px-8 py-5 text-left text-[10px] font-black uppercase text-slate-400 tracking-widest">ID</th>

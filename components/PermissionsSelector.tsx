@@ -6,7 +6,7 @@ import { translatePermission, translateResource } from '../utils/translations';
 /** Setores na ordem da sidebar com seus módulos */
 const SECTOR_ORDER: { label: string; modules: string[] }[] = [
   { label: 'Lojas', modules: ['stores'] },
-  { label: 'Clientes', modules: ['clients'] },
+  { label: 'Clientes', modules: ['clients', 'client-prescriptions'] },
   { label: 'Estoque', modules: ['frames', 'frame-types', 'store-frames'] },
   { label: 'Lentes', modules: ['lenses'] },
   { label: 'Laboratórios', modules: ['laboratories', 'laboratory-lenses'] },

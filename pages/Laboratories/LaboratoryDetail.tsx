@@ -895,7 +895,12 @@ export const LaboratoryDetail: React.FC = () => {
                                 </span>
                               </td>
                               <td className="px-6 py-4">
-                                <p className="text-sm font-bold text-slate-900">{order.client?.name || '-'}</p>
+                                <p 
+                                  className="text-sm font-bold text-slate-900 cursor-pointer hover:opacity-80"
+                                  onClick={() => order.client_id && navigate(`/clients/${order.client_id}`)}
+                                >
+                                  {order.client?.name || '-'}
+                                </p>
                               </td>
                               <td className="px-6 py-4">
                                 <p className="text-sm text-slate-600">{order.store?.name || '-'}</p>

@@ -149,7 +149,7 @@ export const Dashboard: React.FC = () => {
       </div>
 
       {/* 4 Cards: Vendas hoje (usuário), Clientes do dia, OS do dia, OS laboratório */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 lg:gap-8">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-8">
         {canSee.cardVendasHoje && (
           <StatCard
             title="Vendas Hoje (você)"
@@ -188,7 +188,7 @@ export const Dashboard: React.FC = () => {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         {canSee.chartClientes && (
           <Card title="Clientes em Meses" subtitle="Novos clientes por mês">
-            <div className="h-[300px] w-full mt-6">
+            <div className="h-[220px] sm:h-[260px] lg:h-[300px] w-full mt-6">
               <Line
                 id="chart-clientes-meses"
                 data={{
@@ -212,7 +212,7 @@ export const Dashboard: React.FC = () => {
 
         {canSee.chartOs && (
           <Card title="OS em Meses" subtitle="Ordens de serviço por mês">
-            <div className="h-[300px] w-full mt-6">
+            <div className="h-[220px] sm:h-[260px] lg:h-[300px] w-full mt-6">
               <Bar
                 id="chart-os-meses"
                 data={{
@@ -234,7 +234,7 @@ export const Dashboard: React.FC = () => {
 
         {canSee.chartInadimplencia && (
           <Card title="Inadimplência em Meses" subtitle="OS inadimplentes por mês (por chegada)">
-            <div className="h-[300px] w-full mt-6">
+            <div className="h-[220px] sm:h-[260px] lg:h-[300px] w-full mt-6">
               <Bar
                 id="chart-inadimplencia-meses"
                 data={{
@@ -256,7 +256,7 @@ export const Dashboard: React.FC = () => {
 
         {canSee.chartAdimplencia && (
           <Card title="Adimplência em Meses" subtitle="OS finalizadas e faturadas por mês">
-            <div className="h-[300px] w-full mt-6">
+            <div className="h-[220px] sm:h-[260px] lg:h-[300px] w-full mt-6">
               <Bar
                 id="chart-adimplencia-meses"
                 data={{

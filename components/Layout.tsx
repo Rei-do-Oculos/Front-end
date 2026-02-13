@@ -658,6 +658,16 @@ export const Layout: React.FC<{ children: React.ReactNode; onLogout: () => void 
     setIsMobileMenuOpen(false);
   }, [location]);
 
+  // Bloquear scroll do body quando menu mobile estiver aberto
+  useEffect(() => {
+    if (isMobileMenuOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => { document.body.style.overflow = ''; };
+  }, [isMobileMenuOpen]);
+
   // Definir variáveis CSS para a cor do sistema
   useEffect(() => {
     const root = document.documentElement;
@@ -767,28 +777,26 @@ export const Layout: React.FC<{ children: React.ReactNode; onLogout: () => void 
 
       <div className={`flex-1 flex flex-col overflow-hidden ${isPDVPage ? 'w-full' : ''}`}>
         {!isPDVPage && (
-          <header className="bg-white border-b border-gray-100 shrink-0 z-40">
-          {/* Tudo na mesma linha: Horário + Breadcrumbs à esquerda | Seletor de Loja + Usuário à direita */}
-          <div className="min-h-14 flex flex-col sm:flex-row items-start sm:items-center justify-between px-4 sm:px-6 lg:px-10 py-2 sm:py-0 gap-2 sm:gap-0">
-            {/* Esquerda: Horário + Breadcrumbs */}
-            <div className="flex items-center gap-3 sm:gap-4 md:gap-6 min-w-0 flex-1">
-              {/* Botão Menu Mobile */}
+          <header className="bg-white border-b border-gray-100 shrink-0 z-40 sticky top-0">
+          {/* Layout responsivo: Mobile (hamburger + store + user) | Desktop (horário + breadcrumbs | store + user) */}
+          <div className="min-h-14 flex flex-row items-center justify-between px-3 sm:px-6 lg:px-10 py-2 gap-2 sm:gap-4">
+            {/* Esquerda: Botão Menu Mobile (sempre primeiro em telas < lg) + Horário em desktop */}
+            <div className="flex items-center gap-2 sm:gap-4 md:gap-6 min-w-0 flex-1">
+              {/* Botão Menu Mobile - Toggle sidebar (visível em mobile/tablet < 1024px) */}
               <button 
-                className={`lg:hidden p-2 sm:p-2.5 text-slate-600 bg-slate-50 ${styles.button.default} transition-all shrink-0`}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.backgroundColor = 'var(--store-color-light)';
-                  e.currentTarget.style.color = 'var(--store-color-dark)';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.backgroundColor = '';
-                  e.currentTarget.style.color = '';
+                className="lg:hidden flex items-center justify-center gap-2 min-w-[44px] min-h-[44px] p-2.5 text-white font-semibold border-2 shadow-lg active:scale-95 transition-all shrink-0"
+                style={{ 
+                  backgroundColor: 'var(--store-color)', 
+                  borderColor: 'var(--store-color)',
                 }}
                 onClick={() => setIsMobileMenuOpen(true)}
+                aria-label="Abrir menu"
+                title="Abrir menu"
               >
-                <Menu size={18} className="sm:w-5 sm:h-5" />
+                <Menu size={22} className="sm:w-6 sm:h-6" />
               </button>
               
-              {/* Horário */}
+              {/* Horário - oculto em mobile, visível em sm+ */}
               <div className="hidden sm:flex items-center gap-3 md:gap-4 text-xs md:text-sm text-slate-600 shrink-0">
                 <div className="flex items-center gap-1.5 md:gap-2">
                   <Calendar size={14} className="md:w-4 md:h-4 text-slate-400" />
@@ -801,6 +809,19 @@ export const Layout: React.FC<{ children: React.ReactNode; onLogout: () => void 
                 </div>
               </div>
               
+              {/* Breadcrumbs - truncado em mobile, completo em sm+ */}
+              <nav className="hidden sm:flex items-center gap-1.5 text-xs text-slate-500 min-w-0 overflow-hidden" aria-label="Navegação">
+                {getBreadcrumbs().map((crumb, i) => (
+                  <span key={crumb.path} className="flex items-center gap-1.5 min-w-0 shrink">
+                    {i > 0 && <span className="text-slate-300">/</span>}
+                    {i === getBreadcrumbs().length - 1 ? (
+                      <span className="font-semibold text-slate-700 truncate">{crumb.label}</span>
+                    ) : (
+                      <Link to={crumb.path} className="truncate hover:text-[var(--store-color)] transition-colors">{crumb.label}</Link>
+                    )}
+                  </span>
+                ))}
+              </nav>
             </div>
             
             {/* Direita: Seletor de Loja + Usuário */}

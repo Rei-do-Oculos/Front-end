@@ -18,13 +18,17 @@ import {
   User,
   AlertTriangle,
   Loader2,
-  Building2
+  Building2,
+  Trash2
 } from 'lucide-react';
-import { Card, Button, Badge, Pagination, SortableHeader, SortDirection } from '../../components/Common';
+import { Card, Button, Badge, Pagination, SortableHeader, SortDirection, Modal, SingleSelect } from '../../components/Common';
 import { useClients } from '../../services/hooks/useClients';
 import { usePermission } from '../../services/hooks/usePermission';
+import { useNotification } from '../../hooks/useNotification';
 import { Client } from '../../services/api/clients';
 import { ServiceOrder } from '../../services/api/serviceOrders';
+import { clientPrescriptionsService } from '../../services/api/clientPrescriptions';
+import { serviceOrdersService } from '../../services/api/serviceOrders';
 
 // Interface estendida para incluir dados do relacionamento
 interface ClientWithRelationships extends Client {
@@ -121,8 +125,8 @@ const PurchasesTab = ({
 
   return (
     <div>
-    <div className="overflow-x-auto">
-      <table className="w-full">
+    <div className="overflow-x-auto overscroll-x-contain">
+      <table className="w-full min-w-[600px]">
         <thead>
           <tr className="bg-slate-50 border-b border-slate-100">
               <SortableHeader
@@ -210,17 +214,398 @@ const PurchasesTab = ({
   );
 };
 
-const PrescriptionsTab = () => {
-  return (
-    <div className="flex flex-col items-center justify-center py-16 gap-4">
-      <div className="w-20 h-20 rounded-2xl flex items-center justify-center" style={{ backgroundColor: 'var(--store-color-light)' }}>
-        <Stethoscope size={40} style={{ color: 'var(--store-color)' }} />
+interface ClientPrescription {
+  id: number;
+  client_id: number;
+  service_order_id: number | null;
+  file_path: string;
+  description: string | null;
+  created_at: string;
+  service_order?: { id: number; os_number: number; is_lab: boolean };
+}
+
+interface OsOption {
+  id: number;
+  os_number: number;
+  date: string;
+  is_lab: boolean;
+}
+
+const PrescriptionsTab = ({ clientId, hasCreate, hasUpdate, hasDelete }: {
+  clientId: number;
+  hasCreate: boolean;
+  hasUpdate: boolean;
+  hasDelete: boolean;
+}) => {
+  const { showSuccess, showError } = useNotification();
+  const [prescriptions, setPrescriptions] = useState<ClientPrescription[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [osOptions, setOsOptions] = useState<OsOption[]>([]);
+  const [formModalOpen, setFormModalOpen] = useState(false);
+  const [editingPrescription, setEditingPrescription] = useState<ClientPrescription | null>(null);
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [prescriptionToDelete, setPrescriptionToDelete] = useState<ClientPrescription | null>(null);
+  const [viewFileUrl, setViewFileUrl] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
+  const [formData, setFormData] = useState({
+    service_order_id: '' as string | number,
+    description: '',
+    file: null as File | null,
+  });
+
+  const loadPrescriptions = useCallback(async () => {
+    if (!clientId) return;
+    setLoading(true);
+    try {
+      const result = await clientPrescriptionsService.getAll({ client_id: clientId, per_page: 50 });
+      setPrescriptions(result.data);
+    } catch (err: any) {
+      console.error('Erro ao carregar receitas:', err);
+      showError(err.message || 'Erro ao carregar receitas');
+    } finally {
+      setLoading(false);
+    }
+  }, [clientId, showError]);
+
+  const loadOsOptions = useCallback(async () => {
+    if (!clientId) return;
+    try {
+      const plucks = await serviceOrdersService.plucks({ client_id: clientId });
+      setOsOptions(plucks as OsOption[]);
+    } catch {
+      setOsOptions([]);
+    }
+  }, [clientId]);
+
+  useEffect(() => {
+    loadPrescriptions();
+  }, [loadPrescriptions]);
+
+  useEffect(() => {
+    if (formModalOpen) loadOsOptions();
+  }, [formModalOpen, loadOsOptions]);
+
+  const handleCreate = () => {
+    setEditingPrescription(null);
+    setFormData({ service_order_id: '', description: '', file: null });
+    setFormError(null);
+    setFormModalOpen(true);
+  };
+
+  const handleEdit = (p: ClientPrescription) => {
+    setEditingPrescription(p);
+    setFormData({
+      service_order_id: p.service_order_id ?? '',
+      description: p.description ?? '',
+      file: null,
+    });
+    setFormError(null);
+    setFormModalOpen(true);
+  };
+
+  const handleFormSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setFormError(null);
+    if (!editingPrescription && !formData.file) {
+      setFormError('Selecione um arquivo (PDF, JPG ou PNG)');
+      return;
+    }
+    setSaving(true);
+    try {
+      if (editingPrescription) {
+        const payload: any = {
+          service_order_id: formData.service_order_id === '' ? null : Number(formData.service_order_id),
+          description: formData.description || null,
+        };
+        if (formData.file) payload.file = formData.file;
+        await clientPrescriptionsService.update(String(editingPrescription.id), payload);
+        showSuccess('Foto (armação e receita) atualizada com sucesso!');
+      } else {
+        await clientPrescriptionsService.create({
+          client_id: clientId,
+          service_order_id: formData.service_order_id === '' ? null : Number(formData.service_order_id),
+          description: formData.description || null,
+          file: formData.file!,
+        });
+        showSuccess('Foto (armação e receita) cadastrada com sucesso!');
+      }
+      setFormModalOpen(false);
+      loadPrescriptions();
+    } catch (err: any) {
+      const msg = err.response?.data?.data?.errors
+        ? Object.values(err.response.data.data.errors).flat().join(', ')
+        : err.message || 'Erro ao salvar';
+      setFormError(msg);
+      showError(msg);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDeleteClick = (p: ClientPrescription) => {
+    setPrescriptionToDelete(p);
+    setDeleteModalOpen(true);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!prescriptionToDelete) return;
+    setDeleting(true);
+    try {
+      await clientPrescriptionsService.delete(String(prescriptionToDelete.id));
+      setDeleteModalOpen(false);
+      setPrescriptionToDelete(null);
+      showSuccess('Foto excluída com sucesso!');
+      loadPrescriptions();
+    } catch (err: any) {
+      showError(err.message || 'Erro ao excluir receita');
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  const formatDate = (dateString: string) => {
+    if (!dateString) return '-';
+    try {
+      if (dateString.includes('/')) {
+        const [d, m, y] = dateString.split(' ')[0].split('/');
+        return `${d}/${m}/${y}`;
+      }
+      return new Date(dateString).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+    } catch {
+      return '-';
+    }
+  };
+
+  const getFileUrl = (path: string) => {
+    if (!path) return '#';
+    return path.startsWith('http') ? path : `/storage/${path}`;
+  };
+
+  const isPdf = (path: string) => /\.pdf$/i.test(path);
+
+  const handleView = (path: string) => {
+    setViewFileUrl(getFileUrl(path));
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <Loader2 size={24} className="animate-spin" style={{ color: 'var(--store-color)' }} />
+        <span className="ml-3 text-sm text-slate-500">Carregando receitas...</span>
       </div>
-      <h3 className="text-lg font-bold text-slate-900">Receitas Médicas</h3>
-      <p className="text-sm text-slate-500 text-center max-w-md">
-        Módulo de receitas médicas será implementado em breve.
-      </p>
-      <Badge variant="info">Em breve</Badge>
+    );
+  }
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-6">
+        <p className="text-sm text-slate-500">{prescriptions.length} foto(s) de armação e receita</p>
+        {hasCreate && (
+          <Button onClick={handleCreate}>
+            <Plus size={18} /> Nova foto (armação e receita)
+          </Button>
+        )}
+      </div>
+
+      {prescriptions.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-16 gap-4">
+          <div className="w-20 h-20 rounded-2xl flex items-center justify-center" style={{ backgroundColor: 'var(--store-color-light)' }}>
+            <Stethoscope size={40} style={{ color: 'var(--store-color)' }} />
+          </div>
+          <h3 className="text-lg font-bold text-slate-900">Nenhuma foto cadastrada</h3>
+          <p className="text-sm text-slate-500 text-center max-w-md">
+            Cadastre fotos da armação e da receita médica vinculadas às OS do cliente.
+          </p>
+          {hasCreate && (
+            <Button onClick={handleCreate}>
+              <Plus size={18} /> Cadastrar foto (armação e receita)
+            </Button>
+          )}
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {prescriptions.map((p) => (
+            <div
+              key={p.id}
+              className="flex items-center justify-between p-4 rounded-xl border border-slate-100 bg-white hover:border-slate-200 transition-colors"
+            >
+              <div className="flex items-center gap-4">
+                <div className="flex items-center gap-3">
+                  <FileText size={24} style={{ color: 'var(--store-color)' }} />
+                  <div>
+                    <p className="text-sm font-bold text-slate-900">
+                      Foto armação e receita {p.service_order ? `- OS #${String(p.service_order.os_number).padStart(4, '0')}` : ''}
+                      {p.service_order?.is_lab && (
+                        <Badge variant="info" className="ml-2 text-[10px]">Lab</Badge>
+                      )}
+                    </p>
+                    <p className="text-xs text-slate-500">{formatDate(p.created_at)}</p>
+                    {p.description && <p className="text-xs text-slate-600 mt-1">{p.description}</p>}
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => handleView(p.file_path)}
+                  className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium border border-slate-200 text-slate-700 hover:bg-slate-50 hover:border-[var(--store-color)] transition-colors"
+                  title="Visualizar foto/documento"
+                >
+                  <Eye size={18} /> Visualizar
+                </button>
+              </div>
+              <div className="flex items-center gap-2">
+                {hasUpdate && (
+                  <button
+                    onClick={() => handleEdit(p)}
+                    className="p-2 text-slate-400 hover:bg-slate-50 rounded-lg"
+                    title="Editar"
+                  >
+                    <Edit size={16} />
+                  </button>
+                )}
+                {hasDelete && (
+                  <button
+                    onClick={() => handleDeleteClick(p)}
+                    className="p-2 text-slate-400 hover:bg-red-50 hover:text-red-600 rounded-lg"
+                    title="Excluir"
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Modal Criar/Editar */}
+      <Modal
+        isOpen={formModalOpen}
+        onClose={() => { if (!saving) { setFormModalOpen(false); setFormError(null); } }}
+        title={editingPrescription ? 'Editar foto (armação e receita)' : 'Nova foto (armação e receita)'}
+        message=""
+      >
+        <form onSubmit={handleFormSubmit} className="space-y-4">
+          {formError && (
+            <div className="mb-4 p-3 rounded-xl border" style={{ backgroundColor: 'var(--store-color-light)', borderColor: 'var(--store-color-opacity-20)' }}>
+              <p className="text-sm font-bold" style={{ color: 'var(--store-color)' }}>{formError}</p>
+            </div>
+          )}
+
+          <SingleSelect
+            label="OS vinculada"
+            value={formData.service_order_id === '' ? '' : String(formData.service_order_id)}
+            onChange={(val) => setFormData({ ...formData, service_order_id: val === '' ? '' : Number(val) })}
+            options={[
+              { label: 'Nenhuma', value: '' },
+              ...osOptions.map((os) => ({
+                label: `OS #${String(os.os_number).padStart(4, '0')} - ${os.date}${os.is_lab ? ' (Lab)' : ''}`,
+                value: String(os.id),
+              })),
+            ]}
+            placeholder="Selecione..."
+          />
+
+          <div>
+            <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2">Descrição (opcional)</label>
+            <textarea
+              value={formData.description}
+              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+              placeholder="Ex: Ajuste de grau para perto"
+              rows={2}
+              className="w-full px-4 py-3 rounded-lg border border-slate-200 bg-white text-sm focus:ring-2 focus:ring-[var(--store-color-opacity-20)] focus:border-[var(--store-color)]"
+            />
+          </div>
+
+          <div>
+            <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2">
+              Foto da armação e receita {editingPrescription ? '(deixe em branco para manter)' : '*'}
+            </label>
+            <input
+              type="file"
+              accept=".pdf,.jpg,.jpeg,.png"
+              onChange={(e) => setFormData({ ...formData, file: e.target.files?.[0] ?? null })}
+              className="w-full text-sm text-slate-600 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:cursor-pointer file:bg-slate-100 file:text-slate-700 hover:file:bg-slate-200"
+            />
+            <p className="text-xs text-slate-400 mt-1">PDF, JPG ou PNG. Máx 5MB. Será possível visualizar após cadastrar.</p>
+          </div>
+
+          <div className="flex gap-3 pt-4 border-t border-slate-100">
+            <Button type="button" variant="outline" onClick={() => { setFormModalOpen(false); setFormError(null); }} disabled={saving}>
+              Cancelar
+            </Button>
+            <Button type="submit" disabled={saving}>
+              {saving ? <><Loader2 size={18} className="animate-spin" /> Salvando...</> : <><FileText size={18} /> {editingPrescription ? 'Atualizar' : 'Cadastrar'}</>}
+            </Button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* Modal Visualizar foto/documento */}
+      <Modal
+        isOpen={!!viewFileUrl}
+        onClose={() => setViewFileUrl(null)}
+        title="Visualizar foto (armação e receita)"
+        message=""
+      >
+        <div className="space-y-4">
+          {viewFileUrl && (
+            <>
+              {isPdf(viewFileUrl) ? (
+                <iframe
+                  src={viewFileUrl}
+                  title="Documento PDF"
+                  className="w-full rounded-xl border border-slate-200 bg-slate-50"
+                  style={{ minHeight: '70vh', maxHeight: '75vh' }}
+                />
+              ) : (
+                <div className="flex justify-center bg-slate-50 rounded-xl border border-slate-200 p-2 overflow-auto" style={{ maxHeight: '75vh' }}>
+                  <img
+                    src={viewFileUrl}
+                    alt="Foto armação e receita"
+                    className="max-w-full h-auto object-contain rounded-lg"
+                  />
+                </div>
+              )}
+              <div className="flex gap-3 pt-2 border-t border-slate-100">
+                <a
+                  href={viewFileUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-sm font-medium hover:underline"
+                  style={{ color: 'var(--store-color)' }}
+                >
+                  Abrir em nova aba
+                </a>
+                <Button type="button" variant="outline" onClick={() => setViewFileUrl(null)}>
+                  Fechar
+                </Button>
+              </div>
+            </>
+          )}
+        </div>
+      </Modal>
+
+      {/* Modal Excluir */}
+      <Modal
+        isOpen={deleteModalOpen}
+        onClose={() => { if (!deleting) { setDeleteModalOpen(false); setPrescriptionToDelete(null); } }}
+        title="Excluir foto"
+        message=""
+      >
+        <div className="space-y-4">
+          <p className="text-sm text-slate-700">
+            Tem certeza que deseja excluir esta foto (armação e receita)?
+          </p>
+          <div className="flex gap-3 pt-4 border-t border-slate-100">
+            <Button variant="outline" onClick={() => { setDeleteModalOpen(false); setPrescriptionToDelete(null); }} disabled={deleting}>Cancelar</Button>
+            <Button variant="danger" onClick={handleConfirmDelete} disabled={deleting}>
+              {deleting ? <><Loader2 size={16} className="animate-spin" /> Excluindo...</> : <><Trash2 size={16} /> Excluir</>}
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 };
@@ -395,8 +780,8 @@ export const ClientHistory: React.FC = () => {
 
   const tabs = [
     { id: 'compras' as TabType, label: 'Histórico de Compras', icon: ShoppingBag },
-    { id: 'receitas' as TabType, label: 'Receitas', icon: Stethoscope },
-    { id: 'observacoes' as TabType, label: 'Observações', icon: ClipboardList },
+    { id: 'receitas' as TabType, label: 'Receitas e Armações', icon: Stethoscope },
+    // { id: 'observacoes' as TabType, label: 'Observações', icon: ClipboardList }, // comentado por enquanto
   ];
 
   if (loading) {
@@ -586,14 +971,14 @@ export const ClientHistory: React.FC = () => {
       <Card className="p-0 overflow-hidden">
         {/* Tabs */}
         <div className="border-b border-slate-100">
-          <div className="flex gap-1 p-2">
+          <div className="flex gap-1 p-2 overflow-x-auto">
             {tabs.map((tab) => {
               const Icon = tab.icon;
               return (
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
-                  className={`flex-1 flex items-center justify-center gap-2 px-6 py-4 rounded-xl font-bold text-sm transition-all ${
+                  className={`flex-1 min-w-0 flex items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-6 py-3 sm:py-4 rounded-xl font-bold text-xs sm:text-sm transition-all whitespace-nowrap ${
                     activeTab === tab.id
                       ? 'text-white shadow-lg'
                       : 'text-slate-500 hover:text-slate-900 hover:bg-slate-50'
@@ -603,8 +988,8 @@ export const ClientHistory: React.FC = () => {
                     boxShadow: '0 10px 15px -3px var(--store-color-opacity-20)',
                   } : undefined}
                 >
-                  <Icon size={18} />
-                  {tab.label}
+                  <Icon size={16} className="sm:w-[18px] sm:h-[18px] shrink-0" />
+                  <span className="truncate">{tab.label}</span>
                 </button>
               );
             })}
@@ -612,7 +997,7 @@ export const ClientHistory: React.FC = () => {
         </div>
 
         {/* Conteúdo das Abas */}
-        <div className="p-8">
+        <div className="p-4 sm:p-6 lg:p-8">
           {activeTab === 'compras' && (
             <div>
               <div className="mb-6">
@@ -636,12 +1021,18 @@ export const ClientHistory: React.FC = () => {
           {activeTab === 'receitas' && (
             <div>
               <div className="mb-6">
-                <h3 className="text-xl font-black text-slate-900">Receitas Médicas</h3>
-                <p className="text-sm text-slate-500 mt-1">Prescrições e graus do cliente</p>
+                <h3 className="text-xl font-black text-slate-900">Receitas e Armações</h3>
+                <p className="text-sm text-slate-500 mt-1">Fotos da armação e da receita médica vinculadas às OS</p>
               </div>
-              <PrescriptionsTab />
+              <PrescriptionsTab
+                clientId={Number(id)}
+                hasCreate={hasPermission('client-prescriptions.create')}
+                hasUpdate={hasPermission('client-prescriptions.update')}
+                hasDelete={hasPermission('client-prescriptions.delete')}
+              />
             </div>
           )}
+          {/* Observações - comentado por enquanto
           {activeTab === 'observacoes' && (
             <div>
               <div className="mb-6">
@@ -651,6 +1042,7 @@ export const ClientHistory: React.FC = () => {
               <NotesTab />
             </div>
           )}
+          */}
         </div>
       </Card>
     </div>

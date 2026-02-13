@@ -306,11 +306,10 @@ export const ClientList: React.FC = () => {
 
   return (
     <div className="space-y-8 animate-in fade-in duration-700">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-        <div className="flex items-center gap-4">
-          <div>
-            <h1 className="text-3xl font-black text-slate-950 tracking-tight">Clientes</h1>
-            <p className="text-gray-500 font-medium mt-1">Gerencie sua base de clientes e histórico de compras.</p>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 sm:gap-6">
+        <div>
+          <h1 className="text-2xl sm:text-3xl font-black text-slate-950 tracking-tight">Clientes</h1>
+          <p className="text-gray-500 text-sm sm:text-base font-medium mt-1">Gerencie sua base de clientes e histórico de compras.</p>
           </div>
         </div>
         {hasPermission('clients.create') && (
@@ -367,7 +366,7 @@ export const ClientList: React.FC = () => {
       </FilterSection>
 
       {/* Contagem de resultados, badge de filtros ativos e seletor de itens por página */}
-      <div className="flex items-center justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
         <div className="flex items-center gap-4">
           {pagination && (
             <p className="text-sm font-medium text-slate-600">
@@ -400,8 +399,8 @@ export const ClientList: React.FC = () => {
       </div>
 
       <Card className="p-0 overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full">
+        <div className="overflow-x-auto overscroll-x-contain">
+          <table className="w-full min-w-[640px]">
             <thead>
               <tr className="border-b border-slate-100">
                 <SortableHeader

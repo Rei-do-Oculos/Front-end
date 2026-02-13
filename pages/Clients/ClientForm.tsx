@@ -185,16 +185,16 @@ export const ClientForm: React.FC = () => {
 
   return (
     <div className="max-w-6xl mx-auto animate-in fade-in slide-in-from-right-4 duration-500 px-4 lg:px-6">
-      <div className="mb-6 flex items-center justify-between">
+      <div className="mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-800">
+          <h1 className="text-xl sm:text-2xl font-bold text-gray-800">
             {isEditMode ? 'Editar Cliente' : 'Novo Cliente'}
           </h1>
-          <p className="text-gray-500 text-sm">
+          <p className="text-gray-500 text-xs sm:text-sm mt-0.5">
             {isEditMode ? 'Atualize os dados do cliente' : 'Cadastre um novo cliente no sistema'}
           </p>
         </div>
-        <div className="flex gap-3">
+        <div className="flex flex-wrap gap-2 sm:gap-3">
           {isEditMode && hasPermission('clients.delete') && (
             <Button 
               variant="outline" 

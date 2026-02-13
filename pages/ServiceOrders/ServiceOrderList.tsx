@@ -441,8 +441,8 @@ export const ServiceOrderList: React.FC = () => {
       </div>
 
       <Card className="p-0 overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full">
+        <div className="overflow-x-auto overscroll-x-contain">
+          <table className="w-full min-w-[640px]">
             <thead>
               <tr className="border-b border-slate-100">
                 <SortableHeader
@@ -517,7 +517,7 @@ export const ServiceOrderList: React.FC = () => {
                         <div>
                           <p 
                             className="text-sm font-bold text-slate-900 transition-colors cursor-pointer"
-                            onClick={() => navigate(`/service-orders/${order.id}/edit`)}
+                            onClick={() => order.client_id && navigate(`/clients/${order.client_id}`)}
                             onMouseEnter={(e) => {
                               e.currentTarget.style.color = 'var(--store-color-dark)';
                             }}

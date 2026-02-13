@@ -10,6 +10,7 @@ const resourceTranslations: Record<string, string> = {
   'roles': 'Perfil',
   'permissions': 'Permissões',
   'clients': 'Clientes',
+  'client-prescriptions': 'Receitas e Armações',
   'stores': 'Lojas',
   'lenses': 'Lentes',
   'audits': 'Auditorias',
