@@ -310,7 +310,6 @@ export const ClientList: React.FC = () => {
         <div>
           <h1 className="text-2xl sm:text-3xl font-black text-slate-950 tracking-tight">Clientes</h1>
           <p className="text-gray-500 text-sm sm:text-base font-medium mt-1">Gerencie sua base de clientes e histórico de compras.</p>
-          </div>
         </div>
         {hasPermission('clients.create') && (
           <Button onClick={() => navigate('/clients/create')}>
