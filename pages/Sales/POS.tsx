@@ -26,7 +26,8 @@ import {
   Loader2,
   ChevronDown,
   LogOut,
-  Store
+  Store,
+  SplitSquareVertical
 } from 'lucide-react';
 import { Card, Button, Input, Badge } from '../../components/Common';
 import { useNotification } from '../../hooks/useNotification';
@@ -35,6 +36,8 @@ import { useAuth } from '../../services/hooks/useAuth';
 import { framesService, Frame } from '../../services/api/frames';
 import { clientsService, Client } from '../../services/api/clients';
 import { serviceOrdersService } from '../../services/api/serviceOrders';
+import { ReceiptModal } from '../../components/ReceiptModal';
+import { ReceiptData } from '../../components/ThermalReceipt';
 
 interface CartItem {
   id: number;
@@ -43,7 +46,14 @@ interface CartItem {
   quantity: number;
 }
 
-type PaymentMethod = 'credit_card' | 'debit_card' | 'cash' | 'pix';
+type PaymentMethod = 'credit_card' | 'debit_card' | 'cash' | 'pix' | 'parcial';
+
+type PartialPaymentRow = {
+  id: number;
+  method: 'credit_card' | 'pix' | 'cash';
+  amountRaw: string;
+  installments: number;
+};
 
 const CONSUMIDOR_FINAL_DOCUMENT = '00000000000';
 const CONSUMIDOR_FINAL_PHONE = '0000000000';
@@ -51,7 +61,7 @@ const CONSUMIDOR_FINAL_PHONE = '0000000000';
 const formatCurrencyInput = (raw: string): string => {
   const nums = raw.replace(/\D/g, '');
   if (nums.length === 0) return '';
-  const intPart = nums.slice(0, -2) || '0';
+  const intPart = (nums.slice(0, -2) || '0').replace(/^0+/, '') || '0';
   const decPart = nums.slice(-2).padStart(2, '0');
   const formatted = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
   return `${formatted},${decPart}`;
@@ -87,13 +97,19 @@ export const POS: React.FC = () => {
   const [clientModalOpen, setClientModalOpen] = useState(false);
   const [createClientModalOpen, setCreateClientModalOpen] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod | null>(null);
-  const [totalValueRaw, setTotalValueRaw] = useState<string>('0');
+  const [installments, setInstallments] = useState<number>(1);
+  const [partialPayments, setPartialPayments] = useState<PartialPaymentRow[]>([]);
+  const [partialPaymentsId, setPartialPaymentsId] = useState(0);
+  const [totalValueRaw, setTotalValueRaw] = useState<string>('');
   const [currentDate, setCurrentDate] = useState('');
   const [currentTime, setCurrentTime] = useState('');
   const [visibleProducts, setVisibleProducts] = useState(20);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [showFinishModal, setShowFinishModal] = useState(false);
   const [createdOsId, setCreatedOsId] = useState<number | null>(null);
+  const [createdOsNumber, setCreatedOsNumber] = useState<number | null>(null);
+  const [receiptDataForModal, setReceiptDataForModal] = useState<ReceiptData | null>(null);
+  const [showReceiptModal, setShowReceiptModal] = useState(false);
 
   // Frames e clientes da API
   const [frames, setFrames] = useState<Frame[]>([]);
@@ -106,6 +122,7 @@ export const POS: React.FC = () => {
   const [quickName, setQuickName] = useState('');
   const [quickPhone, setQuickPhone] = useState('');
   const [quickDocument, setQuickDocument] = useState('');
+  const [quickEmail, setQuickEmail] = useState('');
   const [creatingClient, setCreatingClient] = useState(false);
 
   // Buscar armações da loja (sem preços na exibição)
@@ -244,6 +261,7 @@ export const POS: React.FC = () => {
         name: quickName.trim(),
         document: quickDocument.replace(/\D/g, ''),
         phone: quickPhone.replace(/\D/g, ''),
+        ...(quickEmail.trim() && { email: quickEmail.trim() }),
         stores: [selectedStore.id],
       });
       setSelectedClient(client);
@@ -251,6 +269,7 @@ export const POS: React.FC = () => {
       setQuickName('');
       setQuickPhone('');
       setQuickDocument('');
+      setQuickEmail('');
       setCreateClientModalOpen(false);
       showSuccess('Cliente criado', `${client.name} cadastrado com sucesso.`);
     } catch (err: any) {
@@ -261,9 +280,58 @@ export const POS: React.FC = () => {
     }
   };
 
+  const prepareReceiptData = (osNumber: number): ReceiptData => {
+    const totalPrice = parseCurrencyFormatted(formatCurrencyInput(totalValueRaw)) || 0;
+    const totalQty = Math.max(1, cart.reduce((s, i) => s + i.quantity, 0));
+    const pricePerUnit = totalPrice / totalQty;
+    const items = cart.map(i => ({
+      description: i.description,
+      quantity: i.quantity,
+      price: pricePerUnit,
+    }));
+    const isPartial = paymentMethod === 'parcial';
+    return {
+      osNumber,
+      date: new Date().toLocaleString('pt-BR'),
+      expectedPickupDate: null,
+      seller: user?.name || 'Vendedor',
+      store: {
+        name: selectedStore?.name ?? 'Loja',
+        fancy_name: storeDisplayName ?? selectedStore?.fancy_name ?? selectedStore?.name ?? 'Loja',
+        cnpj: storeCnpj ?? selectedStore?.cnpj ?? '00.000.000/0000-00',
+        ie: null,
+        logradouro: '',
+        numero: '',
+        bairro: '',
+        municipio: '',
+        uf: '',
+        telefone: null,
+        unity: storeUnity ?? selectedStore?.unity ?? null,
+        logo: selectedStore?.logo ?? null,
+        color: selectedStore?.color ?? null,
+      },
+      client: selectedClient
+        ? { name: selectedClient.name, document: selectedClient.document ?? null }
+        : { name: 'Consumidor Final', document: null },
+      items,
+      total: totalPrice,
+      paymentMethod: isPartial ? null : (paymentMethod ?? null),
+      installments: isPartial ? null : (paymentMethod === 'credit_card' ? installments : null),
+      payments: isPartial && partialPayments.length > 0
+        ? partialPayments
+            .filter(p => (parseCurrencyFormatted(formatCurrencyInput(p.amountRaw)) || 0) > 0)
+            .map(p => ({
+              payment_method: p.method,
+              amount: parseCurrencyFormatted(formatCurrencyInput(p.amountRaw)) || 0,
+              installments: p.method === 'credit_card' ? p.installments : null,
+            }))
+        : undefined,
+    };
+  };
+
   const handleFinishSale = () => {
     if (cart.length === 0) {
-      showError('Carrinho vazio', 'Adicione armações ao carrinho antes de finalizar.');
+      showError('Compras vazio', 'Adicione armações a compras antes de finalizar.');
       return;
     }
     if (!paymentMethod) {
@@ -290,7 +358,23 @@ export const POS: React.FC = () => {
       }
 
       const price = parseCurrencyFormatted(formatCurrencyInput(totalValueRaw)) || 0;
-      const paymentMethodApi = paymentMethod || 'cash';
+      const isPartial = paymentMethod === 'parcial';
+      const paymentMethodApi = isPartial ? (partialPayments[0]?.method ?? 'cash') : (paymentMethod || 'cash');
+      const paymentsPayload = price > 0
+        ? isPartial
+          ? partialPayments
+              .filter(p => (parseCurrencyFormatted(formatCurrencyInput(p.amountRaw)) || 0) > 0)
+              .map(p => ({
+                payment_method: p.method,
+                amount: parseCurrencyFormatted(formatCurrencyInput(p.amountRaw)) || 0,
+                ...(p.method === 'credit_card' && { installments: p.installments }),
+              }))
+          : [{
+              payment_method: paymentMethodApi,
+              amount: price,
+              ...(paymentMethodApi === 'credit_card' && { installments }),
+            }]
+        : undefined;
 
       const payload = {
         client_id: clientId,
@@ -300,11 +384,13 @@ export const POS: React.FC = () => {
         frames: [...new Set(cart.map(item => item.id))],
         price,
         payment_method: paymentMethodApi,
-        payments: price > 0 ? [{ payment_method: paymentMethodApi, amount: price }] : undefined,
+        payments: paymentsPayload,
       };
 
       const created = await serviceOrdersService.create(payload as any);
       setCreatedOsId(created.id);
+      setCreatedOsNumber(created.os_number);
+      setReceiptDataForModal(prepareReceiptData(created.os_number));
       setShowConfirmModal(false);
       setShowFinishModal(true);
       showSuccess('OS criada!', `Ordem de Serviço #${created.os_number} gerada com sucesso.`);
@@ -330,10 +416,24 @@ export const POS: React.FC = () => {
     setCart([]);
     setSelectedClient(null);
     setPaymentMethod(null);
-    setTotalValueRaw('0');
+    setInstallments(1);
+    setPartialPayments([]);
+    setTotalValueRaw('');
     setShowFinishModal(false);
     setShowConfirmModal(false);
+    setShowReceiptModal(false);
     setCreatedOsId(null);
+    setCreatedOsNumber(null);
+    setReceiptDataForModal(null);
+  };
+
+  const handleReceiptModalConfirm = (type: 'receipt' | 'nfe' | 'none') => {
+    setShowReceiptModal(false);
+    if (type === 'receipt') {
+      resetSale();
+    } else {
+      handleFinishPrint(type);
+    }
   };
 
   const storeColorCss = storeColor || '#dc2626';
@@ -470,8 +570,8 @@ export const POS: React.FC = () => {
         </div>
       </header>
 
-      <div className="flex-1 min-h-0 flex flex-col lg:flex-row gap-3 sm:gap-4 md:gap-6 p-3 sm:p-4 md:p-6 overflow-hidden">
-        <div className="flex-1 min-h-0 flex flex-col gap-3 md:gap-4 overflow-hidden min-w-0">
+      <div className="flex-1 min-h-0 flex flex-col lg:flex-row lg:items-start gap-3 sm:gap-4 md:gap-6 p-3 sm:p-4 md:p-6 overflow-y-auto overflow-x-hidden custom-scrollbar">
+        <div className="flex-1 min-h-0 flex flex-col gap-3 md:gap-4 overflow-hidden min-w-0 lg:min-h-0">
           <div className="relative shrink-0">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={20} />
             <input
@@ -482,49 +582,52 @@ export const POS: React.FC = () => {
               onChange={e => setSearch(e.target.value)}
             />
           </div>
-          <div className="flex-1 flex flex-col overflow-hidden">
+          <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
             {framesLoading ? (
               <div className="flex-1 flex items-center justify-center">
                 <Loader2 size={40} className="animate-spin" style={{ color: storeColorCss }} />
               </div>
             ) : (
-              <div className="flex-1 min-h-0 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-3 xl:grid-cols-4 gap-2 sm:gap-3 overflow-y-auto pr-2 custom-scrollbar">
-                {displayFrames.map(frame => (
-                  <div
-                    key={frame.id}
-                    onClick={() => addToCart(frame)}
-                    className="bg-white p-3 rounded-lg border-2 border-slate-100 hover:border-[var(--store-color)] hover:shadow-md transition-all cursor-pointer group flex flex-col justify-between"
-                  >
-                    <div>
-                      <div className="flex justify-between items-start mb-2">
-                        <div
-                          className="w-8 h-8 rounded-lg flex items-center justify-center"
-                          style={{ backgroundColor: `${storeColorCss}20`, color: storeColorCss }}
-                        >
-                          <Package size={16} />
+              <div className="flex-1 min-h-0 overflow-y-scroll overflow-x-hidden p-3 sm:p-4 pr-3 custom-scrollbar" style={{ scrollbarGutter: 'stable' }}>
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2 sm:gap-3 content-start">
+                  {displayFrames.map(frame => (
+                    <div key={frame.id} className="min-w-0">
+                      <div
+                        onClick={() => addToCart(frame)}
+                        className="bg-white p-2.5 sm:p-3 rounded-lg border border-slate-100 hover:border-[var(--store-color)] hover:shadow-md transition-all cursor-pointer group flex flex-col min-h-0"
+                      >
+                        <div className="flex items-start gap-1.5 mb-2">
+                          <div
+                            className="w-7 h-7 rounded-md flex items-center justify-center shrink-0"
+                            style={{ backgroundColor: `${storeColorCss}20`, color: storeColorCss }}
+                          >
+                            <Package size={14} />
+                          </div>
+                          {frame.frameType?.name && (
+                            <Badge variant="info" className="text-[8px] px-1 py-0 font-bold shrink-0 leading-tight">
+                              {frame.frameType.name}
+                            </Badge>
+                          )}
                         </div>
-                        {frame.frameType?.name && (
-                          <Badge variant="info" className="text-[9px] px-1.5 py-0.5">
-                            {frame.frameType.name}
-                          </Badge>
+                        <h3 className="text-[11px] sm:text-xs font-bold text-slate-900 group-hover:text-[var(--store-color)] transition-colors line-clamp-2 leading-tight mb-1 min-h-[2.2em]">
+                          {frame.description || 'Sem nome'}
+                        </h3>
+                        {frame.code && (
+                          <p className="text-[9px] text-slate-400 font-semibold uppercase tracking-wide mb-2">Cód: {frame.code}</p>
                         )}
-                      </div>
-                      <h3 className="text-xs font-black text-slate-900 group-hover:text-[var(--store-color)] transition-colors mb-1 line-clamp-2 leading-tight">
-                        {frame.description}
-                      </h3>
-                      {frame.code && <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest">Cód: {frame.code}</p>}
-                    </div>
-                    <div className="mt-2 flex items-center justify-end">
-                      <div className="p-1.5 rounded-md shadow-sm opacity-0 group-hover:opacity-100 transition-all" style={{ backgroundColor: storeColorCss }}>
-                        <Plus size={12} className="text-white" />
+                        <div className="mt-auto flex justify-end">
+                          <div className="p-1.5 rounded-md shadow-sm" style={{ backgroundColor: storeColorCss }}>
+                            <Plus size={12} className="text-white" />
+                          </div>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
             )}
             {!framesLoading && filteredFrames.length > visibleProducts && (
-              <div className="pt-4 border-t border-slate-100 mt-4 shrink-0">
+              <div className="pt-4 pb-4 border-t border-slate-100 mt-4 shrink-0">
                 <button
                   onClick={() => setVisibleProducts(p => Math.min(p + 20, filteredFrames.length))}
                   className="w-full py-3 text-white font-bold rounded-lg transition-all flex items-center justify-center gap-2"
@@ -537,8 +640,8 @@ export const POS: React.FC = () => {
           </div>
         </div>
 
-        <div className="w-full lg:w-[400px] xl:w-[420px] flex flex-col gap-3 md:gap-4 shrink-0 order-first lg:order-last min-h-0">
-          <Card className="flex-1 min-h-0 flex flex-col p-0 overflow-hidden border-2 border-slate-100 max-h-[55vh] sm:max-h-[60vh] lg:max-h-none">
+        <div className="w-full lg:w-[400px] xl:w-[420px] flex flex-col gap-3 md:gap-4 shrink-0 order-first lg:order-last">
+          <Card className="flex flex-col p-0 border-2 border-slate-100 w-full">
             <div
               className="p-4 md:p-6 border-b border-slate-50 flex items-center justify-between shrink-0"
               style={{ backgroundColor: `${storeColorCss}08` }}
@@ -547,7 +650,7 @@ export const POS: React.FC = () => {
                 <div className="p-2.5 rounded-xl text-white" style={{ backgroundColor: storeColorCss }}>
                   <ShoppingCart size={18} />
                 </div>
-                <h2 className="text-lg font-black tracking-tight">Carrinho</h2>
+                <h2 className="text-lg font-black tracking-tight">Compras</h2>
               </div>
               <span
                 className="px-3 py-1 rounded-full text-[10px] font-black text-white"
@@ -556,41 +659,42 @@ export const POS: React.FC = () => {
                 {cart.length} ARMAÇÕES
               </span>
             </div>
-            <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-2 md:space-y-3 custom-scrollbar">
-              {cart.length === 0 ? (
-                <div className="h-full flex flex-col items-center justify-center text-center opacity-30 py-20">
-                  <ShoppingCart size={48} className="mb-4" />
-                  <p className="text-sm font-bold uppercase tracking-widest">Carrinho Vazio</p>
-                  <p className="text-xs mt-1">Clique nas armações para adicionar</p>
-                </div>
-              ) : (
-                cart.map(item => (
-                  <div key={item.id} className="flex items-center gap-4 p-4 bg-slate-50/50 rounded-xl border border-slate-100 group">
-                    <div className="flex-1 min-w-0">
-                      <p className="text-xs font-black text-slate-900 truncate">{item.description}</p>
-                      <p className="text-[10px] text-slate-400 font-bold mt-0.5">Cód: {item.code}</p>
-                    </div>
-                    <div className="flex items-center gap-2 bg-white px-2 py-1 rounded-lg border border-slate-200">
-                      <button onClick={() => updateQuantity(item.id, -1)} className="p-1 hover:text-[var(--store-color)] transition-colors">
-                        <Minus size={12} />
-                      </button>
-                      <span className="text-xs font-black w-4 text-center">{item.quantity}</span>
-                      <button onClick={() => updateQuantity(item.id, 1)} className="p-1 hover:text-[var(--store-color)] transition-colors">
-                        <Plus size={12} />
-                      </button>
-                    </div>
-                    <button
-                      title="Remover"
-                      onClick={() => removeFromCart(item.id)}
-                      className="p-2 text-slate-300 hover:text-[var(--store-color)] transition-colors shrink-0"
-                    >
-                      <Trash2 size={16} />
-                    </button>
+            <div className="flex flex-col">
+              <div className="p-4 md:p-6 space-y-2 md:space-y-3">
+                {cart.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center text-center opacity-30 py-12">
+                    <ShoppingCart size={48} className="mb-4" />
+                    <p className="text-sm font-bold uppercase tracking-widest">Compras Vazio</p>
+                    <p className="text-xs mt-1">Clique nas armações para adicionar</p>
                   </div>
-                ))
-              )}
-            </div>
-            <div className="p-4 md:p-6 bg-slate-50 border-t border-slate-100 space-y-3 md:space-y-4 shrink-0">
+                ) : (
+                  cart.map(item => (
+                    <div key={item.id} className="flex items-center gap-4 p-4 bg-slate-50/50 rounded-xl border border-slate-100 group">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-black text-slate-900 truncate">{item.description}</p>
+                        <p className="text-[10px] text-slate-400 font-bold mt-0.5">Cód: {item.code}</p>
+                      </div>
+                      <div className="flex items-center gap-2 bg-white px-2 py-1 rounded-lg border border-slate-200">
+                        <button onClick={() => updateQuantity(item.id, -1)} className="p-1 hover:text-[var(--store-color)] transition-colors">
+                          <Minus size={12} />
+                        </button>
+                        <span className="text-xs font-black w-4 text-center">{item.quantity}</span>
+                        <button onClick={() => updateQuantity(item.id, 1)} className="p-1 hover:text-[var(--store-color)] transition-colors">
+                          <Plus size={12} />
+                        </button>
+                      </div>
+                      <button
+                        title="Remover"
+                        onClick={() => removeFromCart(item.id)}
+                        className="p-2 text-slate-300 hover:text-[var(--store-color)] transition-colors shrink-0"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
+                  ))
+                )}
+              </div>
+              <div className="p-4 md:p-6 bg-slate-50 border-t border-slate-100 space-y-3 md:space-y-4 shrink-0">
               <div className="space-y-2">
                 <div className="flex items-center justify-between text-xs font-bold text-slate-500">
                   <span>Cliente</span>
@@ -622,40 +726,136 @@ export const POS: React.FC = () => {
                   type="text"
                   inputMode="decimal"
                   placeholder="0,00"
-                  value={formatCurrencyInput(totalValueRaw)}
+                  value={totalValueRaw === '' ? '' : formatCurrencyInput(totalValueRaw)}
                   onChange={e => setTotalValueRaw(e.target.value.replace(/\D/g, ''))}
                 />
               </div>
-              <div className="space-y-2 pt-2 border-t border-slate-200">
+              <div className="space-y-1.5 pt-2 border-t border-slate-200">
                 <p className="text-xs font-bold text-slate-500">Forma de Pagamento</p>
-                <div className="grid grid-cols-3 gap-1.5 sm:gap-2">
+                <div className="grid grid-cols-4 gap-2">
                   {[
                     { key: 'credit_card' as const, icon: CreditCard, label: 'Cartão' },
                     { key: 'pix' as const, icon: QrCode, label: 'PIX' },
                     { key: 'cash' as const, icon: Banknote, label: 'Dinheiro' },
+                    { key: 'parcial' as const, icon: SplitSquareVertical, label: 'Parcial' },
                   ].map(({ key, icon: Icon, label }) => (
                     <button
                       key={key}
-                      onClick={() => setPaymentMethod(key)}
-                      className={`flex flex-col items-center justify-center p-2 sm:p-3 rounded-xl border-2 transition-all gap-0.5 sm:gap-1 min-w-0 ${
+                      onClick={() => {
+                        setPaymentMethod(key);
+                        if (key === 'parcial' && partialPayments.length === 0) {
+                          setPartialPayments([{ id: partialPaymentsId, method: 'credit_card', amountRaw: '', installments: 1 }]);
+                          setPartialPaymentsId(p => p + 1);
+                        }
+                      }}
+                      title={key === 'parcial' ? 'Parcial (múltiplas formas)' : label}
+                      className={`flex flex-col items-center justify-center gap-1 py-2.5 px-2 rounded-lg border transition-all min-w-0 ${
                         paymentMethod === key ? 'text-white border-transparent' : 'bg-white border-slate-200 hover:border-[var(--store-color)]'
                       }`}
                       style={paymentMethod === key ? { backgroundColor: storeColorCss } : {}}
                     >
                       <Icon size={18} />
-                      <span className="text-[10px] font-black uppercase">{label}</span>
+                      <span className="text-[10px] font-bold uppercase leading-tight truncate w-full text-center">{label}</span>
                     </button>
                   ))}
                 </div>
+                {paymentMethod === 'credit_card' && (
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-slate-500">Parcelas</label>
+                    <select
+                      value={installments}
+                      onChange={e => setInstallments(Number(e.target.value))}
+                      className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm font-medium focus:ring-2 focus:ring-[var(--store-color)] focus:border-[var(--store-color)] outline-none transition-all"
+                    >
+                      {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map(n => (
+                        <option key={n} value={n}>{n}x</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+                {paymentMethod === 'parcial' && (
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <label className="text-xs font-bold text-slate-500">Pagamentos parciais</label>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setPartialPayments(p => [...p, { id: partialPaymentsId, method: 'credit_card', amountRaw: '', installments: 1 }]);
+                          setPartialPaymentsId(i => i + 1);
+                        }}
+                        className="text-[10px] font-bold flex items-center gap-1 hover:underline"
+                        style={{ color: storeColorCss }}
+                        title="Adicionar forma de pagamento"
+                      >
+                        <Plus size={12} /> Adicionar
+                      </button>
+                    </div>
+                    <div className="space-y-2 max-h-32 overflow-y-auto custom-scrollbar">
+                      {partialPayments.map((row, idx) => (
+                        <div key={row.id} className="flex gap-2 items-center p-2 bg-white rounded-lg border border-slate-200">
+                          <select
+                            value={row.method}
+                            onChange={e => setPartialPayments(prev => prev.map(r => r.id === row.id ? { ...r, method: e.target.value as 'credit_card'|'pix'|'cash' } : r))}
+                            className="flex-1 min-w-0 px-2 py-1.5 text-xs font-medium border-0 rounded bg-slate-50 focus:ring-2 focus:ring-[var(--store-color)]"
+                            title={row.method === 'credit_card' ? 'Cartão' : row.method === 'pix' ? 'PIX' : 'Dinheiro'}
+                          >
+                            <option value="credit_card">Cartão</option>
+                            <option value="pix">PIX</option>
+                            <option value="cash">Dinheiro</option>
+                          </select>
+                          <input
+                            type="text"
+                            inputMode="decimal"
+                            placeholder="Valor"
+                            value={row.amountRaw === '' ? '' : formatCurrencyInput(row.amountRaw)}
+                            onChange={e => setPartialPayments(prev => prev.map(r => r.id === row.id ? { ...r, amountRaw: e.target.value.replace(/\D/g, '') } : r))}
+                            className="w-20 px-2 py-1.5 text-xs font-medium border rounded bg-slate-50 focus:ring-2 focus:ring-[var(--store-color)]"
+                          />
+                          {row.method === 'credit_card' && (
+                            <select
+                              value={row.installments}
+                              onChange={e => setPartialPayments(prev => prev.map(r => r.id === row.id ? { ...r, installments: Number(e.target.value) } : r))}
+                              className="w-12 px-1 py-1.5 text-xs font-medium border-0 rounded bg-slate-50"
+                              title="Parcelas"
+                            >
+                              {[1,2,3,4,5,6,7,8,9,10,11,12].map(n => <option key={n} value={n}>{n}x</option>)}
+                            </select>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => setPartialPayments(prev => prev.filter(r => r.id !== row.id))}
+                            className="p-1.5 text-slate-400 hover:text-red-500 shrink-0"
+                            title="Remover"
+                            disabled={partialPayments.length <= 1}
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                    {(() => {
+                      const total = parseCurrencyFormatted(formatCurrencyInput(totalValueRaw)) || 0;
+                      const sum = partialPayments.reduce((s, r) => s + (parseCurrencyFormatted(formatCurrencyInput(r.amountRaw)) || 0), 0);
+                      const diff = Math.abs(total - sum) > 0.009;
+                      return total > 0 && diff ? (
+                        <p className="text-[10px] font-bold text-amber-600">Soma dos valores deve ser R$ {total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                      ) : null;
+                    })()}
+                  </div>
+                )}
               </div>
               <Button
                 onClick={handleFinishSale}
                 className="w-full py-4 text-base"
                 style={{ backgroundColor: storeColorCss }}
-                disabled={cart.length === 0 || !paymentMethod}
+                disabled={
+                  cart.length === 0 || !paymentMethod ||
+                  (paymentMethod === 'parcial' && (partialPayments.length === 0 || partialPayments.some(r => (parseCurrencyFormatted(formatCurrencyInput(r.amountRaw)) || 0) <= 0) || Math.abs((parseCurrencyFormatted(formatCurrencyInput(totalValueRaw)) || 0) - partialPayments.reduce((s, r) => s + (parseCurrencyFormatted(formatCurrencyInput(r.amountRaw)) || 0), 0)) > 0.01))
+                }
               >
                 <CheckCircle2 size={20} /> Gerar OS
               </Button>
+              </div>
             </div>
           </Card>
         </div>
@@ -742,6 +942,7 @@ export const POS: React.FC = () => {
               <Input label="Nome *" placeholder="Nome completo" value={quickName} onChange={e => setQuickName(e.target.value)} />
               <Input label="CPF *" placeholder="000.000.000-00" value={quickDocument} onChange={e => setQuickDocument(e.target.value)} />
               <Input label="Telefone *" placeholder="(00) 00000-0000" value={quickPhone} onChange={e => setQuickPhone(e.target.value)} />
+              <Input label="E-mail (opcional)" type="email" placeholder="nome@email.com" value={quickEmail} onChange={e => setQuickEmail(e.target.value)} />
               <Button onClick={handleCreateQuickClient} disabled={creatingClient} className="w-full" style={{ backgroundColor: storeColorCss }}>
                 {creatingClient ? <><Loader2 size={18} className="animate-spin" /> Cadastrando...</> : <><UserPlus size={18} /> Cadastrar e usar</>}
               </Button>
@@ -781,13 +982,34 @@ export const POS: React.FC = () => {
                 <div className="flex justify-between text-sm">
                   <span className="text-slate-600">Forma de Pagamento:</span>
                   <span className="font-bold text-slate-900">
-                    {paymentMethod === 'credit_card' ? 'Cartão' : paymentMethod === 'pix' ? 'PIX' : 'Dinheiro'}
+                    {paymentMethod === 'parcial'
+                      ? 'Parcial (múltiplas)'
+                      : paymentMethod === 'credit_card'
+                        ? `Cartão${installments > 1 ? ` (${installments}x)` : ''}`
+                        : paymentMethod === 'pix'
+                          ? 'PIX'
+                          : 'Dinheiro'}
                   </span>
                 </div>
+                {paymentMethod === 'parcial' && partialPayments.filter(p => (parseCurrencyFormatted(formatCurrencyInput(p.amountRaw)) || 0) > 0).length > 0 && (
+                  <div className="text-xs space-y-1">
+                    {partialPayments.filter(p => (parseCurrencyFormatted(formatCurrencyInput(p.amountRaw)) || 0) > 0).map(p => (
+                      <div key={p.id} className="flex justify-between text-slate-600">
+                        <span>{p.method === 'credit_card' ? 'Cartão' : p.method === 'pix' ? 'PIX' : 'Dinheiro'}{p.method === 'credit_card' && p.installments > 1 ? ` (${p.installments}x)` : ''}</span>
+                        <span className="font-bold text-slate-900">R$ {(parseCurrencyFormatted(formatCurrencyInput(p.amountRaw)) || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
                 <div className="flex justify-between text-sm">
-                  <span className="text-slate-600">Valor:</span>
+                  <span className="text-slate-600">Valor total:</span>
                   <span className="font-bold text-slate-900">
                     R$ {(parseCurrencyFormatted(formatCurrencyInput(totalValueRaw)) || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                    {paymentMethod === 'credit_card' && installments > 1 && (
+                      <span className="block text-xs font-normal text-slate-500 mt-0.5">
+                        {installments}x de R$ {((parseCurrencyFormatted(formatCurrencyInput(totalValueRaw)) || 0) / installments).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                      </span>
+                    )}
                   </span>
                 </div>
               </div>
@@ -825,7 +1047,7 @@ export const POS: React.FC = () => {
               <p className="text-sm text-slate-600 mb-4 text-center">Escolha o que deseja imprimir:</p>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <button
-                  onClick={() => handleFinishPrint('receipt')}
+                  onClick={() => setShowReceiptModal(true)}
                   className="flex flex-col items-center justify-center p-6 rounded-2xl border-2 border-slate-200 hover:border-slate-300 hover:bg-slate-50 transition-all group"
                 >
                   <div className="w-12 h-12 rounded-xl flex items-center justify-center text-white mb-3 group-hover:scale-110 transition-transform" style={{ backgroundColor: 'var(--store-color)' }}>
@@ -858,6 +1080,19 @@ export const POS: React.FC = () => {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Modal Recibo/NF-e (mesmo da OS: preview + impressão) */}
+      {showReceiptModal && receiptDataForModal && (
+        <ReceiptModal
+          isOpen={showReceiptModal}
+          onClose={() => setShowReceiptModal(false)}
+          onConfirm={handleReceiptModalConfirm}
+          receiptData={receiptDataForModal}
+          order={null}
+          clientPhone={null}
+          loading={false}
+        />
       )}
     </div>
   );

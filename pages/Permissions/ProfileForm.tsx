@@ -277,7 +277,7 @@ export const ProfileForm: React.FC = () => {
         showSuccess('Perfil criado com sucesso!');
       }
       
-      navigate('/profiles');
+      navigate('/permissions');
     } catch (err: any) {
       console.error('Erro ao salvar perfil:', err);
       const errorMessage = err.response?.data?.message || err.response?.data?.data?.message || err.message || 'Erro ao salvar perfil';
@@ -301,7 +301,7 @@ export const ProfileForm: React.FC = () => {
       {/* Header */}
       <div className="flex items-center gap-4">
         <button
-          onClick={() => navigate('/profiles')}
+          onClick={() => navigate('/permissions')}
           className="p-2 hover:bg-slate-100 rounded-xl transition-colors"
         >
           <ArrowLeft size={20} className="text-slate-600" />
@@ -549,7 +549,7 @@ export const ProfileForm: React.FC = () => {
             <Button 
               type="button" 
               variant="outline" 
-              onClick={() => navigate('/profiles')}
+              onClick={() => navigate('/permissions')}
             >
               Cancelar
             </Button>

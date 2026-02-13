@@ -9,6 +9,7 @@ import { useStore } from '../../contexts/StoreContext';
 import { usePermission } from '../../services/hooks/usePermission';
 import { useNotification } from '../../hooks/useNotification';
 import { useActiveFilters } from '../../hooks/useActiveFilters';
+import { maskCpfInput, maskPhoneInput } from '../../utils/formatters';
 
 export const ClientList: React.FC = () => {
   const navigate = useNavigate();
@@ -74,8 +75,8 @@ export const ClientList: React.FC = () => {
     
     const params: any = {};
     if (searchName) params.search = searchName;
-    if (searchDocument) params.document = searchDocument;
-    if (searchPhone) params.phone = searchPhone;
+    if (searchDocument) params.document = searchDocument.replace(/\D/g, '');
+    if (searchPhone) params.phone = searchPhone.replace(/\D/g, '');
     if (dateFrom) params.date_from = dateFrom;
     if (dateTo) params.date_to = dateTo;
     if (selectedStores.length > 0 && !selectedStores.includes('all')) {
@@ -98,8 +99,8 @@ export const ClientList: React.FC = () => {
     try {
       const params: any = {};
       if (searchName) params.search = searchName;
-      if (searchDocument) params.document = searchDocument;
-      if (searchPhone) params.phone = searchPhone;
+      if (searchDocument) params.document = searchDocument.replace(/\D/g, '');
+      if (searchPhone) params.phone = searchPhone.replace(/\D/g, '');
       if (dateFrom) params.date_from = dateFrom;
       if (dateTo) params.date_to = dateTo;
       if (selectedStores.length > 0 && !selectedStores.includes('all')) {
@@ -151,8 +152,8 @@ export const ClientList: React.FC = () => {
         per_page: newPerPage,
       };
       if (searchName) params.search = searchName;
-      if (searchDocument) params.document = searchDocument;
-      if (searchPhone) params.phone = searchPhone;
+      if (searchDocument) params.document = searchDocument.replace(/\D/g, '');
+      if (searchPhone) params.phone = searchPhone.replace(/\D/g, '');
       if (dateFrom) params.date_from = dateFrom;
       if (dateTo) params.date_to = dateTo;
       if (selectedStores.length > 0 && !selectedStores.includes('all')) {
@@ -329,13 +330,13 @@ export const ClientList: React.FC = () => {
           label="CPF" 
           placeholder="000.000.000-00" 
           value={searchDocument}
-          onChange={(e) => setSearchDocument(e.target.value)}
+          onChange={(e) => setSearchDocument(maskCpfInput(e.target.value))}
         />
         <Input 
           label="Telefone" 
           placeholder="(00) 00000-0000" 
           value={searchPhone}
-          onChange={(e) => setSearchPhone(e.target.value)}
+          onChange={(e) => setSearchPhone(maskPhoneInput(e.target.value))}
         />
         <Input 
           label="Data de Cadastro" 
@@ -647,8 +648,8 @@ export const ClientList: React.FC = () => {
             onPageChange={(page) => {
               const params: any = {};
               if (searchName) params.search = searchName;
-              if (searchDocument) params.document = searchDocument;
-              if (searchPhone) params.phone = searchPhone;
+              if (searchDocument) params.document = searchDocument.replace(/\D/g, '');
+              if (searchPhone) params.phone = searchPhone.replace(/\D/g, '');
               if (dateFrom) params.date_from = dateFrom;
               if (dateTo) params.date_to = dateTo;
               if (selectedStores.length > 0 && !selectedStores.includes('all')) {

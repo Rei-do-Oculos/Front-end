@@ -31,6 +31,15 @@ export const formatCPF = (cpf: string): string => {
   return cleaned.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4');
 };
 
+/** Máscara de CPF para input (formata enquanto digita): 000.000.000-00 */
+export const maskCpfInput = (value: string): string => {
+  const cleaned = value.replace(/\D/g, '').slice(0, 11);
+  if (cleaned.length <= 3) return cleaned;
+  if (cleaned.length <= 6) return `${cleaned.slice(0, 3)}.${cleaned.slice(3)}`;
+  if (cleaned.length <= 9) return `${cleaned.slice(0, 3)}.${cleaned.slice(3, 6)}.${cleaned.slice(6)}`;
+  return `${cleaned.slice(0, 3)}.${cleaned.slice(3, 6)}.${cleaned.slice(6, 9)}-${cleaned.slice(9)}`;
+};
+
 export const formatPhone = (phone: string): string => {
   const cleaned = phone.replace(/\D/g, '');
   if (cleaned.length === 11) {

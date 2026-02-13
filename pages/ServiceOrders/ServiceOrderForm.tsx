@@ -762,6 +762,17 @@ export const ServiceOrderForm: React.FC = () => {
   };
 
   const clientsList = Array.isArray(clients) ? clients : [];
+  // Incluir cliente da OS nas opções quando carregado (para visualização/edição mostrar o nome)
+  const clientSelectOptions = useMemo(() => {
+    const opts = clientsList.map((c) => ({ value: String(c.id), label: c.name }));
+    if (formData.client_id && loadedOrder?.client && !opts.some((o) => o.value === formData.client_id)) {
+      opts.push({
+        value: String(loadedOrder.client.id),
+        label: loadedOrder.client.name || `Cliente #${loadedOrder.client.id}`,
+      });
+    }
+    return opts;
+  }, [clientsList, formData.client_id, loadedOrder?.client]);
   const laboratoriesList = Array.isArray(laboratories) ? laboratories : [];
   const laboratoryLensesList = Array.isArray(laboratoryLenses) ? laboratoryLenses : [];
   const framesList = Array.isArray(frames) ? frames : [];
@@ -839,7 +850,7 @@ export const ServiceOrderForm: React.FC = () => {
             </div>
           </div>
         )}
-        <fieldset disabled={isViewMode || isOtherStoreOrder || (isEditMode && loadedOrder?.status === 'completed' && !hasSuperAdminRole)} className="disabled:opacity-70">
+        <fieldset disabled={isViewMode || isOtherStoreOrder || (isEditMode && loadedOrder?.status === 'completed' && !hasSuperAdminRole)} className={isViewMode ? '' : 'disabled:opacity-70'}>
         <Card className="p-8">
           {errors.form && (
             <div className="mb-6 border rounded-xl p-4" style={{ backgroundColor: 'var(--store-color-light)', borderColor: 'var(--store-color-opacity-20)' }}>
@@ -865,10 +876,7 @@ export const ServiceOrderForm: React.FC = () => {
                 label="Cliente *"
                 value={formData.client_id}
                 onChange={(val) => handleFieldChange('client_id', val)}
-                options={clientsList.map((client) => ({ 
-                  value: String(client.id), 
-                  label: client.name 
-                }))}
+                options={clientSelectOptions}
                 placeholder="Buscar cliente..."
                 searchable
                 error={errors.client_id}

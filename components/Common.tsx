@@ -320,7 +320,7 @@ export const Input: React.FC<React.InputHTMLAttributes<HTMLInputElement> & { lab
     <div className="space-y-1.5 lg:space-y-2 w-full">
       {renderLabel()}
       <input 
-        className={`w-full px-4 py-3 lg:px-5 lg:py-3.5 ${styles.input.default} bg-gray-50 border-2 border-slate-200 text-sm font-medium transition-all outline-none placeholder:text-gray-400 ${className}`}
+        className={`w-full px-4 py-3 lg:px-5 lg:py-3.5 ${styles.input.default} bg-gray-50 border-2 border-slate-200 text-sm font-medium text-slate-900 transition-all outline-none placeholder:text-gray-400 disabled:text-slate-800 disabled:bg-slate-50 ${className}`}
         style={{
           borderColor: error 
             ? 'var(--store-color)' 
@@ -836,7 +836,7 @@ export const SingleSelect: React.FC<{
         <div
           ref={buttonRef}
           onClick={() => !disabled && setIsOpen(!isOpen)}
-          className={`w-full px-4 py-3 lg:px-5 lg:py-3.5 ${styles.input.default} bg-gray-50 border-2 text-sm font-medium transition-all outline-none text-left flex items-center justify-between min-h-[48px] ${disabled ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'} ${isOpen ? 'bg-white ring-2' : ''} ${error ? 'border-red-500' : 'border-slate-200'}`}
+          className={`w-full px-4 py-3 lg:px-5 lg:py-3.5 ${styles.input.default} bg-gray-50 border-2 text-sm font-medium transition-all outline-none text-left flex items-center justify-between min-h-[48px] ${disabled ? 'cursor-not-allowed' : 'cursor-pointer'} ${isOpen ? 'bg-white ring-2' : ''} ${error ? 'border-red-500' : 'border-slate-200'}`}
           style={{
             borderColor: error ? '#ef4444' : (isOpen ? 'var(--store-color)' : undefined),
             '--tw-ring-color': 'var(--store-color-opacity-20)',
@@ -881,8 +881,8 @@ export const SingleSelect: React.FC<{
               <span className="text-gray-400">{placeholder}</span>
             ) : (
               <span
-                className="inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium"
-                style={{
+                className={`inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium ${disabled ? 'bg-slate-100 text-slate-900' : ''}`}
+                style={disabled ? undefined : {
                   backgroundColor: 'var(--store-color-light)',
                   color: 'var(--store-color-dark)',
                 }}
