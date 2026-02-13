@@ -228,6 +228,11 @@ class ApiClient {
         sanitized[key] = value;
       } else if (typeof value === 'boolean') {
         sanitized[key] = value;
+      } else if (Array.isArray(value)) {
+        const safe = value
+          .map((item) => (typeof item === 'number' && Number.isSafeInteger(item) ? item : typeof item === 'string' ? sanitizeObject({ v: item }).v : null))
+          .filter((item) => item !== null && item !== undefined && item !== '');
+        if (safe.length > 0) sanitized[key] = safe;
       }
     }
     

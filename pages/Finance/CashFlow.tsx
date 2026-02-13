@@ -78,15 +78,23 @@ export const CashFlow: React.FC = () => {
     fetchStores();
   }, [fetchStores]);
 
-  // Definir período padrão (últimos 30 dias)
-  useEffect(() => {
-    const today = new Date();
-    const thirtyDaysAgo = new Date();
-    thirtyDaysAgo.setDate(today.getDate() - 30);
-    
-    setFilterDateTo(today.toISOString().split('T')[0]);
-    setFilterDateFrom(thirtyDaysAgo.toISOString().split('T')[0]);
+  // Período do mês atual (primeiro e último dia)
+  const getCurrentMonthRange = useCallback(() => {
+    const now = new Date();
+    const first = new Date(now.getFullYear(), now.getMonth(), 1);
+    const last = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+    return {
+      from: first.toISOString().split('T')[0],
+      to: last.toISOString().split('T')[0],
+    };
   }, []);
+
+  // Definir período padrão: mês atual
+  useEffect(() => {
+    const { from, to } = getCurrentMonthRange();
+    setFilterDateFrom(from);
+    setFilterDateTo(to);
+  }, [getCurrentMonthRange]);
 
   const paymentMethodOptions = useMemo(() => [
     { value: 'credit_card', label: 'Cartão de Crédito' },
@@ -95,21 +103,25 @@ export const CashFlow: React.FC = () => {
     { value: 'pix', label: 'PIX' },
   ], []);
 
-  // Carregar dados
-  const loadData = useCallback(async () => {
+  // Carregar dados (apenas quando o usuário clica em Aplicar/Limpar)
+  const loadData = useCallback(async (overrides?: { dateFrom?: string; dateTo?: string; storeId?: string; paymentMethods?: string[] }) => {
     const filters: any = {};
-    
-    if (filterStore) {
-      filters.store_id = parseInt(filterStore);
+    const dateFrom = overrides?.dateFrom ?? filterDateFrom;
+    const dateTo = overrides?.dateTo ?? filterDateTo;
+    const storeId = overrides?.storeId ?? filterStore;
+    const paymentMethods = overrides?.paymentMethods ?? filterPaymentMethods;
+
+    if (storeId) {
+      filters.store_id = parseInt(storeId);
     }
-    if (filterDateFrom) {
-      filters.date_from = filterDateFrom;
+    if (dateFrom) {
+      filters.date_from = dateFrom;
     }
-    if (filterDateTo) {
-      filters.date_to = filterDateTo;
+    if (dateTo) {
+      filters.date_to = dateTo;
     }
-    if (filterPaymentMethods.length > 0) {
-      filters.payment_method = filterPaymentMethods;
+    if (paymentMethods && paymentMethods.length > 0) {
+      filters.payment_method = paymentMethods;
     }
 
     const data = await getDashboard(filters);
@@ -118,12 +130,14 @@ export const CashFlow: React.FC = () => {
     }
   }, [getDashboard, filterStore, filterDateFrom, filterDateTo, filterPaymentMethods]);
 
-  // Refetch ao trocar de loja ou filtros (dashboard usa X-Store-ID quando filterStore vazio)
+  // Carregar apenas na montagem inicial (com mês atual)
+  const hasInitiallyLoaded = React.useRef(false);
   useEffect(() => {
-    if (filterDateFrom && filterDateTo) {
+    if (filterDateFrom && filterDateTo && !hasInitiallyLoaded.current) {
+      hasInitiallyLoaded.current = true;
       loadData();
     }
-  }, [loadData, filterDateFrom, filterDateTo, filterStore, selectedStore?.id]);
+  }, [filterDateFrom, filterDateTo, loadData]);
 
   const handleApplyFilters = () => {
     loadData();
@@ -132,12 +146,24 @@ export const CashFlow: React.FC = () => {
   const handleClearFilters = () => {
     setFilterStore('');
     setFilterPaymentMethods([]);
-    const today = new Date();
-    const thirtyDaysAgo = new Date();
-    thirtyDaysAgo.setDate(today.getDate() - 30);
-    setFilterDateTo(today.toISOString().split('T')[0]);
-    setFilterDateFrom(thirtyDaysAgo.toISOString().split('T')[0]);
+    const { from, to } = getCurrentMonthRange();
+    setFilterDateFrom(from);
+    setFilterDateTo(to);
+    loadData({ dateFrom: from, dateTo: to, storeId: '', paymentMethods: [] });
   };
+
+  // Nome do mês para exibir (baseado no filtro de data)
+  const reportMonthLabel = useMemo(() => {
+    if (!filterDateFrom) return '';
+    try {
+      const [y, m] = filterDateFrom.split('-').map(Number);
+      const date = new Date(y, m - 1, 1);
+      const str = date.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+      return str.charAt(0).toUpperCase() + str.slice(1);
+    } catch {
+      return '';
+    }
+  }, [filterDateFrom]);
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('pt-BR', {
@@ -328,6 +354,11 @@ export const CashFlow: React.FC = () => {
         <div>
           <h1 className="text-3xl font-black text-slate-950 tracking-tight">Fluxo de Caixa</h1>
           <p className="text-gray-500 font-medium mt-1">Acompanhe o desempenho financeiro</p>
+          {reportMonthLabel && (
+            <p className="text-sm font-semibold text-slate-600 mt-1">
+              Relatório do mês de: {reportMonthLabel}
+            </p>
+          )}
         </div>
         <div className="flex flex-wrap gap-3">
           <Button

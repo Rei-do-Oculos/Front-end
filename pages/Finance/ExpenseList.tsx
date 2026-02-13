@@ -45,15 +45,11 @@ export const ExpenseList: React.FC = () => {
     fetchStores();
   }, [fetchStores]);
 
-  // Refetch ao trocar de loja (backend usa StoreScope / X-Store-ID)
+  // Refetch ao trocar de loja ou per page; preserva filtros aplicados
   useEffect(() => {
     const load = async () => {
       try {
-        await fetchExpenses(1, {
-          order_by: sortBy || 'created_at',
-          order_dir: sortDirection || 'desc',
-          per_page: perPage,
-        });
+        await fetchExpenses(1, buildParams(1));
       } catch (err) {
         console.error('Erro ao carregar despesas:', err);
       }
@@ -234,6 +230,7 @@ export const ExpenseList: React.FC = () => {
             <thead>
               <tr className="border-b border-slate-100">
                 <SortableHeader label="Nome" sortKey="name" currentSort={sortBy} currentDirection={sortDirection} onSort={handleSort} className="px-6 py-4" />
+                <th className="px-6 py-4 text-left text-[10px] font-black uppercase text-slate-400 tracking-widest">Loja</th>
                 <th className="px-6 py-4 text-left text-[10px] font-black uppercase text-slate-400 tracking-widest">Tipo de pagamento</th>
                 <SortableHeader label="Valor" sortKey="value" currentSort={sortBy} currentDirection={sortDirection} onSort={handleSort} className="px-6 py-4" />
                 <th className="px-6 py-4 text-center text-[10px] font-black uppercase text-slate-400 tracking-widest">Ações</th>
@@ -242,7 +239,7 @@ export const ExpenseList: React.FC = () => {
             <tbody className="divide-y divide-slate-50">
               {loading ? (
                 <tr>
-                  <td colSpan={4} className="px-6 py-12 text-center">
+                  <td colSpan={5} className="px-6 py-12 text-center">
                     <div className="flex items-center justify-center gap-3">
                       <Loader2 size={20} className="animate-spin" style={{ color: 'var(--store-color)' }} />
                       <span className="text-sm text-slate-500">Carregando despesas...</span>
@@ -251,7 +248,7 @@ export const ExpenseList: React.FC = () => {
                 </tr>
               ) : error ? (
                 <tr>
-                  <td colSpan={4} className="px-6 py-12 text-center">
+                  <td colSpan={5} className="px-6 py-12 text-center">
                     <div className="border rounded-lg p-4" style={{ backgroundColor: 'var(--store-color-light)', borderColor: 'var(--store-color-opacity-20)' }}>
                       <p className="text-sm font-bold mb-1" style={{ color: 'var(--store-color-dark)' }}>Erro ao carregar despesas</p>
                       <p className="text-xs" style={{ color: 'var(--store-color)' }}>{(error as Error).message}</p>
@@ -260,7 +257,7 @@ export const ExpenseList: React.FC = () => {
                 </tr>
               ) : list.length === 0 ? (
                 <tr>
-                  <td colSpan={4} className="px-6 py-12 text-center text-sm text-slate-500">Nenhuma despesa encontrada</td>
+                  <td colSpan={5} className="px-6 py-12 text-center text-sm text-slate-500">Nenhuma despesa encontrada</td>
                 </tr>
               ) : (
                 list.map((exp) => (
@@ -277,6 +274,9 @@ export const ExpenseList: React.FC = () => {
                           {exp.name}
                         </p>
                       </div>
+                    </td>
+                    <td className="px-6 py-4 text-sm text-slate-600">
+                      {exp.store ? (exp.store.unity ? `${exp.store.name} (${exp.store.unity})` : exp.store.name) : exp.store_id ? `Loja ${exp.store_id}` : '—'}
                     </td>
                     <td className="px-6 py-4 text-sm text-slate-600">
                       {PAYMENT_METHOD_LABELS[exp.payment_method as keyof typeof PAYMENT_METHOD_LABELS] || exp.payment_method}
