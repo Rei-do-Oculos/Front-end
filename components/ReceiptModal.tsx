@@ -1,11 +1,10 @@
 import React, { useRef, useState, useMemo } from 'react';
-import { X, Printer, FileText, Receipt, Ban, FileCheck } from 'lucide-react';
+import { X, Printer, FileText, Receipt, Ban } from 'lucide-react';
 import { ThermalReceipt, ReceiptData } from './ThermalReceipt';
 import { NFCePreview, NFCeData } from './NFCePreview';
-import { ServiceOrderSheet } from './ServiceOrderSheet';
 import { ServiceOrder } from '../services/api/serviceOrders';
 
-type DocType = 'receipt' | 'order_sheet' | 'nfe' | 'none';
+type DocType = 'receipt' | 'nfe' | 'none';
 
 interface ReceiptModalProps {
   isOpen: boolean;
@@ -28,10 +27,7 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
 }) => {
   const [selectedType, setSelectedType] = useState<DocType>('receipt');
   const receiptRef = useRef<HTMLDivElement>(null);
-  const orderSheetRef = useRef<HTMLDivElement>(null);
   const nfceRef = useRef<HTMLDivElement>(null);
-
-  const showOrderSheet = !!order;
 
   // Converter ReceiptData para NFCeData
   const nfceData: NFCeData = useMemo(() => ({
@@ -71,13 +67,6 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
 
     if (selectedType === 'nfe') {
       alert('Emissão de NF-e ainda não disponível. Em breve!');
-      return;
-    }
-
-    // Ordem de Serviço: abre em nova página (onde o usuário pode imprimir)
-    if (selectedType === 'order_sheet' && order) {
-      window.open(`/service-orders/${order.id}/sheet`, '_blank');
-      onConfirm('order_sheet');
       return;
     }
 
@@ -194,55 +183,12 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
                   Recibo
                 </p>
                 <p className="text-xs text-slate-500">
-                  Documento informal
+                  Imprimir recibo
                 </p>
               </div>
             </label>
 
-            {/* Opção Ordem de Serviço (folha A4 receituário) */}
-            {showOrderSheet && (
-              <label
-                className={`flex items-center gap-4 p-4 rounded-2xl border-2 cursor-pointer transition-all ${
-                  selectedType === 'order_sheet'
-                    ? 'border-slate-200'
-                    : 'border-slate-200 hover:border-slate-300'
-                }`}
-                style={selectedType === 'order_sheet' ? {
-                  borderColor: 'var(--store-color)',
-                  backgroundColor: 'var(--store-color-light)',
-                } : {}}
-              >
-                <input
-                  type="radio"
-                  name="docType"
-                  value="order_sheet"
-                  checked={selectedType === 'order_sheet'}
-                  onChange={() => setSelectedType('order_sheet')}
-                  className="sr-only"
-                />
-                <div
-                  className={`p-3 rounded-xl ${
-                    selectedType === 'order_sheet' ? 'text-white' : 'bg-slate-100 text-slate-500'
-                  }`}
-                  style={selectedType === 'order_sheet' ? { backgroundColor: 'var(--store-color)' } : {}}
-                >
-                  <FileCheck size={24} />
-                </div>
-                <div>
-                  <p
-                    className={`font-bold ${selectedType === 'order_sheet' ? '' : 'text-slate-700'}`}
-                    style={selectedType === 'order_sheet' ? { color: 'var(--store-color-dark)' } : {}}
-                  >
-                    Ordem de Serviço
-                  </p>
-                  <p className="text-xs text-slate-500">
-                    Receituário (folha A4)
-                  </p>
-                </div>
-              </label>
-            )}
-
-            {/* Opção NF-e (preview apenas) */}
+            {/* Opção NF-e */}
             <label
               className={`flex items-center gap-4 p-4 rounded-2xl border-2 cursor-pointer transition-all ${
                 selectedType === 'nfe'
@@ -275,10 +221,10 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
                   className={`font-bold ${selectedType === 'nfe' ? '' : 'text-slate-700'}`}
                   style={selectedType === 'nfe' ? { color: 'var(--store-color-dark)' } : {}}
                 >
-                  NFC-e
+                  NF-e
                 </p>
                 <p className="text-xs text-slate-500">
-                  Preview (em breve)
+                  Imprimir NF-e
                 </p>
               </div>
             </label>
@@ -329,15 +275,6 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
               <div className="shadow-lg">
                 {selectedType === 'nfe' ? (
                   <NFCePreview ref={nfceRef} data={nfceData} />
-                ) : selectedType === 'order_sheet' && order ? (
-                  <div style={{ transform: 'scale(0.45)', transformOrigin: 'top left', width: '222%' }}>
-                    <ServiceOrderSheet
-                      ref={orderSheetRef}
-                      order={order}
-                      store={receiptData.store}
-                      clientPhone={clientPhone}
-                    />
-                  </div>
                 ) : (
                   <ThermalReceipt ref={receiptRef} data={receiptData} />
                 )}
@@ -376,8 +313,7 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
               <>
                 <Printer size={18} />
                 {selectedType === 'receipt' && 'Imprimir Recibo'}
-                {selectedType === 'order_sheet' && 'Abrir em nova página'}
-                {selectedType === 'nfe' && 'Emitir NF-e'}
+                {selectedType === 'nfe' && 'Imprimir NF-e'}
               </>
             )}
           </button>

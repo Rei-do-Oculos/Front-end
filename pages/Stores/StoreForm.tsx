@@ -268,26 +268,6 @@ export const StoreForm: React.FC = () => {
           </p>
         </div>
         <div className="flex gap-3">
-          {isEditMode && (
-            <Button 
-              variant="outline" 
-              onClick={handleDeleteClick}
-              style={{ color: 'var(--store-color-dark)' }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.color = 'var(--store-color)';
-                e.currentTarget.style.backgroundColor = 'var(--store-color-light)';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.color = '';
-                e.currentTarget.style.backgroundColor = '';
-              }}
-            >
-              <Trash2 size={18} /> Excluir
-            </Button>
-          )}
-          <Button variant="outline" onClick={() => window.history.back()}>
-            <ArrowLeft size={18} /> Cancelar
-          </Button>
           <Button onClick={handleSubmit} className="px-8">
             <Save size={18} /> {isEditMode ? 'Atualizar' : 'Criar'} Unidade
           </Button>

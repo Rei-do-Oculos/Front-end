@@ -119,8 +119,8 @@ export const StoreList: React.FC = () => {
           <p className="text-gray-500 font-medium mt-1 uppercase text-[9px] tracking-[0.25em]">Filiais • Franquias • Pontos de Venda</p>
         </div>
         {hasPermission('stores.create') && (
-          <Button onClick={() => navigate('/stores/create')} className="px-8 py-4 rounded-2xl">
-            <Plus size={20} /> Adicionar Nova Loja
+          <Button onClick={() => navigate('/stores/create')}>
+            <Plus size={18} /> Nova Unidade
           </Button>
         )}
       </div>

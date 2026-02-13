@@ -45,12 +45,12 @@ interface MenuItem {
 
 const menuItems: MenuItem[] = [
   { title: 'Dashboard', icon: <LayoutDashboard size={20} />, path: '/' },
-/*   { 
+  { 
     title: 'PDV / Vendas', 
     icon: <ShoppingCart size={20} />, 
     path: '/pdv',
     highlight: true 
-  }, */
+  },
   { 
     title: 'Lojas / Unidades', 
     icon: <Store size={20} />, 
@@ -125,8 +125,10 @@ interface SidebarContentProps {
   isSidebarOpen: boolean;
   isMobileMenuOpen: boolean;
   storeColor: string;
-  storeUnity: string;
+  storeUnity: string | null;
+  storeDisplayName: string | null;
   isActive: (path: string, submenu?: { title: string; path: string }[]) => boolean;
+  onCloseMobile?: () => void;
 }
 
 const SidebarContent: React.FC<SidebarContentProps> = ({
@@ -137,22 +139,35 @@ const SidebarContent: React.FC<SidebarContentProps> = ({
   isMobileMenuOpen,
   storeColor,
   storeUnity,
+  storeDisplayName,
   isActive,
+  onCloseMobile,
 }) => {
   const location = useLocation();
   return (
     <div className="flex flex-col h-full bg-slate-950 text-white font-sans min-h-0">
-      <div className="p-4 sm:p-6 flex items-center gap-3 h-16 sm:h-20 shrink-0 border-b border-white/5">
-        <div 
-          className="w-10 h-10 rounded-xl flex items-center justify-center text-white shadow-lg shrink-0"
-          style={{ backgroundColor: storeColor }}
-        >
-          <Store size={20} />
+      <div className="p-4 sm:p-6 flex items-center justify-between gap-3 h-16 sm:h-20 shrink-0 border-b border-white/5">
+        <div className="flex items-center gap-3 min-w-0">
+          <div 
+            className="w-10 h-10 rounded-xl flex items-center justify-center text-white shadow-lg shrink-0"
+            style={{ backgroundColor: storeColor }}
+          >
+            <Store size={20} />
+          </div>
+          {(isSidebarOpen || isMobileMenuOpen) && (
+            <span className="font-semibold text-lg tracking-tight whitespace-nowrap">
+              {storeUnity || storeDisplayName || ''}
+            </span>
+          )}
         </div>
-        {(isSidebarOpen || isMobileMenuOpen) && (
-          <span className="font-semibold text-lg tracking-tight whitespace-nowrap">
-            {storeUnity || ''}
-          </span>
+        {isMobileMenuOpen && onCloseMobile && (
+          <button
+            onClick={onCloseMobile}
+            className="p-2 text-slate-400 hover:text-white transition-colors rounded-lg shrink-0"
+            title="Fechar menu"
+          >
+            <X size={20} />
+          </button>
         )}
       </div>
       <div className="flex-1 overflow-y-auto overflow-x-hidden px-4 py-2 space-y-6 min-h-0">
@@ -366,7 +381,7 @@ export const Layout: React.FC<{ children: React.ReactNode; onLogout: () => void 
   const location = useLocation();
   const { user } = useAuth();
   const isSheetPage = location.pathname.includes('/service-orders/') && location.pathname.endsWith('/sheet');
-  const { selectedStore, availableStores, setSelectedStore, storeColor, storeUnity } = useStore();
+  const { selectedStore, availableStores, setSelectedStore, storeColor, storeUnity, storeDisplayName } = useStore();
   const [storeDropdownOpen, setStoreDropdownOpen] = useState(false);
   const storeDropdownRef = useRef<HTMLDivElement>(null);
 
@@ -405,8 +420,8 @@ export const Layout: React.FC<{ children: React.ReactNode; onLogout: () => void 
       '/permissions': ['roles', 'permissions', 'users', 'audits', 'trash'], // Sistema
       '/service-orders': ['service-orders', 'service-orders-lab'], // Pedidos (OS)
       '/finance': ['finance', 'service-orders-overdue', 'expenses'],
+      '/pdv': 'pdv',
       // Módulos ainda sem permissões específicas (públicos por enquanto)
-//'/pdv': [],
       '/pedidos': [],
       '/chat': [],
     };
@@ -549,68 +564,6 @@ export const Layout: React.FC<{ children: React.ReactNode; onLogout: () => void 
     return filtered;
   }, [user]);
 
-  // Mapeamento de rotas para breadcrumbs
-  const getBreadcrumbs = () => {
-    const path = location.pathname;
-    const crumbs = [{ label: 'Dashboard', path: '/' }];
-
-    if (path === '/') return [{ label: 'Dashboard', path: '/' }];
-
-    // Mapeamento de rotas
-    const routeMap: { [key: string]: string } = {
-      //'/pdv': 'PDV / Vendas',
-      '/stores': 'Lojas / Unidades',
-      '/stores/create': 'Nova Unidade',
-      '/clients': 'Clientes',
-      '/clients/create': 'Novo Cliente',
-      '/clients/:id': 'Detalhes do Cliente',
-      '/clients/:id/edit': 'Editar Cliente',
-      '/vendedores': 'Vendedores',
-      '/vendedores/create': 'Novo Vendedor',
-      '/estoque': 'Estoque',
-      '/fornecedores': 'Fornecedores',
-      '/fornecedores/create': 'Novo Fornecedor',
-      '/lenses': 'Lentes',
-      '/lenses/create': 'Nova Lente',
-      '/service-orders': 'Pedidos (OS)',
-      '/service-orders/create': 'Nova OS',
-      '/service-orders/lab': 'OS Laboratório',
-      '/finance': 'Financeiro',
-      '/finance/overdue': 'Inadimplências',
-      '/notas-fiscais': 'Notas Fiscais',
-      '/pedidos': 'Ordens de Serviço',
-      '/pedidos/laboratorio': 'Laboratório',
-      '/pedidos/create': 'Nova OS',
-      '/permissions': 'Permissões',
-      '/users': 'Usuários',
-      '/audit': 'Auditoria',
-      '/trash': 'Lixeira',
-    };
-
-    // Detectar se é edição ou detalhes
-    if (path.includes('/edit')) {
-      const basePath = path.split('/edit')[0];
-      const baseLabel = routeMap[basePath] || basePath.replace('/', '');
-      crumbs.push({ label: baseLabel, path: basePath });
-      crumbs.push({ label: 'Editar', path: path });
-    } else if (path.match(/\/[^/]+\/[^/]+$/) && !path.includes('/create') && !path.includes('/laboratorio') && !path.includes('/overdue') && !path.includes('/notas-fiscais')) {
-      // Detectar detalhes (ex: /clients/:id)
-      const basePath = '/' + path.split('/')[1];
-      const baseLabel = routeMap[basePath] || basePath.replace('/', '');
-      crumbs.push({ label: baseLabel, path: basePath });
-      crumbs.push({ label: 'Detalhes', path: path });
-    } else if (path.includes('/notas-fiscais/') && path.split('/').length > 2) {
-      // Detectar detalhes da NF-e
-      crumbs.push({ label: 'Notas Fiscais', path: '/notas-fiscais' });
-      crumbs.push({ label: 'Detalhes da NF-e', path: path });
-    } else {
-      const label = routeMap[path] || path.split('/').pop()?.replace(/-/g, ' ') || path;
-      crumbs.push({ label: label, path: path });
-    }
-
-    return crumbs;
-  };
-
   // Atualizar data e hora (horário de Brasília)
   const BRASILIA_TZ = 'America/Sao_Paulo';
   useEffect(() => {
@@ -693,6 +646,7 @@ export const Layout: React.FC<{ children: React.ReactNode; onLogout: () => void 
     isMobileMenuOpen,
     storeColor,
     storeUnity,
+    storeDisplayName,
     isActive,
   };
 
@@ -727,46 +681,11 @@ export const Layout: React.FC<{ children: React.ReactNode; onLogout: () => void 
               />
               <aside className="fixed left-0 top-0 h-full w-72 shadow-2xl z-50 lg:hidden animate-in slide-in-from-left duration-300">
                 <div className="flex flex-col h-full bg-slate-950 text-white font-sans min-h-0">
-                  <div className="p-4 sm:p-6 flex items-center justify-between h-16 sm:h-20 shrink-0 border-b border-white/10">
-                    <div className="flex items-center gap-3 min-w-0">
-                      <div 
-                        className="w-10 h-10 rounded-xl flex items-center justify-center text-white shadow-lg shrink-0"
-                        style={{ backgroundColor: storeColor }}
-                      >
-                        <Store size={20} />
-                      </div>
-                      <div className="min-w-0">
-                        <span className="font-semibold text-lg tracking-tight whitespace-nowrap block">
-                          REI DO <span className="uppercase" style={{ color: storeColor }}>Óculos</span>
-                        </span>
-                        {user && (
-                          <div className="flex items-center gap-1.5 mt-0.5">
-                            <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></div>
-                            <p className="text-[8px] text-slate-400 font-bold uppercase tracking-[0.2em] truncate">
-                              {selectedStore?.unity || selectedStore?.name || 'Nenhuma unidade'}
-                            </p>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2 shrink-0">
-                      <button 
-                        onClick={onLogout}
-                        className="p-2 text-slate-400 hover:bg-red-600/10 hover:text-red-500 transition-all rounded-lg border border-transparent hover:border-red-600/20"
-                        title="Sair"
-                      >
-                        <LogOut size={18} />
-                      </button>
-                      <button
-                        onClick={() => setIsMobileMenuOpen(false)}
-                        className="p-2 text-slate-400 hover:text-white transition-colors"
-                      >
-                        <X size={20} />
-                      </button>
-                    </div>
-                  </div>
                   <div className="flex-1 min-h-0 overflow-hidden">
-                    <SidebarContent {...sidebarContentProps} />
+                    <SidebarContent 
+                      {...sidebarContentProps} 
+                      onCloseMobile={() => setIsMobileMenuOpen(false)} 
+                    />
                   </div>
                 </div>
               </aside>
@@ -778,9 +697,8 @@ export const Layout: React.FC<{ children: React.ReactNode; onLogout: () => void 
       <div className={`flex-1 flex flex-col overflow-hidden ${isPDVPage ? 'w-full' : ''}`}>
         {!isPDVPage && (
           <header className="bg-white border-b border-gray-100 shrink-0 z-40 sticky top-0">
-          {/* Layout responsivo: Mobile (hamburger + store + user) | Desktop (horário + breadcrumbs | store + user) */}
           <div className="min-h-14 flex flex-row items-center justify-between px-3 sm:px-6 lg:px-10 py-2 gap-2 sm:gap-4">
-            {/* Esquerda: Botão Menu Mobile (sempre primeiro em telas < lg) + Horário em desktop */}
+            {/* Esquerda: Botão Menu Mobile + Nome loja | Horário */}
             <div className="flex items-center gap-2 sm:gap-4 md:gap-6 min-w-0 flex-1">
               {/* Botão Menu Mobile - Toggle sidebar (visível em mobile/tablet < 1024px) */}
               <button 
@@ -796,6 +714,11 @@ export const Layout: React.FC<{ children: React.ReactNode; onLogout: () => void 
                 <Menu size={22} className="sm:w-6 sm:h-6" />
               </button>
               
+              {/* Nome fantasia da loja - visível apenas no mobile */}
+              <span className="lg:hidden text-sm font-semibold text-slate-800 truncate min-w-0 flex-1 ml-1">
+                {storeDisplayName || ''}
+              </span>
+              
               {/* Horário - oculto em mobile, visível em sm+ */}
               <div className="hidden sm:flex items-center gap-3 md:gap-4 text-xs md:text-sm text-slate-600 shrink-0">
                 <div className="flex items-center gap-1.5 md:gap-2">
@@ -809,19 +732,6 @@ export const Layout: React.FC<{ children: React.ReactNode; onLogout: () => void 
                 </div>
               </div>
               
-              {/* Breadcrumbs - truncado em mobile, completo em sm+ */}
-              <nav className="hidden sm:flex items-center gap-1.5 text-xs text-slate-500 min-w-0 overflow-hidden" aria-label="Navegação">
-                {getBreadcrumbs().map((crumb, i) => (
-                  <span key={crumb.path} className="flex items-center gap-1.5 min-w-0 shrink">
-                    {i > 0 && <span className="text-slate-300">/</span>}
-                    {i === getBreadcrumbs().length - 1 ? (
-                      <span className="font-semibold text-slate-700 truncate">{crumb.label}</span>
-                    ) : (
-                      <Link to={crumb.path} className="truncate hover:text-[var(--store-color)] transition-colors">{crumb.label}</Link>
-                    )}
-                  </span>
-                ))}
-              </nav>
             </div>
             
             {/* Direita: Seletor de Loja + Usuário */}
@@ -833,12 +743,9 @@ export const Layout: React.FC<{ children: React.ReactNode; onLogout: () => void 
                     onClick={() => setStoreDropdownOpen(!storeDropdownOpen)}
                     className="flex items-center gap-2 px-3 py-2 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-lg transition-all"
                   >
-                    <div 
-                      className="w-3 h-3 rounded-full shadow-sm"
-                      style={{ backgroundColor: storeColor }}
-                    ></div>
+                    <Store size={16} className="text-slate-600 shrink-0" />
                     <span className="text-xs font-semibold text-slate-700 hidden sm:block">
-                      {selectedStore ? (selectedStore.fancy_name || selectedStore.name) : 'Selecione'}
+                      {storeDisplayName || 'Selecione'}
                     </span>
                     <ChevronDown size={14} className={`text-slate-400 transition-transform ${storeDropdownOpen ? 'rotate-180' : ''}`} />
                   </button>
@@ -859,16 +766,13 @@ export const Layout: React.FC<{ children: React.ReactNode; onLogout: () => void 
                                 : 'hover:bg-slate-50'
                             }`}
                           >
-                            <div 
-                              className="w-4 h-4 rounded-full shadow-sm shrink-0"
-                              style={{ backgroundColor: store.color || '#dc2626' }}
-                            ></div>
+                            <Store size={18} className="text-slate-500 shrink-0" />
                             <div className="flex-1 min-w-0">
                               <p className="text-sm font-semibold text-slate-900 truncate">
-                                {store.fancy_name || store.name}
+                                {store.name}
                               </p>
                               {store.fancy_name && (
-                                <p className="text-[10px] text-slate-500 truncate">{store.name}</p>
+                                <p className="text-[10px] text-slate-500 truncate">{store.fancy_name}</p>
                               )}
                             </div>
                             {selectedStore?.id === store.id && (
@@ -885,15 +789,10 @@ export const Layout: React.FC<{ children: React.ReactNode; onLogout: () => void 
               {/* Mostrar loja única - mesmo estilo visual do seletor */}
               {availableStores.length === 1 && selectedStore && (
                 <div className="flex items-center gap-2 px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg">
-                  <div 
-                    className="w-3 h-3 rounded-full shadow-sm"
-                    style={{ backgroundColor: storeColor }}
-                  ></div>
+                  <Store size={16} className="text-slate-600 shrink-0" />
                   <span className="text-xs font-semibold text-slate-700">
-                    {selectedStore.fancy_name || selectedStore.name}
+                    {storeDisplayName || ''}
                   </span>
-                  {/* Ícone de loja no lugar do chevron para indicar que é única */}
-                  <Store size={14} className="text-slate-400" />
                 </div>
               )}
               

@@ -20,6 +20,7 @@ export interface Store {
   fancy_name: string;
   color: string;
   logo?: string | null;
+  cnpj?: string | null;
   active: boolean;
 }
 

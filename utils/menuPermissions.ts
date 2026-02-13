@@ -75,8 +75,10 @@ export const routePermissionMap: Record<string, string[]> = {
   '/service-orders/:id': ['service-orders.read'],
   '/service-orders/:id/edit': ['service-orders.update'],
   
+  // PDV (Ponto de Venda)
+  '/pdv': ['pdv.access'],
+
   // Outros módulos - por enquanto sem permissões específicas (públicos)
-  '/pdv': [],
   '/vendedores': [],
   '/estoque': [],
   '/fornecedores': [],

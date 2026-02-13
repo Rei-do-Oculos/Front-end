@@ -8,6 +8,10 @@ interface StoreContextType {
   setSelectedStore: (store: Store | null) => void;
   storeColor: string;
   storeLogo: string | null;
+  storeUnity: string | null;
+  storeCnpj: string | null;
+  /** Nome fantasia (prioritário) ou razão social como fallback */
+  storeDisplayName: string | null;
 }
 
 const StoreContext = createContext<StoreContextType | undefined>(undefined);
@@ -133,6 +137,17 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     ? selectedStore.logo || null 
     : null;
 
+  // Nome para exibição: sempre nome fantasia primeiro, razão social como fallback
+  const storeDisplayName = useMemo(() => {
+    if (selectedStore && typeof selectedStore === 'object') {
+      return selectedStore.fancy_name || selectedStore.name || null;
+    }
+    if (availableStores.length > 0 && availableStores[0]) {
+      return availableStores[0].fancy_name || availableStores[0].name || null;
+    }
+    return null;
+  }, [selectedStore, availableStores]);
+
   // Unity da loja selecionada - usa unity salva durante carregamento para evitar flash
   const storeUnity = useMemo(() => {
     // Se há loja selecionada, usar seu unity
@@ -157,6 +172,16 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     return null;
   }, [selectedStore, availableStores]);
 
+  const storeCnpj = useMemo(() => {
+    if (selectedStore && typeof selectedStore === 'object' && 'cnpj' in selectedStore && selectedStore.cnpj) {
+      return String(selectedStore.cnpj);
+    }
+    if (availableStores.length > 0 && availableStores[0]?.cnpj) {
+      return String(availableStores[0].cnpj);
+    }
+    return null;
+  }, [selectedStore, availableStores]);
+
   return (
     <StoreContext.Provider
       value={{
@@ -166,6 +191,8 @@ export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         storeColor,
         storeLogo,
         storeUnity,
+        storeCnpj,
+        storeDisplayName,
       }}
     >
       {children}
