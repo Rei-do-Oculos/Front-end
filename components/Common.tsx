@@ -741,7 +741,7 @@ export const SingleSelect: React.FC<{
     setIsOpen(false);
     setSearch('');
   };
-
+ 
   const removeOption = () => {
     onChange('');
   };

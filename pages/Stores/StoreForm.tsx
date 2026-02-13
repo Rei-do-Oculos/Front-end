@@ -8,9 +8,9 @@ import { Store } from '../../services/api/stores';
 import { useNotification } from '../../hooks/useNotification';
 import { normalizeEmail, normalizeToTitleCase } from '../../utils/formatters';
 
-const API_BASE_URL = (import.meta.env.DEV ? '/api' : ((import.meta as any).env?.VITE_API_URL || 'http://localhost:8080/api')) as string;
-// Para assets (logo etc), em dev usa o backend direto pois /storage não passa pelo proxy
-const PUBLIC_BASE_URL = import.meta.env.DEV ? 'http://localhost:8080' : (API_BASE_URL.replace(/\/api(\/.*)?$/, '') || window.location.origin);
+// Em dev: backend direto para /storage. Em prod: mesmo domínio (proxy) – API mascarada
+const API_BASE_URL = import.meta.env.DEV ? '/api' : '/api';
+const PUBLIC_BASE_URL = import.meta.env.DEV ? 'http://localhost:8080' : window.location.origin;
 
 export const StoreForm: React.FC = () => {
   const { id } = useParams();

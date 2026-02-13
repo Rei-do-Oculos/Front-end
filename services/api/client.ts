@@ -1,14 +1,11 @@
 import axios, { AxiosInstance, AxiosError, InternalAxiosRequestConfig } from 'axios';
 import { sanitizeObject, validateId, generateRequestId, detectXssAttempt } from '../../utils/security';
 
-// Em dev: /api (proxy do Vite redireciona). Em prod na Vercel: VITE_API_URL (frontend em outro domínio).
-const API_BASE_URL = import.meta.env.DEV
-  ? '/api'
-  : (import.meta.env.VITE_API_URL || '/api');
+// Sempre usa /api (proxy): dev=Vite, prod=Vercel rewrites. API nunca exposta no frontend.
+const API_BASE_URL = '/api';
 
 console.log('[ApiClient] 🚀 Inicializando ApiClient', {
   isDev: import.meta.env.DEV,
-  VITE_API_URL: import.meta.env.VITE_API_URL,
   API_BASE_URL,
   windowLocation: typeof window !== 'undefined' ? window.location.href : 'N/A',
 });
@@ -31,7 +28,7 @@ class ApiClient {
         'Content-Type': 'application/json',
         'X-Requested-With': 'XMLHttpRequest',
       },
-      withCredentials: false,
+      withCredentials: true,
       // Serializar arrays como stores[]=1&stores[]=2 para compatibilidade com Laravel
       paramsSerializer: (params) => {
         if (!params || Object.keys(params).length === 0) {
@@ -72,12 +69,8 @@ class ApiClient {
           params: config.params,
         });
         
-        const token = this.getAuthToken();
-        console.log('[ApiClient] Token:', token ? 'Presente' : 'Ausente');
-        
-        if (token) {
-          config.headers.Authorization = `Bearer ${token}`;
-        }
+        // Token enviado via cookie HttpOnly (withCredentials: true)
+        // Cookie é enviado automaticamente pelo browser
 
         // Contexto de loja para escopo multi-loja
         const storeId = localStorage.getItem('selectedStoreId');
@@ -193,11 +186,8 @@ class ApiClient {
   }
 
   private getAuthToken(): string | null {
-    try {
-      return localStorage.getItem('authToken');
-    } catch {
-      return null;
-    }
+    // Token em cookie HttpOnly - não acessível via JS
+    return null;
   }
 
   private sanitizeRequestData(data: any): any {
@@ -288,7 +278,7 @@ class ApiClient {
       localStorage.removeItem('authToken');
       localStorage.removeItem('isLoggedIn');
       sessionStorage.clear();
-      
+      // Cookie limpo pelo backend no logout
       setTimeout(() => {
         window.location.hash = '#/login';
       }, 100);

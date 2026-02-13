@@ -10,7 +10,6 @@ export interface LoginResponse {
   action: string;
   data: {
     user: User;
-    token: string;
   };
 }
 
@@ -84,8 +83,8 @@ class AuthService {
       credentials
     );
     
-    if (data.success && data.data.token) {
-      localStorage.setItem('authToken', data.data.token);
+    if (data.success && data.data.user) {
+      // Token em cookie HttpOnly (backend) - não armazenar em localStorage (vulnerável a XSS)
       localStorage.setItem('isLoggedIn', 'true');
       
       // Normalizar estrutura do usuário
@@ -162,33 +161,12 @@ class AuthService {
       localStorage.removeItem('authToken');
       localStorage.removeItem('isLoggedIn');
       sessionStorage.clear();
+      // Cookie é limpo pelo backend na resposta
     }
   }
 
   async me(): Promise<MeResponse> {
     const { data } = await apiClient.get<MeResponse>(`${this.endpoint}/me`);
-    
-    // Debug: Log da resposta bruta da API
-    console.log('[authService.me] 📡 Resposta bruta da API:', {
-      success: data.success,
-      hasUser: !!data.data?.user,
-      userStructure: data.data?.user ? {
-        id: data.data.user.id,
-        name: data.data.user.name,
-        email: data.data.user.email,
-        roles: data.data.user.roles,
-        permissions: data.data.user.permissions,
-        stores: data.data.user.stores,
-        storesCount: Array.isArray(data.data.user.stores) ? data.data.user.stores.length : 
-                    (data.data.user.stores && typeof data.data.user.stores === 'object' ? Object.keys(data.data.user.stores).length : 0),
-        rolesType: typeof data.data.user.roles,
-        permissionsType: typeof data.data.user.permissions,
-        storesType: typeof data.data.user.stores,
-        rolesIsArray: Array.isArray(data.data.user.roles),
-        permissionsIsArray: Array.isArray(data.data.user.permissions),
-        storesIsArray: Array.isArray(data.data.user.stores),
-      } : null,
-    });
     
     // Garantir que user.stores seja sempre um array
     if (data.success && data.data.user && data.data.user.stores) {
@@ -251,18 +229,6 @@ class AuthService {
     } else if (data.success && data.data.user) {
       data.data.user.all_permissions = [];
     }
-
-    // Debug: Log após normalização
-    console.log('[authService.me] ✅ Dados normalizados:', {
-      rolesCount: Array.isArray(data.data?.user?.roles) ? data.data.user.roles.length : 0,
-      permissionsCount: Array.isArray(data.data?.user?.permissions) ? data.data.user.permissions.length : 0,
-      allPermissionsCount: Array.isArray(data.data?.user?.all_permissions) ? data.data.user.all_permissions.length : 0,
-      rolesWithPermissions: Array.isArray(data.data?.user?.roles) ? data.data.user.roles.map(r => ({
-        name: r.name,
-        permissionsCount: Array.isArray(r.permissions) ? r.permissions.length : 0,
-      })) : [],
-      allPermissions: Array.isArray(data.data?.user?.all_permissions) ? data.data.user.all_permissions.map(p => p.name || p.slug) : [],
-    });
     
     return data;
   }
@@ -276,11 +242,13 @@ class AuthService {
   }
 
   isAuthenticated(): boolean {
-    return !!localStorage.getItem('authToken');
+    // Cookie HttpOnly não é acessível via JS; usar flag de localStorage ou confiar em /me
+    return localStorage.getItem('isLoggedIn') === 'true';
   }
 
   getToken(): string | null {
-    return localStorage.getItem('authToken');
+    // Token em cookie HttpOnly - não acessível via JS (segurança)
+    return null;
   }
 }
 
