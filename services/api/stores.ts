@@ -1,6 +1,11 @@
 import { BaseService, PaginatedResponse } from './base.service';
 import { apiClient } from './client';
 
+export interface StoreTokens {
+  brasilnfe_api_token_configured?: boolean;
+  csc_configured?: boolean;
+}
+
 export interface Store {
   id: number;
   name: string;
@@ -25,9 +30,18 @@ export interface Store {
   email?: string | null;
   fax?: string | null;
   active: boolean;
+  tokens?: StoreTokens;
+  nfe_series?: string | null;
+  nfe_next_number?: number | null;
   created_at: string;
   updated_at: string;
   deleted_at: string | null;
+}
+
+export interface StoreTokensDto {
+  brasilnfe_api_token?: string;
+  csc_id?: number;
+  csc?: string;
 }
 
 export interface CreateStoreDto {
@@ -53,6 +67,9 @@ export interface CreateStoreDto {
   email?: string;
   fax?: string;
   active: boolean;
+  tokens?: StoreTokensDto;
+  nfe_series?: string | null;
+  nfe_next_number?: number | null;
 }
 
 export interface UpdateStoreDto extends Partial<CreateStoreDto> {}
@@ -101,15 +118,22 @@ class StoresService extends BaseService<Store, CreateStoreDto, UpdateStoreDto, S
     // Adicionar todos os campos ao FormData
     Object.keys(payload).forEach((key) => {
       const value = payload[key as keyof CreateStoreDto];
+      if (key === 'tokens' && value && typeof value === 'object') {
+        Object.entries(value as Record<string, unknown>).forEach(([k, v]) => {
+          if (v !== undefined && v !== null && v !== '') {
+            formData.append(`tokens[${k}]`, String(v));
+          }
+        });
+        return;
+      }
       if (value !== undefined && value !== null && value !== '') {
         if (key === 'logo' && value instanceof File) {
           formData.append('logo', value);
         } else if (key === 'active') {
           formData.append(key, value ? '1' : '0');
         } else if (key === 'cod_pais' || key === 'cod_municipio') {
-          // Garantir que códigos sejam strings
           formData.append(key, String(value));
-        } else {
+        } else if (key !== 'tokens') {
           formData.append(key, String(value));
         }
       }
@@ -130,22 +154,29 @@ class StoresService extends BaseService<Store, CreateStoreDto, UpdateStoreDto, S
     // Adicionar todos os campos ao FormData
     Object.keys(payload).forEach((key) => {
       const value = payload[key as keyof UpdateStoreDto];
+      if (key === 'tokens' && value && typeof value === 'object') {
+        Object.entries(value as Record<string, unknown>).forEach(([k, v]) => {
+          if (v !== undefined && v !== null && v !== '') {
+            formData.append(`tokens[${k}]`, String(v));
+          }
+        });
+        return;
+      }
       if (value !== undefined && value !== null) {
         if (key === 'logo' && value instanceof File) {
           formData.append('logo', value);
         } else if (key === 'active' && typeof value === 'boolean') {
           formData.append(key, value ? '1' : '0');
         } else if (key === 'cod_pais') {
-          // Garantir que código do país seja número
           formData.append(key, String(value));
         } else if (key === 'cod_municipio') {
-          // Garantir que código do município seja string
+          formData.append(key, String(value));
+        } else if (key === 'nfe_series' || key === 'nfe_next_number') {
+          // Permitir string vazia para limpar no backend
           formData.append(key, String(value));
         } else if (typeof value === 'string' && value.trim() !== '') {
-          // Apenas adicionar strings não vazias
           formData.append(key, value);
-        } else if (typeof value !== 'string') {
-          // Adicionar outros tipos (number, boolean, etc)
+        } else if (typeof value !== 'string' && key !== 'tokens') {
           formData.append(key, String(value));
         }
       }

@@ -1,5 +1,6 @@
 
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { 
   ClipboardList, 
   Search, 
@@ -91,6 +92,7 @@ const mockOS: OS[] = [
 ];
 
 export const OrderList: React.FC = () => {
+  const navigate = useNavigate();
   const [osNumber, setOsNumber] = useState('');
   const [clientName, setClientName] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
@@ -126,7 +128,7 @@ export const OrderList: React.FC = () => {
           <Button variant="outline" className="border-slate-200 text-slate-600 bg-white">
             <Printer size={18} /> Relatório Diário
           </Button>
-          <Button onClick={() => window.location.hash = '#/pedidos/create'} className="shadow-red-600/20 bg-red-600">
+          <Button onClick={() => navigate('/orders/create')} className="shadow-red-600/20 bg-red-600">
             <Plus size={18} /> Abrir Nova OS
           </Button>
         </div>
@@ -237,7 +239,7 @@ export const OrderList: React.FC = () => {
                       </button>
                       <button 
                         title="Editar"
-                        onClick={() => window.location.hash = `#/pedidos/${os.id}/editar`}
+                        onClick={() => navigate(`/orders/${os.id}/edit`)}
                         className="p-2 text-slate-400 hover:text-red-600 hover:bg-white rounded-xl shadow-sm border border-transparent hover:border-slate-100 transition-all"
                       >
                         <Edit size={16} />
@@ -245,7 +247,7 @@ export const OrderList: React.FC = () => {
                       {os.invoiceId && (
                         <button 
                           title={`Ver NF-e #${os.invoiceNumber}`}
-                          onClick={() => window.location.hash = `#/notas-fiscais/${os.invoiceId}`}
+                          onClick={() => navigate(`/invoices/${os.invoiceId}`)}
                           className="p-2 text-slate-400 hover:text-emerald-600 hover:bg-white rounded-xl shadow-sm border border-transparent hover:border-slate-100 transition-all"
                         >
                           <FileCheck size={16} />

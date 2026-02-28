@@ -13,6 +13,8 @@ import { useNavigate } from 'react-router-dom';
 import { ReceiptModal } from '../../components/ReceiptModal';
 import { ReceiptData } from '../../components/ThermalReceipt';
 import { useAuth } from '../../services/hooks/useAuth';
+import { userHasAccessToStore } from '../../utils/storeAccess';
+import { invoicesService } from '../../services/api/invoices';
 
 export const Inadimplencias: React.FC = () => {
   const navigate = useNavigate();
@@ -54,11 +56,13 @@ export const Inadimplencias: React.FC = () => {
   const [showReceiptModal, setShowReceiptModal] = useState(false);
   const [completedOrder, setCompletedOrder] = useState<ServiceOrder | null>(null);
 
+  const [appliedFilters, setAppliedFilters] = useState({ searchTerm: '', filterStore: '', filterDateFrom: '', filterDateTo: '' });
+
   const activeFilters = useActiveFilters({
-    searchTerm,
-    filterStore,
-    filterDateFrom,
-    filterDateTo,
+    searchTerm: appliedFilters.searchTerm,
+    filterStore: appliedFilters.filterStore,
+    filterDateFrom: appliedFilters.filterDateFrom,
+    filterDateTo: appliedFilters.filterDateTo,
   });
 
   // Garantir que storesPlucks seja sempre um array
@@ -90,46 +94,43 @@ export const Inadimplencias: React.FC = () => {
     }
   }, [fetchOverdueOrders, availableStores, selectedStore?.id, sortBy, sortDirection, perPage]);
 
+  const buildFilterParams = (f: typeof appliedFilters) => {
+    const params: any = {};
+    if (f.searchTerm) params.search = f.searchTerm;
+    if (f.filterStore) params.store_id = f.filterStore;
+    if (f.filterDateFrom) params.date_from = f.filterDateFrom;
+    if (f.filterDateTo) params.date_to = f.filterDateTo;
+    return params;
+  };
+
   useEffect(() => {
-    loadOrders();
-  }, [loadOrders]);
+    const params = buildFilterParams(appliedFilters);
+    params.order_by = sortBy || 'arrived_at';
+    params.order_dir = sortDirection || 'asc';
+    params.per_page = perPage;
+    loadOrders(1, params);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [appliedFilters, sortBy, sortDirection, perPage, selectedStore?.id]);
 
   const handleSort = (key: string, direction: SortDirection) => {
     const newDirection = direction || 'asc';
     setSortBy(key);
     setSortDirection(newDirection);
-    
-    const params: any = {};
-    if (searchTerm) params.search = searchTerm;
-    if (filterStore) params.store_id = filterStore;
-    if (filterDateFrom) params.date_from = filterDateFrom;
-    if (filterDateTo) params.date_to = filterDateTo;
-    
+    const params = buildFilterParams(appliedFilters);
     params.order_by = key;
     params.order_dir = newDirection;
     params.per_page = perPage;
-    
     loadOrders(pagination?.currentPage || 1, params);
   };
 
   const handleApplyFilters = async () => {
-    try {
-      const params: any = {};
-      if (searchTerm) params.search = searchTerm;
-      if (filterStore) params.store_id = filterStore;
-      if (filterDateFrom) params.date_from = filterDateFrom;
-      if (filterDateTo) params.date_to = filterDateTo;
-      
-      if (sortBy) {
-        params.order_by = sortBy;
-        params.order_dir = sortDirection || 'asc';
-      }
-      
-      params.per_page = perPage;
-      await loadOrders(1, params);
-    } catch (err) {
-      console.error('Erro ao aplicar filtros:', err);
-    }
+    const next = { searchTerm, filterStore, filterDateFrom, filterDateTo };
+    setAppliedFilters(next);
+    const params = buildFilterParams(next);
+    params.order_by = sortBy || 'arrived_at';
+    params.order_dir = sortDirection || 'asc';
+    params.per_page = perPage;
+    await loadOrders(1, params);
   };
 
   const handleClearFilters = async () => {
@@ -137,25 +138,16 @@ export const Inadimplencias: React.FC = () => {
     setFilterStore('');
     setFilterDateFrom('');
     setFilterDateTo('');
-    
-    await loadOrders(1, {
-      order_by: sortBy || 'arrived_at',
-      order_dir: sortDirection || 'asc',
-      per_page: perPage,
-    });
+    setAppliedFilters({ searchTerm: '', filterStore: '', filterDateFrom: '', filterDateTo: '' });
+    await loadOrders(1, { order_by: sortBy || 'arrived_at', order_dir: sortDirection || 'asc', per_page: perPage });
   };
 
   const handlePerPageChange = async (newPerPage: number) => {
     setPerPage(newPerPage);
-    const params: any = { per_page: newPerPage };
-    if (searchTerm) params.search = searchTerm;
-    if (filterStore) params.store_id = filterStore;
-    if (filterDateFrom) params.date_from = filterDateFrom;
-    if (filterDateTo) params.date_to = filterDateTo;
-    if (sortBy) {
-      params.order_by = sortBy;
-      params.order_dir = sortDirection || 'asc';
-    }
+    const params = buildFilterParams(appliedFilters);
+    params.per_page = newPerPage;
+    params.order_by = sortBy || 'arrived_at';
+    params.order_dir = sortDirection || 'asc';
     await loadOrders(1, params);
   };
 
@@ -262,6 +254,15 @@ export const Inadimplencias: React.FC = () => {
   const handleReceiptConfirm = () => {
     setShowReceiptModal(false);
     setCompletedOrder(null);
+  };
+
+  // Emitir NFC-e ou NF-e ao imprimir (envia à Brasil NFe)
+  const handleGenerateInvoice = async (modelo: 55 | 65, options?: { includeDocument?: boolean }): Promise<{ pdfBase64?: string; invoice?: import('../../services/api/invoices').Invoice } | null> => {
+    if (!completedOrder?.id) return null;
+    const inv = await invoicesService.generateFromServiceOrder(
+      String(completedOrder.id), true, modelo, undefined, options?.includeDocument ?? false
+    );
+    return { pdfBase64: inv.pdf_base64 ?? undefined, invoice: inv };
   };
 
   const formatCurrency = (value: number) => {
@@ -544,15 +545,9 @@ export const Inadimplencias: React.FC = () => {
             perPage={perPage}
             onPerPageChange={handlePerPageChange}
             onPageChange={(page) => {
-              const params: any = {};
-              if (searchTerm) params.search = searchTerm;
-              if (filterStore) params.store_id = filterStore;
-              if (filterDateFrom) params.date_from = filterDateFrom;
-              if (filterDateTo) params.date_to = filterDateTo;
-              if (sortBy && sortDirection) {
-                params.order_by = sortBy;
-                params.order_dir = sortDirection;
-              }
+              const params = buildFilterParams(appliedFilters);
+              params.order_by = sortBy || 'arrived_at';
+              params.order_dir = sortDirection || 'asc';
               params.per_page = perPage;
               loadOrders(page, params);
             }}
@@ -631,6 +626,8 @@ export const Inadimplencias: React.FC = () => {
             setCompletedOrder(null);
           }}
           onConfirm={() => handleReceiptConfirm()}
+          onGenerateInvoice={handleGenerateInvoice}
+          canGenerateInvoice={userHasAccessToStore(completedOrder.store_id ?? completedOrder.store?.id, user)}
           receiptData={prepareReceiptData(completedOrder)}
           order={completedOrder}
           clientPhone={(completedOrder.client as any)?.phone}

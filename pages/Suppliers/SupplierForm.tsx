@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { Save, ArrowLeft, Building2, User, Phone, Globe, Briefcase, Trash2 } from 'lucide-react';
 import { Card, Button, Input, Select } from '../../components/Common';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { normalizeEmail, normalizeToTitleCase } from '../../utils/formatters';
 
 // Mock de dados - substituir por chamada de API
@@ -12,6 +12,7 @@ const mockSuppliers = [
 
 export const SupplierForm: React.FC = () => {
   const { id } = useParams();
+  const navigate = useNavigate();
   const isEditMode = !!id;
   const [formData, setFormData] = useState({
     name: '',
@@ -59,7 +60,7 @@ export const SupplierForm: React.FC = () => {
   const handleDelete = () => {
     if (window.confirm('Tem certeza que deseja excluir este fornecedor?')) {
       console.log('Deletando fornecedor:', id);
-      window.location.hash = '#/fornecedores';
+      navigate('/suppliers');
     }
   };
 

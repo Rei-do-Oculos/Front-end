@@ -32,63 +32,47 @@ export const TrashList: React.FC = () => {
 
   const [search, setSearch] = useState('');
   const [selectedModel, setSelectedModel] = useState('');
+  const [appliedFilters, setAppliedFilters] = useState({ search: '', selectedModel: '' });
   const [sortBy, setSortBy] = useState<string | null>('deleted_at');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
   const [perPage, setPerPage] = useState<number>(15);
   const [restoreConfirmItem, setRestoreConfirmItem] = useState<TrashItem | null>(null);
   const [restoring, setRestoring] = useState(false);
 
-  // Verificar se o usuário tem permissão para restaurar
   const canRestore = useMemo(() => {
     if (!user) return false;
     const permissions = getEffectiveUserPermissions(user);
     return permissions.some(p => p.name === 'trash.restore');
   }, [user]);
 
-  // Calcular quantidade de filtros ativos
   const activeFilters = useActiveFilters({
-    search,
-    selectedModel,
+    search: appliedFilters.search,
+    selectedModel: appliedFilters.selectedModel,
   });
 
-  // Carregar dados iniciais
   useEffect(() => {
-    fetchItems(1, {
-      order_by: sortBy || 'deleted_at',
-      order_dir: sortDirection || 'desc',
-      per_page: perPage,
-    });
+    const params: any = { order_by: sortBy || 'deleted_at', order_dir: sortDirection || 'desc', per_page: perPage };
+    if (appliedFilters.search) params.search = appliedFilters.search;
+    if (appliedFilters.selectedModel) params.model = appliedFilters.selectedModel;
+    fetchItems(1, params);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [perPage]);
+  }, [perPage, appliedFilters, sortBy, sortDirection]);
 
   const handleSort = (key: string, direction: SortDirection) => {
-    const newDirection = direction || 'asc';
     setSortBy(key);
-    setSortDirection(newDirection);
-    
-    const params: any = {
-      order_by: key,
-      order_dir: newDirection,
-      per_page: perPage,
-    };
-    
-    if (search) params.search = search;
-    if (selectedModel) params.model = selectedModel;
-    
+    setSortDirection(direction || 'asc');
+    const params: any = { order_by: key, order_dir: direction || 'asc', per_page: perPage };
+    if (appliedFilters.search) params.search = appliedFilters.search;
+    if (appliedFilters.selectedModel) params.model = appliedFilters.selectedModel;
     fetchItems(pagination?.currentPage || 1, params);
   };
 
   const handleApplyFilters = async () => {
+    setAppliedFilters({ search, selectedModel });
     try {
-      const params: any = {
-        order_by: sortBy || 'deleted_at',
-        order_dir: sortDirection || 'desc',
-        per_page: perPage,
-      };
-      
+      const params: any = { order_by: sortBy || 'deleted_at', order_dir: sortDirection || 'desc', per_page: perPage };
       if (search) params.search = search;
       if (selectedModel) params.model = selectedModel;
-      
       await fetchItems(1, params);
     } catch (err) {
       console.error('Erro ao aplicar filtros:', err);
@@ -98,13 +82,9 @@ export const TrashList: React.FC = () => {
   const handleClearFilters = async () => {
     setSearch('');
     setSelectedModel('');
-    
+    setAppliedFilters({ search: '', selectedModel: '' });
     try {
-      await fetchItems(1, {
-        order_by: sortBy || 'deleted_at',
-        order_dir: sortDirection || 'desc',
-        per_page: perPage,
-      });
+      await fetchItems(1, { order_by: sortBy || 'deleted_at', order_dir: sortDirection || 'desc', per_page: perPage });
     } catch (err) {
       console.error('Erro ao limpar filtros:', err);
     }
@@ -112,18 +92,10 @@ export const TrashList: React.FC = () => {
 
   const handlePerPageChange = async (newPerPage: number) => {
     setPerPage(newPerPage);
-    try {
-      const params: any = {
-        per_page: newPerPage,
-        order_by: sortBy || 'deleted_at',
-        order_dir: sortDirection || 'desc',
-      };
-      if (search) params.search = search;
-      if (selectedModel) params.model = selectedModel;
-      await fetchItems(1, params);
-    } catch (err) {
-      console.error('Erro ao alterar itens por página:', err);
-    }
+    const params: any = { order_by: sortBy || 'deleted_at', order_dir: sortDirection || 'desc', per_page: newPerPage };
+    if (appliedFilters.search) params.search = appliedFilters.search;
+    if (appliedFilters.selectedModel) params.model = appliedFilters.selectedModel;
+    await fetchItems(1, params);
   };
 
   const handleRestoreConfirm = async () => {
@@ -322,13 +294,9 @@ export const TrashList: React.FC = () => {
             perPage={perPage}
             onPerPageChange={handlePerPageChange}
             onPageChange={(page) => {
-              const params: any = {
-                per_page: perPage,
-                order_by: sortBy || 'deleted_at',
-                order_dir: sortDirection || 'desc',
-              };
-              if (search) params.search = search;
-              if (selectedModel) params.model = selectedModel;
+              const params: any = { per_page: perPage, order_by: sortBy || 'deleted_at', order_dir: sortDirection || 'desc' };
+              if (appliedFilters.search) params.search = appliedFilters.search;
+              if (appliedFilters.selectedModel) params.model = appliedFilters.selectedModel;
               fetchItems(page, params);
             }}
             itemName="itens"

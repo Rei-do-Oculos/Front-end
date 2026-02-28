@@ -23,6 +23,8 @@ export interface PdfHeaderOptions {
   title?: string;
   /** Quando definido, mostra este texto centralizado no lugar do nome da loja */
   centerTitle?: string;
+  /** Quando definido, mostra nome da loja + este título centralizados (título abaixo do nome) */
+  titleBelowStore?: string;
   logoUrlBuilder?: (logoPath: string | null | undefined) => string | null;
 }
 
@@ -54,6 +56,7 @@ export const generatePdfHeader = async (options: PdfHeaderOptions): Promise<stri
     storeLogo,
     title = 'Relatório',
     centerTitle,
+    titleBelowStore,
     logoUrlBuilder,
   } = options;
 
@@ -96,6 +99,17 @@ export const generatePdfHeader = async (options: PdfHeaderOptions): Promise<stri
       <div style="width: 100%; margin-bottom: 28px; padding-bottom: 16px; border-bottom: 2px solid ${color};">
         <div style="text-align: center; width: 100%;">
           <div style="font-weight: 700; font-size: 18px; color: ${color}; line-height: 1.4; letter-spacing: 0.3px;">${centerTitle}</div>
+        </div>
+      </div>
+    `;
+  }
+
+  if (titleBelowStore) {
+    return `
+      <div style="width: 100%; margin-bottom: 28px; padding-bottom: 16px; border-bottom: 2px solid ${color};">
+        <div style="text-align: center; width: 100%;">
+          <div style="font-weight: 700; font-size: 16px; color: #111827; line-height: 1.4;">${storeFancy}</div>
+          <div style="font-weight: 700; font-size: 14px; color: ${color}; margin-top: 8px; line-height: 1.4;">${titleBelowStore}</div>
         </div>
       </div>
     `;

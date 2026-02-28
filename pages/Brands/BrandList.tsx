@@ -1,5 +1,6 @@
 
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Plus, Edit, Trash2, Eye } from 'lucide-react';
 import { Card, Button, Input, FilterSection, ActiveFiltersBadge } from '../../components/Common';
 import { useActiveFilters } from '../../hooks/useActiveFilters';
@@ -18,6 +19,7 @@ const mockBrands: Brand[] = [
 ];
 
 export const BrandList: React.FC = () => {
+  const navigate = useNavigate();
   const [brands, setBrands] = useState<Brand[]>(mockBrands);
   const [nameFilter, setNameFilter] = useState('');
   
@@ -40,7 +42,7 @@ export const BrandList: React.FC = () => {
             <p className="text-gray-500 font-medium mt-1">Gerencie as marcas de lentes disponíveis no sistema.</p>
           </div>
         </div>
-        <Button onClick={() => window.location.hash = '#/lenses/create'} className="shadow-red-600/20">
+        <Button onClick={() => navigate('/lenses/create')} className="shadow-red-600/20">
           <Plus size={18} /> Nova Marca
         </Button>
       </div>
@@ -86,14 +88,14 @@ export const BrandList: React.FC = () => {
                     <div className="flex items-center justify-center gap-2">
                       <button
                         title="Visualizar"
-                        onClick={() => window.location.hash = `#/lentes/${brand.id}`}
+                        onClick={() => navigate(`/lenses/${brand.id}`)}
                         className="p-2 text-slate-400 hover:text-slate-900 hover:bg-white rounded-xl shadow-sm border border-transparent hover:border-slate-100 transition-all"
                       >
                         <Eye size={16} />
                       </button>
                       <button
                         title="Editar marca"
-                        onClick={() => window.location.hash = `#/lentes/${brand.id}/editar`}
+                        onClick={() => navigate(`/lenses/${brand.id}/edit`)}
                         className="p-2 text-slate-400 hover:text-red-600 hover:bg-white rounded-xl shadow-sm border border-transparent hover:border-slate-100 transition-all"
                       >
                         <Edit size={16} />

@@ -1,10 +1,12 @@
 
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Search, Edit, Plus, Truck, Phone, MapPin, ExternalLink } from 'lucide-react';
 import { Card, Button, Badge, FilterSection, Input, Select, ActiveFiltersBadge } from '../../components/Common';
 import { useActiveFilters } from '../../hooks/useActiveFilters';
 
 export const SupplierList: React.FC = () => {
+  const navigate = useNavigate();
   const [nameFilter, setNameFilter] = useState('');
   const [cnpjFilter, setCnpjFilter] = useState('');
   const [specialtyFilter, setSpecialtyFilter] = useState('');
@@ -31,7 +33,7 @@ export const SupplierList: React.FC = () => {
           <h1 className="text-3xl font-black text-slate-950 tracking-tight">Fornecedores & Laboratórios</h1>
           <p className="text-gray-500 font-medium mt-1">Gerencie seus parceiros de suprimentos e produção de lentes.</p>
         </div>
-        <Button onClick={() => window.location.hash = '#/fornecedores/create'} className="shadow-red-600/20">
+        <Button onClick={() => navigate('/suppliers/create')} className="shadow-red-600/20">
           <Plus size={18} /> Novo Fornecedor
         </Button>
       </div>
@@ -113,7 +115,7 @@ export const SupplierList: React.FC = () => {
                     <div className="flex items-center justify-center gap-2">
                       <button 
                         title="Editar fornecedor"
-                        onClick={() => window.location.hash = `#/fornecedores/${sup.id}/editar`}
+                        onClick={() => navigate(`/suppliers/${sup.id}/edit`)}
                         className="p-2.5 text-slate-400 hover:bg-white hover:text-red-600 rounded-xl shadow-sm border border-transparent hover:border-slate-100 transition-all"
                       >
                         <Edit size={16} />

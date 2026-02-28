@@ -27,6 +27,7 @@ export const ClientList: React.FC = () => {
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   const [selectedStores, setSelectedStores] = useState<string[]>([]);
+  const [appliedFilters, setAppliedFilters] = useState<{ searchName: string; searchDocument: string; searchPhone: string; dateFrom: string; dateTo: string; selectedStores: string[] }>({ searchName: '', searchDocument: '', searchPhone: '', dateFrom: '', dateTo: '', selectedStores: [] });
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [clientToDelete, setClientToDelete] = useState<Client | null>(null);
   const [deleting, setDeleting] = useState(false);
@@ -37,12 +38,12 @@ export const ClientList: React.FC = () => {
   
   // Calcular quantidade de filtros ativos usando hook padronizado
   const activeFilters = useActiveFilters({
-    searchName,
-    searchDocument,
-    searchPhone,
-    dateFrom,
-    dateTo,
-    selectedStores: selectedStores.filter(s => s !== 'all'),
+    searchName: appliedFilters.searchName,
+    searchDocument: appliedFilters.searchDocument,
+    searchPhone: appliedFilters.searchPhone,
+    dateFrom: appliedFilters.dateFrom,
+    dateTo: appliedFilters.dateTo,
+    selectedStores: appliedFilters.selectedStores.filter(s => s !== 'all'),
   });
 
   // Carregar lojas para o filtro (lista completa da API)
@@ -50,76 +51,49 @@ export const ClientList: React.FC = () => {
     fetchStoresForFilter(1, { per_page: 500 }).catch(() => {});
   }, [fetchStoresForFilter]);
 
-  // Carregar dados iniciais; refetch ao trocar de loja (API usa X-Store-ID)
+  const buildParams = (f: typeof appliedFilters) => {
+    const params: any = { order_by: sortBy || 'id', order_dir: sortDirection || 'desc', per_page: perPage };
+    if (f.searchName) params.search = f.searchName;
+    if (f.searchDocument) params.document = f.searchDocument.replace(/\D/g, '');
+    if (f.searchPhone) params.phone = f.searchPhone.replace(/\D/g, '');
+    if (f.dateFrom) params.date_from = f.dateFrom;
+    if (f.dateTo) params.date_to = f.dateTo;
+    if (f.selectedStores.length > 0 && !f.selectedStores.includes('all')) {
+      const storeIds = f.selectedStores.filter(id => id !== 'all' && !isNaN(parseInt(id))).map(id => parseInt(id));
+      if (storeIds.length > 0) params.stores = storeIds.join(',');
+    }
+    return params;
+  };
+
   useEffect(() => {
     const loadClients = async () => {
       try {
-        await fetchClients(1, {
-          order_by: sortBy || 'id',
-          order_dir: sortDirection || 'desc',
-          per_page: perPage,
-        });
+        await fetchClients(1, buildParams(appliedFilters));
       } catch (err) {
         console.error('[ClientList] Erro ao carregar clientes:', err);
       }
     };
     loadClients();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [perPage, selectedStore?.id]);
+  }, [perPage, selectedStore?.id, appliedFilters, sortBy, sortDirection]);
 
   const handleSort = (key: string, direction: SortDirection) => {
-    // Sempre manter uma ordenação ativa (asc ou desc)
     const newDirection = direction || 'asc';
     setSortBy(key);
     setSortDirection(newDirection);
-    
-    const params: any = {};
-    if (searchName) params.search = searchName;
-    if (searchDocument) params.document = searchDocument.replace(/\D/g, '');
-    if (searchPhone) params.phone = searchPhone.replace(/\D/g, '');
-    if (dateFrom) params.date_from = dateFrom;
-    if (dateTo) params.date_to = dateTo;
-    if (selectedStores.length > 0 && !selectedStores.includes('all')) {
-      const storeIds = selectedStores
-        .filter(id => id !== 'all' && !isNaN(parseInt(id)))
-        .map(id => parseInt(id));
-      if (storeIds.length > 0) {
-        params.stores = storeIds.join(',');
-      }
-    }
-    
+    const params = buildParams(appliedFilters);
     params.order_by = key;
     params.order_dir = newDirection;
-    params.per_page = perPage;
-    
     fetchClients(pagination?.currentPage || 1, params);
   };
 
   const handleApplyFilters = async () => {
+    const next = { searchName, searchDocument, searchPhone, dateFrom, dateTo, selectedStores: [...selectedStores] };
+    setAppliedFilters(next);
     try {
-      const params: any = {};
-      if (searchName) params.search = searchName;
-      if (searchDocument) params.document = searchDocument.replace(/\D/g, '');
-      if (searchPhone) params.phone = searchPhone.replace(/\D/g, '');
-      if (dateFrom) params.date_from = dateFrom;
-      if (dateTo) params.date_to = dateTo;
-      if (selectedStores.length > 0 && !selectedStores.includes('all')) {
-        const storeIds = selectedStores
-          .filter(id => id !== 'all' && !isNaN(parseInt(id)))
-          .map(id => parseInt(id));
-        
-        if (storeIds.length > 0) {
-          // Enviar como string para o backend aplicar o filtro corretamente (ex: "5" ou "5,6")
-          params.stores = storeIds.join(',');
-        }
-      }
-      
-      if (sortBy) {
-        params.order_by = sortBy;
-        params.order_dir = sortDirection || 'desc';
-      }
-      
-      params.per_page = perPage;
+      const params = buildParams(next);
+      params.order_by = sortBy || 'id';
+      params.order_dir = sortDirection || 'desc';
       await fetchClients(1, params);
     } catch (err) {
       console.error('Erro ao aplicar filtros:', err);
@@ -133,13 +107,9 @@ export const ClientList: React.FC = () => {
     setDateFrom('');
     setDateTo('');
     setSelectedStores([]);
-    
+    setAppliedFilters({ searchName: '', searchDocument: '', searchPhone: '', dateFrom: '', dateTo: '', selectedStores: [] });
     try {
-      await fetchClients(1, {
-        order_by: sortBy || 'id',
-        order_dir: sortDirection || 'desc',
-        per_page: perPage,
-      });
+      await fetchClients(1, { order_by: sortBy || 'id', order_dir: sortDirection || 'desc', per_page: perPage });
     } catch (err) {
       console.error('Erro ao limpar filtros:', err);
     }
@@ -148,26 +118,8 @@ export const ClientList: React.FC = () => {
   const handlePerPageChange = async (newPerPage: number) => {
     setPerPage(newPerPage);
     try {
-      const params: any = {
-        per_page: newPerPage,
-      };
-      if (searchName) params.search = searchName;
-      if (searchDocument) params.document = searchDocument.replace(/\D/g, '');
-      if (searchPhone) params.phone = searchPhone.replace(/\D/g, '');
-      if (dateFrom) params.date_from = dateFrom;
-      if (dateTo) params.date_to = dateTo;
-      if (selectedStores.length > 0 && !selectedStores.includes('all')) {
-        const storeIds = selectedStores
-          .filter(id => id !== 'all' && !isNaN(parseInt(id)))
-          .map(id => parseInt(id));
-        if (storeIds.length > 0) {
-          params.stores = storeIds.join(',');
-        }
-      }
-      if (sortBy) {
-        params.order_by = sortBy;
-        params.order_dir = sortDirection || 'desc';
-      }
+      const params = buildParams(appliedFilters);
+      params.per_page = newPerPage;
       await fetchClients(1, params);
     } catch (err) {
       console.error('Erro ao alterar itens por página:', err);
@@ -646,25 +598,7 @@ export const ClientList: React.FC = () => {
             perPage={perPage}
             onPerPageChange={handlePerPageChange}
             onPageChange={(page) => {
-              const params: any = {};
-              if (searchName) params.search = searchName;
-              if (searchDocument) params.document = searchDocument.replace(/\D/g, '');
-              if (searchPhone) params.phone = searchPhone.replace(/\D/g, '');
-              if (dateFrom) params.date_from = dateFrom;
-              if (dateTo) params.date_to = dateTo;
-              if (selectedStores.length > 0 && !selectedStores.includes('all')) {
-                const storeIds = selectedStores
-                  .filter(id => id !== 'all' && !isNaN(parseInt(id)))
-                  .map(id => parseInt(id));
-                if (storeIds.length > 0) {
-                  params.stores = storeIds.join(',');
-                }
-              }
-              if (sortBy && sortDirection) {
-                params.order_by = sortBy;
-                params.order_dir = sortDirection;
-              }
-              params.per_page = perPage;
+              const params = buildParams(appliedFilters);
               fetchClients(page, params);
             }}
             itemName="clientes"

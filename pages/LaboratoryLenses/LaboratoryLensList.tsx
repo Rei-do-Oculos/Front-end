@@ -20,14 +20,15 @@ export const LaboratoryLensList: React.FC = () => {
 
   const [searchName, setSearchName] = useState('');
   const [filterLaboratory, setFilterLaboratory] = useState('');
+  const [appliedFilters, setAppliedFilters] = useState({ searchName: '', filterLaboratory: '' });
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [sortBy, setSortBy] = useState<string | null>('id');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
   const [perPage, setPerPage] = useState<number>(15);
   
   const activeFilters = useActiveFilters({
-    searchName,
-    filterLaboratory,
+    searchName: appliedFilters.searchName,
+    filterLaboratory: appliedFilters.filterLaboratory,
   });
   const [lensToDelete, setLensToDelete] = useState<LaboratoryLens | null>(null);
   const [deleting, setDeleting] = useState(false);
@@ -40,47 +41,42 @@ export const LaboratoryLensList: React.FC = () => {
   useEffect(() => {
     const loadLenses = async () => {
       try {
-        await fetchLaboratoryLenses(1, {
-          order_by: sortBy || 'id',
-          order_dir: sortDirection || 'desc',
-          per_page: perPage,
-        });
+        const params: any = { order_by: sortBy || 'id', order_dir: sortDirection || 'desc', per_page: perPage };
+        if (appliedFilters.searchName) params.search = appliedFilters.searchName;
+        if (appliedFilters.filterLaboratory) params.laboratory_id = appliedFilters.filterLaboratory;
+        await fetchLaboratoryLenses(1, params);
       } catch (err) {
         console.error('Erro ao carregar lentes:', err);
       }
     };
     loadLenses();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [perPage]);
+  }, [perPage, appliedFilters, sortBy, sortDirection]);
+
+  const buildParams = (f: typeof appliedFilters) => {
+    const params: any = { order_by: sortBy || 'id', order_dir: sortDirection || 'desc', per_page: perPage };
+    if (f.searchName) params.search = f.searchName;
+    if (f.filterLaboratory) params.laboratory_id = f.filterLaboratory;
+    return params;
+  };
 
   const handleSort = (key: string, direction: SortDirection) => {
     const newDirection = direction || 'asc';
     setSortBy(key);
     setSortDirection(newDirection);
-    
-    const params: any = {};
-    if (searchName) params.search = searchName;
-    if (filterLaboratory) params.laboratory_id = filterLaboratory;
-    
+    const params = buildParams(appliedFilters);
     params.order_by = key;
     params.order_dir = newDirection;
-    params.per_page = perPage;
-    
     fetchLaboratoryLenses(pagination?.currentPage || 1, params);
   };
 
   const handleApplyFilters = async () => {
+    const next = { searchName, filterLaboratory };
+    setAppliedFilters(next);
     try {
-      const params: any = {};
-      if (searchName) params.search = searchName;
-      if (filterLaboratory) params.laboratory_id = filterLaboratory;
-      
-      if (sortBy) {
-        params.order_by = sortBy;
-        params.order_dir = sortDirection || 'desc';
-      }
-      
-      params.per_page = perPage;
+      const params: any = { order_by: sortBy || 'id', order_dir: sortDirection || 'desc', per_page: perPage };
+      if (next.searchName) params.search = next.searchName;
+      if (next.filterLaboratory) params.laboratory_id = next.filterLaboratory;
       await fetchLaboratoryLenses(1, params);
     } catch (err) {
       console.error('Erro ao aplicar filtros:', err);
@@ -90,13 +86,9 @@ export const LaboratoryLensList: React.FC = () => {
   const handleClearFilters = async () => {
     setSearchName('');
     setFilterLaboratory('');
-    
+    setAppliedFilters({ searchName: '', filterLaboratory: '' });
     try {
-      await fetchLaboratoryLenses(1, {
-        order_by: sortBy || 'id',
-        order_dir: sortDirection || 'desc',
-        per_page: perPage,
-      });
+      await fetchLaboratoryLenses(1, { order_by: sortBy || 'id', order_dir: sortDirection || 'desc', per_page: perPage });
     } catch (err) {
       console.error('Erro ao limpar filtros:', err);
     }
@@ -105,15 +97,8 @@ export const LaboratoryLensList: React.FC = () => {
   const handlePerPageChange = async (newPerPage: number) => {
     setPerPage(newPerPage);
     try {
-      const params: any = {
-        per_page: newPerPage,
-      };
-      if (searchName) params.search = searchName;
-      if (filterLaboratory) params.laboratory_id = filterLaboratory;
-      if (sortBy) {
-        params.order_by = sortBy;
-        params.order_dir = sortDirection || 'desc';
-      }
+      const params = buildParams(appliedFilters);
+      params.per_page = newPerPage;
       await fetchLaboratoryLenses(1, params);
     } catch (err) {
       console.error('Erro ao alterar itens por página:', err);
@@ -428,14 +413,7 @@ export const LaboratoryLensList: React.FC = () => {
             perPage={perPage}
             onPerPageChange={handlePerPageChange}
             onPageChange={(page) => {
-              const params: any = {};
-              if (searchName) params.search = searchName;
-              if (filterLaboratory) params.laboratory_id = filterLaboratory;
-              if (sortBy && sortDirection) {
-                params.order_by = sortBy;
-                params.order_dir = sortDirection;
-              }
-              params.per_page = perPage;
+              const params = buildParams(appliedFilters);
               fetchLaboratoryLenses(page, params);
             }}
             itemName="lentes"

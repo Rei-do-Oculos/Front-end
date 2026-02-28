@@ -39,27 +39,21 @@ export const getAppModules = (): AppModule[] => {
       description: 'Cadastro e gestão de clientes',
     },
     {
-      id: 'vendedores',
-      name: 'Vendedores',
-      route: '/vendedores',
-      description: 'Gestão de equipe de vendas',
-    },
-    {
       id: 'estoque',
       name: 'Estoque',
-      route: '/estoque',
+      route: '/stock',
       description: 'Controle de produtos e armações',
     },
     {
       id: 'fornecedores',
       name: 'Fornecedores',
-      route: '/fornecedores',
+      route: '/suppliers',
       description: 'Parceiros e fornecedores',
     },
     {
       id: 'lentes',
       name: 'Lentes',
-      route: '/lentes',
+      route: '/lenses',
       description: 'Gestão de lentes e insumos',
     },
     {
@@ -71,7 +65,7 @@ export const getAppModules = (): AppModule[] => {
     {
       id: 'pedidos',
       name: 'Ordens de Serviço',
-      route: '/pedidos',
+      route: '/orders',
       description: 'Gestão de OS e laboratório',
     },
     {

@@ -110,6 +110,15 @@ export interface ServiceOrder {
   status_color?: string;
   expected_arrival?: string | null;
   is_overdue?: boolean;
+  // NF-e
+  invoice_id?: number | null;
+  invoice?: {
+    id: number;
+    invoice_number: string;
+    series: string;
+    status: string;
+    access_key?: string | null;
+  } | null;
 }
 
 export interface CreateServiceOrderDto {

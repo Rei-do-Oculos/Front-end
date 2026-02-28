@@ -19,14 +19,13 @@ export const LaboratoryList: React.FC = () => {
   });
 
   const [searchName, setSearchName] = useState('');
+  const [appliedSearchName, setAppliedSearchName] = useState('');
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [sortBy, setSortBy] = useState<string | null>('id');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
   const [perPage, setPerPage] = useState<number>(15);
   
-  const activeFilters = useActiveFilters({
-    searchName,
-  });
+  const activeFilters = useActiveFilters({ searchName: appliedSearchName });
   const [laboratoryToDelete, setLaboratoryToDelete] = useState<Laboratory | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [lensesCount, setLensesCount] = useState<number>(0);
@@ -34,66 +33,32 @@ export const LaboratoryList: React.FC = () => {
 
   useEffect(() => {
     const loadLaboratories = async () => {
-      console.log('[LaboratoryList] 🔍 Iniciando carregamento de laboratórios');
-      console.log('[LaboratoryList] Store selecionada:', selectedStore?.id, selectedStore?.name);
-      console.log('[LaboratoryList] Parâmetros:', {
-        sortBy: sortBy || 'id',
-        sortDirection: sortDirection || 'desc',
-        perPage,
-      });
-      
-      // Limpar dados antigos quando trocar de loja
-      if (selectedStore?.id) {
-        reset();
-      }
-      
+      if (selectedStore?.id) reset();
       try {
-        console.log('[LaboratoryList] Chamando fetchLaboratories...');
-        await fetchLaboratories(1, {
-          order_by: sortBy || 'id',
-          order_dir: sortDirection || 'desc',
-          per_page: perPage,
-        });
-        console.log('[LaboratoryList] ✅ fetchLaboratories concluído');
+        const params: any = { order_by: sortBy || 'id', order_dir: sortDirection || 'desc', per_page: perPage };
+        if (appliedSearchName) params.search = appliedSearchName;
+        await fetchLaboratories(1, params);
       } catch (err) {
-        console.error('[LaboratoryList] ❌ Erro ao carregar laboratórios:', err);
-        console.error('[LaboratoryList] Detalhes do erro:', {
-          message: err instanceof Error ? err.message : String(err),
-          stack: err instanceof Error ? err.stack : undefined,
-          error: err,
-        });
+        console.error('[LaboratoryList] Erro ao carregar laboratórios:', err);
       }
     };
     loadLaboratories();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [perPage, selectedStore?.id]);
+  }, [perPage, selectedStore?.id, appliedSearchName, sortBy, sortDirection]);
 
   const handleSort = (key: string, direction: SortDirection) => {
-    const newDirection = direction || 'asc';
     setSortBy(key);
-    setSortDirection(newDirection);
-    
-    const params: any = {};
-    if (searchName) params.search = searchName;
-    
-    params.order_by = key;
-    params.order_dir = newDirection;
-    params.per_page = perPage;
-    
+    setSortDirection(direction || 'asc');
+    const params: any = { order_by: key, order_dir: direction || 'asc', per_page: perPage };
+    if (appliedSearchName) params.search = appliedSearchName;
     fetchLaboratories(pagination?.currentPage || 1, params);
   };
 
   const handleApplyFilters = async () => {
+    setAppliedSearchName(searchName);
     try {
-      const params: any = {};
+      const params: any = { order_by: sortBy || 'id', order_dir: sortDirection || 'desc', per_page: perPage };
       if (searchName) params.search = searchName;
-      
-      if (sortBy) {
-        params.order_by = sortBy;
-        params.order_dir = sortDirection || 'desc';
-      }
-      
-      params.per_page = perPage;
       await fetchLaboratories(1, params);
     } catch (err) {
       console.error('Erro ao aplicar filtros:', err);
@@ -102,13 +67,9 @@ export const LaboratoryList: React.FC = () => {
 
   const handleClearFilters = async () => {
     setSearchName('');
-    
+    setAppliedSearchName('');
     try {
-      await fetchLaboratories(1, {
-        order_by: sortBy || 'id',
-        order_dir: sortDirection || 'desc',
-        per_page: perPage,
-      });
+      await fetchLaboratories(1, { order_by: sortBy || 'id', order_dir: sortDirection || 'desc', per_page: perPage });
     } catch (err) {
       console.error('Erro ao limpar filtros:', err);
     }
@@ -117,14 +78,8 @@ export const LaboratoryList: React.FC = () => {
   const handlePerPageChange = async (newPerPage: number) => {
     setPerPage(newPerPage);
     try {
-      const params: any = {
-        per_page: newPerPage,
-      };
-      if (searchName) params.search = searchName;
-      if (sortBy) {
-        params.order_by = sortBy;
-        params.order_dir = sortDirection || 'desc';
-      }
+      const params: any = { order_by: sortBy || 'id', order_dir: sortDirection || 'desc', per_page: newPerPage };
+      if (appliedSearchName) params.search = appliedSearchName;
       await fetchLaboratories(1, params);
     } catch (err) {
       console.error('Erro ao alterar itens por página:', err);
@@ -486,13 +441,8 @@ export const LaboratoryList: React.FC = () => {
             perPage={perPage}
             onPerPageChange={handlePerPageChange}
             onPageChange={(page) => {
-              const params: any = {};
-              if (searchName) params.search = searchName;
-              if (sortBy && sortDirection) {
-                params.order_by = sortBy;
-                params.order_dir = sortDirection;
-              }
-              params.per_page = perPage;
+              const params: any = { order_by: sortBy || 'id', order_dir: sortDirection || 'desc', per_page: perPage };
+              if (appliedSearchName) params.search = appliedSearchName;
               fetchLaboratories(page, params);
             }}
             itemName="laboratórios"

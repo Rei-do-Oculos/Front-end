@@ -18,15 +18,14 @@ export const FrameTypeList: React.FC = () => {
   });
 
   const [searchName, setSearchName] = useState('');
+  const [appliedSearchName, setAppliedSearchName] = useState('');
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [sortBy, setSortBy] = useState<string | null>('id');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
   const [perPage, setPerPage] = useState<number>(15);
   
   // Calcular quantidade de filtros ativos usando hook padronizado
-  const activeFilters = useActiveFilters({
-    searchName,
-  });
+  const activeFilters = useActiveFilters({ searchName: appliedSearchName });
   const [frameTypeToDelete, setFrameTypeToDelete] = useState<FrameType | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [formModalOpen, setFormModalOpen] = useState(false);
@@ -40,45 +39,30 @@ export const FrameTypeList: React.FC = () => {
   useEffect(() => {
     const loadFrameTypes = async () => {
       try {
-        await fetchFrameTypes(1, {
-          order_by: sortBy || 'id',
-          order_dir: sortDirection || 'desc',
-          per_page: perPage,
-        });
+        const params: any = { order_by: sortBy || 'id', order_dir: sortDirection || 'desc', per_page: perPage };
+        if (appliedSearchName) params.search = appliedSearchName;
+        await fetchFrameTypes(1, params);
       } catch (err) {
         console.error('Erro ao carregar tipos de armação:', err);
       }
     };
     loadFrameTypes();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [perPage, selectedStore?.id]);
+  }, [perPage, selectedStore?.id, appliedSearchName, sortBy, sortDirection]);
 
   const handleSort = (key: string, direction: SortDirection) => {
-    const newDirection = direction || 'asc';
     setSortBy(key);
-    setSortDirection(newDirection);
-    
-    const params: any = {};
-    if (searchName) params.search = searchName;
-    
-    params.order_by = key;
-    params.order_dir = newDirection;
-    params.per_page = perPage;
-    
+    setSortDirection(direction || 'asc');
+    const params: any = { order_by: key, order_dir: direction || 'asc', per_page: perPage };
+    if (appliedSearchName) params.search = appliedSearchName;
     fetchFrameTypes(pagination?.currentPage || 1, params);
   };
 
   const handleApplyFilters = async () => {
+    setAppliedSearchName(searchName);
     try {
-      const params: any = {};
+      const params: any = { order_by: sortBy || 'id', order_dir: sortDirection || 'desc', per_page: perPage };
       if (searchName) params.search = searchName;
-      
-      if (sortBy) {
-        params.order_by = sortBy;
-        params.order_dir = sortDirection || 'desc';
-      }
-      
-      params.per_page = perPage;
       await fetchFrameTypes(1, params);
     } catch (err) {
       console.error('Erro ao aplicar filtros:', err);
@@ -87,13 +71,9 @@ export const FrameTypeList: React.FC = () => {
 
   const handleClearFilters = async () => {
     setSearchName('');
-    
+    setAppliedSearchName('');
     try {
-      await fetchFrameTypes(1, {
-        order_by: sortBy || 'id',
-        order_dir: sortDirection || 'desc',
-        per_page: perPage,
-      });
+      await fetchFrameTypes(1, { order_by: sortBy || 'id', order_dir: sortDirection || 'desc', per_page: perPage });
     } catch (err) {
       console.error('Erro ao limpar filtros:', err);
     }
@@ -102,14 +82,8 @@ export const FrameTypeList: React.FC = () => {
   const handlePerPageChange = async (newPerPage: number) => {
     setPerPage(newPerPage);
     try {
-      const params: any = {
-        per_page: newPerPage,
-      };
-      if (searchName) params.search = searchName;
-      if (sortBy) {
-        params.order_by = sortBy;
-        params.order_dir = sortDirection || 'desc';
-      }
+      const params: any = { order_by: sortBy || 'id', order_dir: sortDirection || 'desc', per_page: newPerPage };
+      if (appliedSearchName) params.search = appliedSearchName;
       await fetchFrameTypes(1, params);
     } catch (err) {
       console.error('Erro ao alterar itens por página:', err);
@@ -434,13 +408,8 @@ export const FrameTypeList: React.FC = () => {
             perPage={perPage}
             onPerPageChange={handlePerPageChange}
             onPageChange={(page) => {
-              const params: any = {};
-              if (searchName) params.search = searchName;
-              if (sortBy && sortDirection) {
-                params.order_by = sortBy;
-                params.order_dir = sortDirection;
-              }
-              params.per_page = perPage;
+              const params: any = { order_by: sortBy || 'id', order_dir: sortDirection || 'desc', per_page: perPage };
+              if (appliedSearchName) params.search = appliedSearchName;
               fetchFrameTypes(page, params);
             }}
             itemName="tipos de armação"

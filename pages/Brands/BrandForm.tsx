@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { Save, ArrowLeft, Trash2 } from 'lucide-react';
 import { Card, Button, Input } from '../../components/Common';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { normalizeToTitleCase } from '../../utils/formatters';
 
 // Mock de dados - substituir por chamada de API
@@ -14,6 +14,7 @@ const mockBrands = [
 
 export const BrandForm: React.FC = () => {
   const { id } = useParams();
+  const navigate = useNavigate();
   const isEditMode = !!id;
   const [name, setName] = useState('');
 
@@ -37,7 +38,7 @@ export const BrandForm: React.FC = () => {
     if (window.confirm('Tem certeza que deseja excluir esta marca?')) {
       // Aqui seria a chamada da API para deletar
       console.log('Deletando marca:', id);
-      window.location.hash = '#/lentes';
+      navigate('/lenses');
     }
   };
 
