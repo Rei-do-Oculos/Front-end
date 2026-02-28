@@ -94,7 +94,7 @@ export const LensForm: React.FC = () => {
     try {
       await deleteLens(id);
       showSuccess('Lente excluída com sucesso!');
-      navigate('/lentes');
+      navigate('/lenses');
     } catch (err: any) {
       console.error('Erro ao excluir lente:', err);
       showError(err.message || 'Erro ao excluir lente');
@@ -146,7 +146,7 @@ export const LensForm: React.FC = () => {
               <Trash2 size={18} /> Excluir
             </Button>
           )}
-          <Button variant="secondary" onClick={() => navigate('/lentes')}>
+          <Button variant="secondary" onClick={() => navigate('/lenses')}>
             <ArrowLeft size={18} /> Voltar
           </Button>
         </div>
@@ -177,7 +177,7 @@ export const LensForm: React.FC = () => {
        
 
           <div className="flex gap-3 pt-6 mt-6 border-t border-slate-200">
-            <Button type="button" onClick={() => navigate('/lentes')} variant="outline">
+            <Button type="button" onClick={() => navigate('/lenses')} variant="outline">
               Cancelar
             </Button>
             <Button type="submit" disabled={loading}>

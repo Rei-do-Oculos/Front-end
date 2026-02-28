@@ -23,6 +23,9 @@ export const StoreForm: React.FC = () => {
   const [loading, setLoading] = useState(isEditMode); // Inicia como true se estiver editando
   const [error, setError] = useState<string | null>(null);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [tokensConfigured, setTokensConfigured] = useState<{ brasilnfe?: boolean; csc?: boolean }>({});
+  const [showTokenBrasilnfe, setShowTokenBrasilnfe] = useState(false);
+  const [showTokenCsc, setShowTokenCsc] = useState(false);
   
   const { getStore, createStore, updateStore, deleteStore } = useStores({
     autoFetch: false,
@@ -50,6 +53,13 @@ export const StoreForm: React.FC = () => {
     fax: '',
     active: true,
     status: 'active',
+    tokens: {
+      brasilnfe_api_token: '',
+      csc_id: '',
+      csc: '',
+    },
+    nfe_series: '',
+    nfe_next_number: '',
   });
 
   useEffect(() => {
@@ -82,6 +92,13 @@ export const StoreForm: React.FC = () => {
               email: store.email || '',
               fax: store.fax || '',
               active: store.active ?? true,
+              tokens: {
+                brasilnfe_api_token: '',
+                csc_id: '',
+                csc: '',
+              },
+              nfe_series: store.nfe_series ?? '',
+              nfe_next_number: store.nfe_next_number ?? '',
             });
             
             const logoValue = store.logo ? String(store.logo) : '';
@@ -98,6 +115,12 @@ export const StoreForm: React.FC = () => {
             } else {
               setLogoPreview(null);
             }
+            setTokensConfigured({
+              brasilnfe: store.tokens?.brasilnfe_api_token_configured,
+              csc: store.tokens?.csc_configured,
+            });
+            setShowTokenBrasilnfe(false);
+            setShowTokenCsc(false);
           } else {
             setError('Loja não encontrada');
           }
@@ -179,6 +202,28 @@ export const StoreForm: React.FC = () => {
 
       if (logoFile) {
         payload.logo = logoFile;
+      }
+
+      const tokens: { brasilnfe_api_token?: string; csc_id?: number; csc?: string } = {};
+      if (formData.tokens?.brasilnfe_api_token?.trim()) {
+        tokens.brasilnfe_api_token = formData.tokens.brasilnfe_api_token.trim();
+      }
+      if (formData.tokens?.csc_id !== undefined && formData.tokens?.csc_id !== '' && String(formData.tokens.csc_id).trim()) {
+        tokens.csc_id = parseInt(String(formData.tokens.csc_id), 10) || undefined;
+      }
+      if (formData.tokens?.csc?.trim()) {
+        tokens.csc = formData.tokens.csc.trim();
+      }
+      if (Object.keys(tokens).length > 0) {
+        payload.tokens = tokens;
+      }
+
+      if (formData.nfe_series !== undefined) {
+        payload.nfe_series = formData.nfe_series?.trim() || '';
+      }
+      if (formData.nfe_next_number !== undefined) {
+        const num = formData.nfe_next_number;
+        payload.nfe_next_number = (num !== '' && num !== null && Number(num) >= 1) ? Number(num) : '';
       }
 
       if (isEditMode && id) {
@@ -412,6 +457,123 @@ export const StoreForm: React.FC = () => {
                       if (normalized !== e.target.value) setFormData({ ...formData, email: normalized });
                     }}
                   />
+                </div>
+             </div>
+          </Card>
+
+          <Card title="Tokens e NF-e" subtitle="Token Brasil NFe, CSC (NFC-e) e numeração de NF-e por loja">
+             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4">
+                <div className="md:col-span-2">
+                  {tokensConfigured.brasilnfe && !showTokenBrasilnfe ? (
+                    <div className="flex items-center justify-between gap-4 p-4 rounded-xl border border-slate-200 bg-slate-50">
+                      <div>
+                        <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-[0.15em] block mb-1">Token API Brasil NFe</span>
+                        <span className="text-slate-600 font-mono">••••••••••••••••</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setShowTokenBrasilnfe(true)}
+                        className="text-xs font-semibold text-slate-600 hover:text-slate-900 underline"
+                      >
+                        Alterar
+                      </button>
+                    </div>
+                  ) : (
+                    <Input
+                      label="Token API Brasil NFe"
+                      placeholder="Token do painel api.brasilnfe.com.br"
+                      type="password"
+                      autoComplete="off"
+                      value={formData.tokens?.brasilnfe_api_token || ''}
+                      onChange={(e) => setFormData({
+                        ...formData,
+                        tokens: { ...formData.tokens!, brasilnfe_api_token: e.target.value },
+                      })}
+                    />
+                  )}
+                  {tokensConfigured.brasilnfe && showTokenBrasilnfe && (
+                    <button
+                      type="button"
+                      onClick={() => setShowTokenBrasilnfe(false)}
+                      className="mt-2 text-xs text-slate-500 hover:text-slate-700"
+                    >
+                      Cancelar (manter atual)
+                    </button>
+                  )}
+                </div>
+                {tokensConfigured.csc && !showTokenCsc ? (
+                  <div className="md:col-span-2 flex items-center justify-between gap-4 p-4 rounded-xl border border-slate-200 bg-slate-50">
+                    <div>
+                      <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-[0.15em] block mb-1">CSC (Id + token)</span>
+                      <span className="text-slate-600 font-mono">••••••••••••••••</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setShowTokenCsc(true)}
+                      className="text-xs font-semibold text-slate-600 hover:text-slate-900 underline"
+                    >
+                      Alterar
+                    </button>
+                  </div>
+                ) : (
+                  <>
+                    <Input
+                      label="CSC Id (identificador)"
+                      placeholder="Ex: 1"
+                      type="number"
+                      min={1}
+                      max={999}
+                      value={formData.tokens?.csc_id ?? ''}
+                      onChange={(e) => setFormData({
+                        ...formData,
+                        tokens: { ...formData.tokens!, csc_id: e.target.value },
+                      })}
+                    />
+                    <Input
+                      label="CSC (token/código)"
+                      placeholder="Código obtido na SEFAZ"
+                      type="password"
+                      autoComplete="off"
+                      value={formData.tokens?.csc || ''}
+                      onChange={(e) => setFormData({
+                        ...formData,
+                        tokens: { ...formData.tokens!, csc: e.target.value },
+                      })}
+                    />
+                  </>
+                )}
+                {tokensConfigured.csc && showTokenCsc && (
+                  <div className="md:col-span-2">
+                    <button
+                      type="button"
+                      onClick={() => setShowTokenCsc(false)}
+                      className="text-xs text-slate-500 hover:text-slate-700"
+                    >
+                      Cancelar (manter atual)
+                    </button>
+                  </div>
+                )}
+                <div className="md:col-span-2 pt-2 border-t border-slate-200">
+                  <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-[0.15em] block mb-3">Numeração NF-e</span>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <Input
+                      label="Série"
+                      placeholder="001 (padrão)"
+                      value={formData.nfe_series ?? ''}
+                      onChange={(e) => setFormData({ ...formData, nfe_series: e.target.value.replace(/\D/g, '').slice(0, 3) })}
+                    />
+                    <Input
+                      label="Próximo número (opcional)"
+                      placeholder="Ex: 100 — para migração ou ajuste inicial"
+                      type="number"
+                      min={1}
+                      value={formData.nfe_next_number ?? ''}
+                      onChange={(e) => setFormData({ ...formData, nfe_next_number: e.target.value })}
+                    />
+                  </div>
+                  <p className="mt-2 text-xs text-slate-500">
+                    Série: 1 a 999. Próximo número: usado quando não há notas ou para migração de outro sistema.
+                  </p>
                 </div>
              </div>
           </Card>

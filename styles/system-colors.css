@@ -103,7 +103,7 @@
   border-color: var(--store-color) !important;
 }
 
-/* Impressão: esconder sidebar e header na página de Ordem de Serviço */
+/* Impressão: esconder sidebar e header na página de Ordem de Serviço e na NF-e */
 @media print {
   .print-sheet-page aside,
   .print-sheet-page header,
@@ -111,6 +111,15 @@
     display: none !important;
   }
   .print-sheet-page main {
+    padding: 0 !important;
+  }
+  /* NF-e / Detalhe de Nota: ocultar sidebar, header e botões; imprimir só o conteúdo da nota */
+  .print-invoice-detail-page aside,
+  .print-invoice-detail-page header,
+  .print-invoice-detail-page .print\\:hidden {
+    display: none !important;
+  }
+  .print-invoice-detail-page main {
     padding: 0 !important;
   }
 }

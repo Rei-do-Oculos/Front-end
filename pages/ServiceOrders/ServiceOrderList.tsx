@@ -9,14 +9,18 @@ import { useNotification } from '../../hooks/useNotification';
 import { usePermission } from '../../services/hooks/usePermission';
 import { useActiveFilters } from '../../hooks/useActiveFilters';
 import { useStore } from '../../contexts/StoreContext';
+import { useAuth } from '../../services/hooks/useAuth';
+import { userHasAccessToStore } from '../../utils/storeAccess';
 import { useNavigate } from 'react-router-dom';
 import { ReceiptModal } from '../../components/ReceiptModal';
 import { ReceiptData } from '../../components/ThermalReceipt';
 import { usersService } from '../../services/api/users';
+import { invoicesService } from '../../services/api/invoices';
 import { storesService } from '../../services/api/stores';
 
 export const ServiceOrderList: React.FC = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const { showSuccess, showError } = useNotification();
   const { hasPermission, hasSuperAdminRole } = usePermission();
   const { availableStores, selectedStore } = useStore();
@@ -329,6 +333,15 @@ export const ServiceOrderList: React.FC = () => {
   const handleReceiptConfirm = () => {
     setShowReceiptModal(false);
     setOrderToPrint(null);
+  };
+
+  // Emitir NFC-e ou NF-e ao imprimir pela lista (envia à Brasil NFe)
+  const handleGenerateInvoice = async (modelo: 55 | 65, options?: { includeDocument?: boolean }): Promise<{ pdfBase64?: string; invoice?: import('../../services/api/invoices').Invoice } | null> => {
+    if (!orderToPrint?.id) return null;
+    const inv = await invoicesService.generateFromServiceOrder(
+      String(orderToPrint.id), true, modelo, undefined, options?.includeDocument ?? false
+    );
+    return { pdfBase64: inv.pdf_base64 ?? undefined, invoice: inv };
   };
 
   const ordersList = Array.isArray(serviceOrders) ? serviceOrders : [];
@@ -708,6 +721,8 @@ export const ServiceOrderList: React.FC = () => {
             setOrderToPrint(null);
           }}
           onConfirm={handleReceiptConfirm}
+          onGenerateInvoice={handleGenerateInvoice}
+          canGenerateInvoice={userHasAccessToStore(orderToPrint.store_id ?? orderToPrint.store?.id, user)}
           receiptData={prepareReceiptData(orderToPrint)}
           order={orderToPrint}
           clientPhone={(Array.isArray(clients) ? clients : []).find(c => c.id === orderToPrint.client_id)?.phone || (orderToPrint.client as any)?.phone}

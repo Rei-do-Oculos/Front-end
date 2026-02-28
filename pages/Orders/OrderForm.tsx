@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { Save, ArrowLeft, Upload, FileText, Smartphone, Beaker, Truck, CheckCircle2, DollarSign, Trash2, ExternalLink, FileCheck } from 'lucide-react';
 import { Card, Button, Input, Select, Badge } from '../../components/Common';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 
 // Mock de dados - substituir por chamada de API
 const mockOrders = [
@@ -19,6 +19,7 @@ const mockOrders = [
 
 export const OrderForm: React.FC = () => {
   const { id } = useParams();
+  const navigate = useNavigate();
   const isEditMode = !!id;
   const [status, setStatus] = useState('pendente');
   const [formData, setFormData] = useState({
@@ -50,7 +51,7 @@ export const OrderForm: React.FC = () => {
   const handleDelete = () => {
     if (window.confirm('Tem certeza que deseja excluir esta ordem de serviço?')) {
       console.log('Deletando pedido:', id);
-      window.location.hash = '#/pedidos';
+      navigate('/orders');
     }
   };
 
@@ -233,14 +234,14 @@ export const OrderForm: React.FC = () => {
                   <div className="flex gap-3">
                     <Button 
                       variant="outline"
-                      onClick={() => window.location.hash = `#/notas-fiscais/${currentOrder.invoiceId}`}
+                      onClick={() => navigate(`/invoices/${currentOrder.invoiceId}`)}
                       className="flex-1 border-emerald-200 text-emerald-700 hover:bg-emerald-50"
                     >
                       <FileText size={16} /> Ver NF-e
                     </Button>
                     <Button 
                       variant="outline"
-                      onClick={() => window.location.hash = `#/notas-fiscais/${currentOrder.invoiceId}`}
+                      onClick={() => navigate(`/invoices/${currentOrder.invoiceId}`)}
                       className="flex-1 border-emerald-200 text-emerald-700 hover:bg-emerald-50"
                     >
                       <ExternalLink size={16} /> Detalhes

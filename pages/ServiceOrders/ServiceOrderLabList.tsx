@@ -12,9 +12,11 @@ import { usePermission } from '../../services/hooks/usePermission';
 import { useActiveFilters } from '../../hooks/useActiveFilters';
 import { useStore } from '../../contexts/StoreContext';
 import { useAuth } from '../../services/hooks/useAuth';
+import { userHasAccessToStore } from '../../utils/storeAccess';
 import { useNavigate } from 'react-router-dom';
 import { ReceiptModal } from '../../components/ReceiptModal';
 import { ReceiptData } from '../../components/ThermalReceipt';
+import { invoicesService } from '../../services/api/invoices';
 
 // Status labels e cores
 const STATUS_CONFIG: Record<ServiceOrderStatus, { label: string; color: 'warning' | 'info' | 'primary' | 'success' | 'danger' }> = {
@@ -59,18 +61,26 @@ export const ServiceOrderLabList: React.FC = () => {
   const [filterStatus, setFilterStatus] = useState('');
   const [filterDateFrom, setFilterDateFrom] = useState('');
   const [filterDateTo, setFilterDateTo] = useState('');
+  const [appliedFilters, setAppliedFilters] = useState({
+    searchTerm: '',
+    filterStore: '',
+    filterLab: '',
+    filterStatus: '',
+    filterDateFrom: '',
+    filterDateTo: '',
+  });
   const [actionModalOpen, setActionModalOpen] = useState(false);
   const [sortBy, setSortBy] = useState<string | null>('id');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
   const [perPage, setPerPage] = useState<number>(15);
   
   const activeFilters = useActiveFilters({
-    searchTerm,
-    filterStore,
-    filterLab,
-    filterStatus,
-    filterDateFrom,
-    filterDateTo,
+    searchTerm: appliedFilters.searchTerm,
+    filterStore: appliedFilters.filterStore,
+    filterLab: appliedFilters.filterLab,
+    filterStatus: appliedFilters.filterStatus,
+    filterDateFrom: appliedFilters.filterDateFrom,
+    filterDateTo: appliedFilters.filterDateTo,
   });
   
   const [orderToAction, setOrderToAction] = useState<ServiceOrder | null>(null);
@@ -99,6 +109,17 @@ export const ServiceOrderLabList: React.FC = () => {
     fetchClients(1, { per_page: 100 });
     fetchFrames(1, { per_page: 100 });
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const buildFilterParams = useCallback((f: typeof appliedFilters) => {
+    const params: any = {};
+    if (f.searchTerm) params.search = f.searchTerm;
+    if (f.filterStore) params.store_id = f.filterStore;
+    if (f.filterLab) params.laboratory_id = f.filterLab;
+    if (f.filterStatus) params.status = f.filterStatus;
+    if (f.filterDateFrom) params.date_from = f.filterDateFrom;
+    if (f.filterDateTo) params.date_to = f.filterDateTo;
+    return params;
   }, []);
 
   // Carregar OS do laboratório
@@ -134,49 +155,40 @@ export const ServiceOrderLabList: React.FC = () => {
   }, [fetchLabOrders, availableStores, selectedStore, sortBy, sortDirection, perPage]);
 
   useEffect(() => {
-    loadOrders();
-  }, [loadOrders]);
+    const params = buildFilterParams(appliedFilters);
+    params.order_by = sortBy || 'id';
+    params.order_dir = sortDirection || 'desc';
+    params.per_page = perPage;
+    loadOrders(1, params);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [appliedFilters, sortBy, sortDirection, perPage, selectedStore?.id]);
 
   const handleSort = (key: string, direction: SortDirection) => {
     const newDirection = direction || 'asc';
     setSortBy(key);
     setSortDirection(newDirection);
-    
-    const params: any = {};
-    if (searchTerm) params.search = searchTerm;
-    if (filterStore) params.store_id = filterStore;
-    if (filterLab) params.laboratory_id = filterLab;
-    if (filterStatus) params.status = filterStatus;
-    if (filterDateFrom) params.date_from = filterDateFrom;
-    if (filterDateTo) params.date_to = filterDateTo;
-    
+    const params = buildFilterParams(appliedFilters);
     params.order_by = key;
     params.order_dir = newDirection;
     params.per_page = perPage;
-    
     loadOrders(pagination?.currentPage || 1, params);
   };
 
   const handleApplyFilters = async () => {
-    try {
-      const params: any = {};
-      if (searchTerm) params.search = searchTerm;
-      if (filterStore) params.store_id = filterStore;
-      if (filterLab) params.laboratory_id = filterLab;
-      if (filterStatus) params.status = filterStatus;
-      if (filterDateFrom) params.date_from = filterDateFrom;
-      if (filterDateTo) params.date_to = filterDateTo;
-      
-      if (sortBy) {
-        params.order_by = sortBy;
-        params.order_dir = sortDirection || 'desc';
-      }
-      
-      params.per_page = perPage;
-      await loadOrders(1, params);
-    } catch (err) {
-      console.error('Erro ao aplicar filtros:', err);
-    }
+    const next = {
+      searchTerm,
+      filterStore,
+      filterLab,
+      filterStatus,
+      filterDateFrom,
+      filterDateTo,
+    };
+    setAppliedFilters(next);
+    const params = buildFilterParams(next);
+    params.order_by = sortBy || 'id';
+    params.order_dir = sortDirection || 'desc';
+    params.per_page = perPage;
+    await loadOrders(1, params);
   };
 
   const handleClearFilters = async () => {
@@ -186,7 +198,14 @@ export const ServiceOrderLabList: React.FC = () => {
     setFilterStatus('');
     setFilterDateFrom('');
     setFilterDateTo('');
-    
+    setAppliedFilters({
+      searchTerm: '',
+      filterStore: '',
+      filterLab: '',
+      filterStatus: '',
+      filterDateFrom: '',
+      filterDateTo: '',
+    });
     await loadOrders(1, {
       order_by: sortBy || 'id',
       order_dir: sortDirection || 'desc',
@@ -196,17 +215,10 @@ export const ServiceOrderLabList: React.FC = () => {
 
   const handlePerPageChange = async (newPerPage: number) => {
     setPerPage(newPerPage);
-    const params: any = { per_page: newPerPage };
-    if (searchTerm) params.search = searchTerm;
-    if (filterStore) params.store_id = filterStore;
-    if (filterLab) params.laboratory_id = filterLab;
-    if (filterStatus) params.status = filterStatus;
-    if (filterDateFrom) params.date_from = filterDateFrom;
-    if (filterDateTo) params.date_to = filterDateTo;
-    if (sortBy) {
-      params.order_by = sortBy;
-      params.order_dir = sortDirection || 'desc';
-    }
+    const params = buildFilterParams(appliedFilters);
+    params.per_page = newPerPage;
+    params.order_by = sortBy || 'id';
+    params.order_dir = sortDirection || 'desc';
     await loadOrders(1, params);
   };
 
@@ -615,9 +627,18 @@ export const ServiceOrderLabList: React.FC = () => {
   };
 
   // Callback quando fecha o modal de recibo
-  const handleReceiptConfirm = (type: 'receipt' | 'nfe' | 'none') => {
+  const handleReceiptConfirm = (type: 'receipt' | 'nfce' | 'nfe' | 'none') => {
     setShowReceiptModal(false);
     setCompletedOrder(null);
+  };
+
+  // Emitir NFC-e ou NF-e ao imprimir (envia à Brasil NFe)
+  const handleGenerateInvoice = async (modelo: 55 | 65, options?: { includeDocument?: boolean }): Promise<{ pdfBase64?: string; invoice?: import('../../services/api/invoices').Invoice } | null> => {
+    if (!completedOrder?.id) return null;
+    const inv = await invoicesService.generateFromServiceOrder(
+      String(completedOrder.id), true, modelo, undefined, options?.includeDocument ?? false
+    );
+    return { pdfBase64: inv.pdf_base64 ?? undefined, invoice: inv };
   };
 
   const formatCurrency = (value: number) => {
@@ -934,17 +955,9 @@ export const ServiceOrderLabList: React.FC = () => {
             perPage={perPage}
             onPerPageChange={handlePerPageChange}
             onPageChange={(page) => {
-              const params: any = {};
-              if (searchTerm) params.search = searchTerm;
-              if (filterStore) params.store_id = filterStore;
-              if (filterLab) params.laboratory_id = filterLab;
-              if (filterStatus) params.status = filterStatus;
-              if (filterDateFrom) params.date_from = filterDateFrom;
-              if (filterDateTo) params.date_to = filterDateTo;
-              if (sortBy && sortDirection) {
-                params.order_by = sortBy;
-                params.order_dir = sortDirection;
-              }
+              const params = buildFilterParams(appliedFilters);
+              params.order_by = sortBy || 'id';
+              params.order_dir = sortDirection || 'desc';
               params.per_page = perPage;
               loadOrders(page, params);
             }}
@@ -1386,6 +1399,8 @@ export const ServiceOrderLabList: React.FC = () => {
             setCompletedOrder(null);
           }}
           onConfirm={handleReceiptConfirm}
+          onGenerateInvoice={handleGenerateInvoice}
+          canGenerateInvoice={userHasAccessToStore(completedOrder.store_id ?? completedOrder.store?.id, user)}
           receiptData={prepareReceiptData(completedOrder)}
           order={completedOrder}
           clientPhone={(Array.isArray(clients) ? clients : []).find(c => c.id === completedOrder.client_id)?.phone || (completedOrder.client as any)?.phone}

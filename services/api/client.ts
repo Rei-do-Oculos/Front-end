@@ -128,7 +128,8 @@ class ApiClient {
           url: response.config.url,
           hasData: !!response.data,
         });
-        if (response.data) {
+        // Não sanitizar respostas binárias (Blob) — ex.: download PDF/XML (DANFE)
+        if (response.data && response.config.responseType !== 'blob' && !(response.data instanceof Blob)) {
           response.data = this.sanitizeResponseData(response.data);
         }
         return response;
@@ -285,7 +286,7 @@ class ApiClient {
       sessionStorage.clear();
       // Cookie limpo pelo backend no logout
       setTimeout(() => {
-        window.location.hash = '#/login';
+        window.location.href = '/login';
       }, 100);
     } catch (error) {
       console.error('Erro ao limpar sessão:', error);

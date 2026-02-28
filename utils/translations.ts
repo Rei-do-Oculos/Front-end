@@ -26,11 +26,13 @@ const resourceTranslations: Record<string, string> = {
   'frames': 'Armações',
   'frame-types': 'Tipos de Armação',
   'store-frames': 'Transferências',
+  'stock-reports': 'Relatórios de Estoque',
   'laboratories': 'Laboratórios',
   'laboratory-lenses': 'Lentes de Laboratório',
   'service-orders': 'Ordens de Serviço',
   'service-orders-lab': 'OS Laboratório',
   'service-orders-overdue': 'Inadimplências',
+  'invoices': 'Notas Fiscais (NF-e)',
 };
 
 /**
@@ -54,10 +56,14 @@ const actionTranslations: Record<string, string> = {
   'migrate': 'Migrar',
   'history': 'Histórico',
   'history-report': 'Relatório PDF',
+  'export': 'Exportar',
   'dashboard': 'Dashboard',
   'revenue-by-store': 'Faturamento por Loja',
   'top-sellers': 'Ranking de Vendedores',
   'overdue-summary': 'Resumo de Inadimplências',
+  'generate': 'Emitir',
+  'cancel': 'Cancelar',
+  'gerar-devolucao': 'Gerar Devolução',
 };
 
 /**

@@ -64,11 +64,12 @@ const menuItems: MenuItem[] = [
   { 
     title: 'Estoque', 
     icon: <Package size={20} />, 
-    path: '/estoque',
+    path: '/stock',
     submenu: [
       { title: 'Armações', path: '/frames' },
       { title: 'Tipos de Armação', path: '/frame-types' },
-      { title: 'Transferências', path: '/transferencias' }
+      { title: 'Transferências', path: '/transfers' },
+      { title: 'Relatórios', path: '/stock/reports' }
     ]
   },
   { 
@@ -93,7 +94,7 @@ const menuItems: MenuItem[] = [
       { title: 'Fluxo de Caixa', path: '/finance' },
       { title: 'Despesas', path: '/finance/expenses' },
       { title: 'Inadimplências', path: '/finance/overdue' },
-      { title: 'Notas Fiscais', path: '/notas-fiscais' }
+      { title: 'Notas Fiscais', path: '/invoices' }
     ]
   },
   { 
@@ -357,6 +358,7 @@ export const Layout: React.FC<{ children: React.ReactNode; onLogout: () => void 
   const location = useLocation();
   const { user } = useAuth();
   const isSheetPage = location.pathname.includes('/service-orders/') && location.pathname.endsWith('/sheet');
+  const isInvoiceDetailPage = /^\/invoices\/[^/]+$/.test(location.pathname);
   const { selectedStore, availableStores, setSelectedStore, storeColor, storeUnity, storeDisplayName } = useStore();
   const [storeDropdownOpen, setStoreDropdownOpen] = useState(false);
   const storeDropdownRef = useRef<HTMLDivElement>(null);
@@ -385,20 +387,19 @@ export const Layout: React.FC<{ children: React.ReactNode; onLogout: () => void 
       '/lenses': 'lenses',
       '/frame-types': 'frame-types',
       '/frames': 'frames',
-      '/transferencias': 'store-frames',
+      '/transfers': 'store-frames',
       '/users': 'users',
       '/audit': 'audits',
-      '/vendedores': 'sellers',
-      '/fornecedores': 'suppliers',
+      '/suppliers': 'suppliers',
       // Itens com submenu que têm múltiplos módulos
-      '/estoque': ['frames', 'frame-types', 'store-frames'],
+      '/stock': ['frames', 'frame-types', 'store-frames', 'stock-reports'],
       '/laboratories': ['laboratories', 'laboratory-lenses'],
       '/permissions': ['roles', 'permissions', 'users', 'audits', 'trash'], // Sistema
       '/service-orders': ['service-orders', 'service-orders-lab'], // Pedidos (OS)
-      '/finance': ['finance', 'service-orders-overdue', 'expenses'],
+      '/finance': ['finance', 'service-orders-overdue', 'expenses', 'invoices'],
       '/pdv': 'pdv',
       // Módulos ainda sem permissões específicas (públicos por enquanto)
-      '/pedidos': [],
+      '/orders': [],
       '/chat': [],
     };
 
@@ -629,7 +630,7 @@ export const Layout: React.FC<{ children: React.ReactNode; onLogout: () => void 
   const isPDVPage = location.pathname === '/pdv';
 
   return (
-    <div className={`flex h-screen bg-[#f8f9fc] overflow-hidden font-sans text-slate-900 ${isSheetPage ? 'print-sheet-page' : ''}`}>
+    <div className={`flex h-screen bg-[#f8f9fc] overflow-hidden font-sans text-slate-900 ${isSheetPage ? 'print-sheet-page' : ''} ${isInvoiceDetailPage ? 'print-invoice-detail-page' : ''}`}>
       {!isPDVPage && (
         <>
           {/* Sidebar Desktop */}

@@ -47,7 +47,7 @@ export const routePermissionMap: Record<string, string[]> = {
   '/frames/:id/edit': ['frames.update'],
   
   // Transferências
-  '/transferencias': ['store-frames.list', 'store-frames.read'],
+  '/transfers': ['store-frames.list', 'store-frames.read'],
   
   // Laboratórios
   '/laboratories': ['laboratories.list', 'laboratories.read'],
@@ -65,8 +65,8 @@ export const routePermissionMap: Record<string, string[]> = {
   '/finance/expenses/create': ['expenses.create'],
   '/finance/expenses/:id/edit': ['expenses.update', 'expenses.read'],
   '/finance/overdue': ['service-orders-overdue.list', 'finance.overdue-summary'],
-  '/notas-fiscais': ['finance.dashboard'],
-  '/notas-fiscais/:id': ['finance.dashboard'],
+  '/invoices': ['invoices.list', 'invoices.read', 'finance.dashboard'],
+  '/invoices/:id': ['invoices.read', 'finance.dashboard'],
 
   // Pedidos (OS)
   '/service-orders': ['service-orders.list', 'service-orders.read'],
@@ -79,10 +79,10 @@ export const routePermissionMap: Record<string, string[]> = {
   '/pdv': ['pdv.access'],
 
   // Outros módulos - por enquanto sem permissões específicas (públicos)
-  '/vendedores': [],
-  '/estoque': [],
-  '/fornecedores': [],
-  '/pedidos': [],
+  '/stock': [],
+  '/stock/reports': ['stock-reports.list'],
+  '/suppliers': [],
+  '/orders': [],
   '/chat': [],
 };
 

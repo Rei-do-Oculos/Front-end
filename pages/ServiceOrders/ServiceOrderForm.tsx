@@ -18,6 +18,9 @@ import { ReceiptModal } from '../../components/ReceiptModal';
 import { ReceiptData } from '../../components/ThermalReceipt';
 import { EntryReceiptModal } from '../../components/EntryReceiptModal';
 import { EntryReceiptData } from '../../components/EntryReceipt';
+import { NFeSection } from '../../components/NFeSection';
+import { invoicesService } from '../../services/api/invoices';
+import type { ServiceOrder } from '../../services/api/serviceOrders';
 
 // Função para formatar valor como moeda brasileira
 const formatCurrency = (value: string): string => {
@@ -194,7 +197,7 @@ export const ServiceOrderForm: React.FC = () => {
   const { lenses, fetchLenses, loading: loadingLenses } = useLenses({ autoFetch: false });
   const { stores, fetchStores } = useStores({ autoFetch: false });
   
-  const [loadedOrder, setLoadedOrder] = useState<{ status?: string } | null>(null);
+  const [loadedOrder, setLoadedOrder] = useState<ServiceOrder | null>(null);
   /** Snapshot das lentes da OS no momento da venda (para exibir preço e promoção históricos ao visualizar) */
   const [orderLaboratoryLensesSnapshot, setOrderLaboratoryLensesSnapshot] = useState<Array<{
     id: number;
@@ -306,11 +309,13 @@ export const ServiceOrderForm: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Buscar clientes quando digitar
+  // Buscar clientes quando digitar (debounce 300ms)
   useEffect(() => {
-    if (clientSearch.length >= 2) {
+    if (clientSearch.length < 2) return;
+    const timer = setTimeout(() => {
       fetchClients(1, { search: clientSearch, per_page: 50 });
-    }
+    }, 300);
+    return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [clientSearch]);
 
@@ -599,8 +604,8 @@ export const ServiceOrderForm: React.FC = () => {
     }
   };
 
-  // Função para executar o salvamento
-  const performSave = async (payload: any): Promise<number | null> => {
+  // Função para executar o salvamento. Retorna ServiceOrder (create) ou null (update).
+  const performSave = async (payload: any): Promise<ServiceOrder | null> => {
     try {
       if (isEditMode && id) {
         await updateServiceOrder(id, payload);
@@ -609,7 +614,7 @@ export const ServiceOrderForm: React.FC = () => {
       } else {
         const result = await createServiceOrder(payload);
         showSuccess('Ordem de serviço criada com sucesso!');
-        return result?.os_number || 1;
+        return result ?? null;
       }
     } catch (err: any) {
       console.error('Erro ao salvar OS:', err);
@@ -623,9 +628,18 @@ export const ServiceOrderForm: React.FC = () => {
   };
 
   // Callback quando confirma no modal de recibo
-  const handleReceiptConfirm = async (type: 'receipt' | 'nfe' | 'none') => {
+  const handleReceiptConfirm = async (type: 'receipt' | 'nfce' | 'nfe' | 'none') => {
     if (!pendingPayload) return;
-    
+
+    // NFC-e/NF-e: a OS já foi salva e a nota emitida dentro de onGenerateInvoice
+    if (type === 'nfce' || type === 'nfe') {
+      setShowReceiptModal(false);
+      setPendingPayload(null);
+      setCreatedOsNumber(null);
+      navigate('/service-orders');
+      return;
+    }
+
     setSaving(true);
     try {
       await performSave(pendingPayload);
@@ -638,6 +652,17 @@ export const ServiceOrderForm: React.FC = () => {
     } finally {
       setSaving(false);
     }
+  };
+
+  // Emitir NFC-e ou NF-e e retornar cupom/PDF (chamado pelo ReceiptModal)
+  const handleGenerateInvoice = async (modelo: 55 | 65, options?: { includeDocument?: boolean }): Promise<{ pdfBase64?: string; invoice?: import('../../services/api/invoices').Invoice } | null> => {
+    if (!pendingPayload) return null;
+    const os = await performSave(pendingPayload);
+    if (!os?.id) return null;
+    const inv = await invoicesService.generateFromServiceOrder(
+      String(os.id), true, modelo, undefined, options?.includeDocument ?? false
+    );
+    return { pdfBase64: inv.pdf_base64 ?? undefined, invoice: inv };
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -879,6 +904,7 @@ export const ServiceOrderForm: React.FC = () => {
                 options={clientSelectOptions}
                 placeholder="Buscar cliente..."
                 searchable
+                onSearch={setClientSearch}
                 error={errors.client_id}
                 disabled={isViewMode}
               />
@@ -1651,6 +1677,17 @@ export const ServiceOrderForm: React.FC = () => {
         </fieldset>
       </form>
 
+      {/* NF-e: preview + emitir (sem nota) ou link para nota (quando OS finalizada) */}
+      {id && loadedOrder && loadedOrder.status === 'completed' && (
+        <NFeSection
+          serviceOrder={loadedOrder}
+          onEmitted={async () => {
+            const order = await getServiceOrder(id);
+            if (order) setLoadedOrder(order);
+          }}
+        />
+      )}
+
       {/* Modal de Recibo */}
       {showReceiptModal && createdOsNumber && (
         <ReceiptModal
@@ -1662,7 +1699,9 @@ export const ServiceOrderForm: React.FC = () => {
           }}
           onConfirm={handleReceiptConfirm}
           receiptData={prepareReceiptData(createdOsNumber)}
+          order={formData.client_id ? { id: 0, client_id: parseInt(formData.client_id), client: null } as any : null}
           loading={saving}
+          onGenerateInvoice={handleGenerateInvoice}
         />
       )}
 

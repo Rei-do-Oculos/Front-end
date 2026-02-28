@@ -1,10 +1,10 @@
-import React, { useState, useMemo } from 'react';
-import { 
-  FileText, 
-  Eye, 
-  Download, 
+import React, { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
+import {
+  FileText,
+  Eye,
+  Download,
   Printer,
-  ExternalLink,
   Calendar,
   DollarSign,
   CheckCircle2,
@@ -12,200 +12,175 @@ import {
   Clock,
   User,
   TrendingUp,
-  BarChart3,
-  FileCheck,
-  AlertCircle
+  AlertCircle,
+  Loader2,
 } from 'lucide-react';
 import { Card, Button, Input, SingleSelect, FilterSection, ActiveFiltersBadge, Pagination, Badge, SortableHeader, SortDirection } from '../../components/Common';
 import { usePlucks } from '../../services/hooks/usePlucks';
 import { storesService } from '../../services/api/stores';
 import { useActiveFilters } from '../../hooks/useActiveFilters';
 import { useNotification } from '../../hooks/useNotification';
+import { invoicesService, type Invoice as ApiInvoice } from '../../services/api/invoices';
+import { invoiceToNFCeData, buildReciboHtml } from '../../utils/nfceCupom';
 
-interface Invoice {
-  id: string;
-  invoiceNumber: string;
-  series: string;
-  osNumber: string;
-  client: string;
-  clientCpf: string;
-  clientEmail?: string;
-  date: string;
-  dateTime: string;
-  value: number;
-  status: 'Autorizada' | 'Cancelada' | 'Rejeitada' | 'Pendente';
-  store: string;
-  storeId: number;
-  accessKey: string;
-  protocol?: string;
-  paymentMethod: string;
-  installments?: number;
-  items: Array<{
-    description: string;
-    quantity: number;
-    unitValue: number;
-    totalValue: number;
-  }>;
-}
-
-// Dados mockados completos e realistas
-const generateMockInvoices = (): Invoice[] => {
-  const stores = ['Maringá Centro', 'Londrina Shopping', 'Curitiba Batel', 'Cascavel Centro', 'Foz do Iguaçu'];
-  const statuses: Array<'Autorizada' | 'Cancelada' | 'Rejeitada' | 'Pendente'> = ['Autorizada', 'Autorizada', 'Autorizada', 'Autorizada', 'Pendente', 'Cancelada'];
-  const paymentMethods = ['Cartão de Crédito', 'PIX', 'Dinheiro', 'Cartão de Débito', 'Crediário Próprio'];
-  const clients = [
-    { name: 'Maria das Graças dos Santos', cpf: '123.456.789-00' },
-    { name: 'Maria Eduarda Simão', cpf: '987.654.321-00' },
-    { name: 'Jackline Virgínia', cpf: '111.222.333-44' },
-    { name: 'Elisangela de Oliveira Batista', cpf: '555.666.777-88' },
-    { name: 'Lucas dos Santos', cpf: '999.888.777-66' },
-    { name: 'Ana Paula Silva', cpf: '444.333.222-11' },
-    { name: 'Roberto Carlos Mendes', cpf: '777.888.999-00' },
-    { name: 'Fernanda Costa', cpf: '222.111.333-44' },
-    { name: 'João Pedro Alves', cpf: '666.555.444-33' },
-    { name: 'Juliana Ferreira', cpf: '333.444.555-66' },
-  ];
-
-  const invoices: Invoice[] = [];
-  const today = new Date();
-  
-  for (let i = 1; i <= 150; i++) {
-    const date = new Date(today);
-    date.setDate(date.getDate() - Math.floor(Math.random() * 90)); // Últimos 90 dias
-    const hours = Math.floor(Math.random() * 12) + 8; // Entre 8h e 20h
-    const minutes = Math.floor(Math.random() * 60);
-    
-    const client = clients[Math.floor(Math.random() * clients.length)];
-    const store = stores[Math.floor(Math.random() * stores.length)];
-    const status = statuses[Math.floor(Math.random() * statuses.length)];
-    const paymentMethod = paymentMethods[Math.floor(Math.random() * paymentMethods.length)];
-    const value = Math.floor(Math.random() * 3000 + 200) + (Math.random() * 100); // Entre R$ 200 e R$ 3.100
-    
-    const invoiceNumber = String(i).padStart(6, '0');
-    const accessKey = status === 'Autorizada' || status === 'Cancelada' 
-      ? `3526${date.getFullYear()}${String(date.getMonth() + 1).padStart(2, '0')}${String(date.getDate()).padStart(2, '0')}123456780001235500000000${invoiceNumber}${Math.floor(Math.random() * 100)}`
-      : '';
-
-    invoices.push({
-      id: String(i),
-      invoiceNumber,
-      series: '001',
-      osNumber: String(39800 + i),
-      client: client.name,
-      clientCpf: client.cpf,
-      clientEmail: `${client.name.toLowerCase().replace(/\s+/g, '.')}@email.com`,
-      date: date.toLocaleDateString('pt-BR'),
-      dateTime: `${date.toLocaleDateString('pt-BR')} ${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`,
-      value: parseFloat(value.toFixed(2)),
-      status,
-      store,
-      storeId: stores.indexOf(store) + 1,
-      accessKey,
-      protocol: status === 'Autorizada' ? String(Math.floor(Math.random() * 1000000000000000)).padStart(15, '0') : undefined,
-      paymentMethod,
-      installments: paymentMethod === 'Cartão de Crédito' ? Math.floor(Math.random() * 6) + 1 : undefined,
-      items: [
-        {
-          description: 'Lentes Varilux Comfort 1.67',
-          quantity: 1,
-          unitValue: parseFloat((value * 0.6).toFixed(2)),
-          totalValue: parseFloat((value * 0.6).toFixed(2)),
-        },
-        {
-          description: 'Armação Ray-Ban RB2140',
-          quantity: 1,
-          unitValue: parseFloat((value * 0.4).toFixed(2)),
-          totalValue: parseFloat((value * 0.4).toFixed(2)),
-        },
-      ],
-    });
-  }
-
-  return invoices.sort((a, b) => {
-    const dateA = new Date(a.date.split('/').reverse().join('-'));
-    const dateB = new Date(b.date.split('/').reverse().join('-'));
-    return dateB.getTime() - dateA.getTime();
-  });
+const statusToLabel: Record<string, string> = {
+  authorized: 'Autorizada',
+  pending: 'Pendente',
+  rejected: 'Rejeitada',
+  denied: 'Denegada',
+  cancelled: 'Cancelada',
 };
 
-const mockInvoices = generateMockInvoices();
+const paymentLabel: Record<string, string> = {
+  credit_card: 'Cartão de Crédito',
+  debit_card: 'Cartão de Débito',
+  cash: 'Dinheiro',
+  pix: 'PIX',
+  on_pickup: 'Pagamento na Retirada',
+};
+
+const formatCpf = (doc: string | undefined | null): string => {
+  if (!doc) return '—';
+  const n = doc.replace(/\D/g, '');
+  if (n.length !== 11) return doc;
+  return n.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4');
+};
+
+/** Obtém tipo da nota pela chave (pos 20-21: 55=NF-e, 65=NFC-e). */
+function getInvoiceType(accessKey: string | null | undefined): 'NFC-e' | 'NF-e' {
+  if (!accessKey || accessKey.length < 22) return 'NF-e';
+  const modelo = accessKey.slice(20, 22);
+  return modelo === '65' ? 'NFC-e' : 'NF-e';
+}
+
+function mapApiInvoiceToRow(inv: ApiInvoice) {
+  const client = inv.service_order?.client;
+  const firstPayment = inv.payments?.[0];
+  const date = inv.emission_date ? new Date(inv.emission_date) : new Date(inv.created_at);
+  const accessKey = inv.access_key || '';
+  return {
+    id: inv.id,
+    invoiceNumber: inv.invoice_number,
+    series: inv.series,
+    invoiceType: getInvoiceType(accessKey),
+    osNumber: String(inv.service_order?.os_number ?? inv.service_order_id),
+    serviceOrderId: inv.service_order_id,
+    client: client?.name || '—',
+    clientCpf: formatCpf(client?.document),
+    dateTime: `${date.toLocaleDateString('pt-BR')} ${date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`,
+    value: Number(inv.total_value) || 0,
+    status: statusToLabel[inv.status] || inv.status,
+    statusRaw: inv.status,
+    storeId: inv.store_id,
+    storeName: inv.store?.name || '—',
+    accessKey,
+    paymentMethod: firstPayment ? paymentLabel[firstPayment.payment_method] || firstPayment.payment_method : '—',
+    isDevolucao: Boolean(inv.original_invoice_id),
+  };
+}
 
 export const InvoiceList: React.FC = () => {
-  const { showSuccess } = useNotification();
-  const [invoices] = useState<Invoice[]>(mockInvoices);
+  const navigate = useNavigate();
+  const { showSuccess, showError } = useNotification();
+  const [invoices, setInvoices] = useState<ReturnType<typeof mapApiInvoiceToRow>[]>([]);
+  const [meta, setMeta] = useState({ current_page: 1, total_pages: 1, total_items: 0, per_page: 15 });
+  const [stats, setStats] = useState({
+    month: { count: 0, value: 0 },
+    total: { count: 0, value: 0 },
+    nfeCount: 0,
+    nfceCount: 0,
+  });
+  const [loading, setLoading] = useState(true);
+  // Filtros em edição (valores nos inputs)
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
+  const [tipoFilter, setTipoFilter] = useState('');
   const [storeFilter, setStoreFilter] = useState('');
   const [dateFromFilter, setDateFromFilter] = useState('');
   const [dateToFilter, setDateToFilter] = useState('');
-  const [sortBy, setSortBy] = useState<string | null>('date');
+  // Filtros aplicados (só atualizados ao clicar em "Aplicar Filtros")
+  const [appliedFilters, setAppliedFilters] = useState({
+    searchTerm: '',
+    statusFilter: '',
+    tipoFilter: '',
+    storeFilter: '',
+    dateFromFilter: '',
+    dateToFilter: '',
+  });
+  const [sortBy, setSortBy] = useState<string | null>('created_at');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
   const [currentPage, setCurrentPage] = useState(1);
   const [perPage, setPerPage] = useState(15);
-  
-  // Usar usePlucks para trazer todas as lojas que o usuário tem acesso
-  const { plucks: storesPlucks } = usePlucks({
-    service: storesService,
-    autoFetch: true,
-  });
-  
+
+  const { plucks: storesPlucks } = usePlucks({ service: storesService, autoFetch: true });
   const safeStoresPlucks = Array.isArray(storesPlucks) ? storesPlucks : [];
-  
-  // Calcular quantidade de filtros ativos
+
   const activeFilters = useActiveFilters({
-    searchTerm,
-    statusFilter,
-    storeFilter,
-    dateFromFilter,
-    dateToFilter,
+    searchTerm: appliedFilters.searchTerm,
+    statusFilter: appliedFilters.statusFilter,
+    tipoFilter: appliedFilters.tipoFilter,
+    storeFilter: appliedFilters.storeFilter,
+    dateFromFilter: appliedFilters.dateFromFilter,
+    dateToFilter: appliedFilters.dateToFilter,
   });
 
-  // Estatísticas calculadas
-  const stats = useMemo(() => {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    
-    const todayInvoices = invoices.filter(inv => {
-      const invDate = new Date(inv.date.split('/').reverse().join('-'));
-      invDate.setHours(0, 0, 0, 0);
-      return invDate.getTime() === today.getTime();
-    });
-    
-    const thisMonth = new Date();
-    thisMonth.setDate(1);
-    thisMonth.setHours(0, 0, 0, 0);
-    
-    const monthInvoices = invoices.filter(inv => {
-      const invDate = new Date(inv.date.split('/').reverse().join('-'));
-      return invDate >= thisMonth;
-    });
-    
-    const authorized = invoices.filter(inv => inv.status === 'Autorizada');
-    const totalValue = invoices.reduce((sum, inv) => sum + inv.value, 0);
-    const monthValue = monthInvoices.reduce((sum, inv) => sum + inv.value, 0);
-    const todayValue = todayInvoices.reduce((sum, inv) => sum + inv.value, 0);
-    
-    const authorizationRate = invoices.length > 0 
-      ? ((authorized.length / invoices.length) * 100).toFixed(1)
-      : '0.0';
-    
-    return {
-      today: {
-        count: todayInvoices.length,
-        value: todayValue,
-      },
-      month: {
-        count: monthInvoices.length,
-        value: monthValue,
-      },
-      total: {
-        count: invoices.length,
-        value: totalValue,
-      },
-      authorizationRate: parseFloat(authorizationRate),
-      authorized: authorized.length,
+  const fetchList = useCallback(() => {
+    const a = appliedFilters;
+    const statusApi = a.statusFilter === 'Autorizada' ? 'authorized' : a.statusFilter === 'Cancelada' ? 'cancelled' : a.statusFilter === 'Pendente' ? 'pending' : a.statusFilter === 'Rejeitada' ? 'rejected' : undefined;
+    setLoading(true);
+    invoicesService
+      .list({
+        page: currentPage,
+        per_page: perPage,
+        search: a.searchTerm || undefined,
+        status: statusApi,
+        tipo: a.tipoFilter === 'NF-e' ? 'nfe' : a.tipoFilter === 'NFC-e' ? 'nfce' : undefined,
+        store_id: a.storeFilter || undefined,
+        date_from: a.dateFromFilter || undefined,
+        date_to: a.dateToFilter || undefined,
+        order_by: sortBy || 'created_at',
+        order_dir: sortDirection,
+      })
+      .then(({ invoices: list, meta: m }) => {
+        const arr = Array.isArray(list) ? list : (list ? Object.values(list) : []);
+        setInvoices(arr.map(mapApiInvoiceToRow));
+        setMeta(m);
+      })
+      .catch(() => setInvoices([]))
+      .finally(() => setLoading(false));
+  }, [currentPage, perPage, appliedFilters, sortBy, sortDirection]);
+
+  const fetchStats = useCallback(() => {
+    const a = appliedFilters;
+    const statusApi = a.statusFilter === 'Autorizada' ? 'authorized' : a.statusFilter === 'Cancelada' ? 'cancelled' : a.statusFilter === 'Pendente' ? 'pending' : a.statusFilter === 'Rejeitada' ? 'rejected' : undefined;
+    const params = {
+      store_id: a.storeFilter ? Number(a.storeFilter) : undefined,
+      status: statusApi,
+      tipo: a.tipoFilter === 'NF-e' ? 'nfe' as const : a.tipoFilter === 'NFC-e' ? 'nfce' as const : undefined,
+      date_from: a.dateFromFilter || undefined,
+      date_to: a.dateToFilter || undefined,
     };
-  }, [invoices]);
+    const cleanParams = Object.fromEntries(Object.entries(params).filter(([, v]) => v != null && v !== ''));
+    invoicesService
+      .stats(Object.keys(cleanParams).length ? cleanParams : undefined)
+      .then((s) => {
+        setStats({
+          month: { count: s.month_count, value: s.month_value },
+          total: { count: s.total_count, value: s.total_value },
+          nfeCount: s.nfe_count ?? 0,
+          nfceCount: s.nfce_count ?? 0,
+        });
+      })
+      .catch(() => {});
+  }, [appliedFilters]);
+
+  useEffect(() => {
+    fetchList();
+  }, [fetchList]);
+
+  useEffect(() => {
+    fetchStats();
+  }, [fetchStats]);
 
   const getStatusVariant = (status: string) => {
     switch (status) {
@@ -227,99 +202,40 @@ export const InvoiceList: React.FC = () => {
     }
   };
 
-  // Filtrar e ordenar notas fiscais
-  const filteredAndSortedInvoices = useMemo(() => {
-    let filtered = invoices.filter(invoice => {
-      const matchesSearch = 
-        invoice.invoiceNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        invoice.osNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        invoice.client.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        invoice.accessKey.toLowerCase().includes(searchTerm.toLowerCase());
-      
-      const matchesStatus = !statusFilter || invoice.status === statusFilter;
-      
-      const matchesStore = !storeFilter || String(invoice.storeId) === storeFilter;
-      
-      const matchesDateFrom = !dateFromFilter || (() => {
-        const invDate = new Date(invoice.date.split('/').reverse().join('-'));
-        const filterDate = new Date(dateFromFilter);
-        return invDate >= filterDate;
-      })();
-      
-      const matchesDateTo = !dateToFilter || (() => {
-        const invDate = new Date(invoice.date.split('/').reverse().join('-'));
-        const filterDate = new Date(dateToFilter);
-        filterDate.setHours(23, 59, 59);
-        return invDate <= filterDate;
-      })();
-
-      return matchesSearch && matchesStatus && matchesStore && matchesDateFrom && matchesDateTo;
-    });
-
-    // Ordenação
-    if (sortBy) {
-      filtered.sort((a, b) => {
-        let aVal: any, bVal: any;
-        
-        switch (sortBy) {
-          case 'invoiceNumber':
-            aVal = parseInt(a.invoiceNumber);
-            bVal = parseInt(b.invoiceNumber);
-            break;
-          case 'date':
-            aVal = new Date(a.date.split('/').reverse().join('-')).getTime();
-            bVal = new Date(b.date.split('/').reverse().join('-')).getTime();
-            break;
-          case 'value':
-            aVal = a.value;
-            bVal = b.value;
-            break;
-          case 'client':
-            aVal = a.client.toLowerCase();
-            bVal = b.client.toLowerCase();
-            break;
-          case 'status':
-            aVal = a.status;
-            bVal = b.status;
-            break;
-          default:
-            return 0;
-        }
-        
-        if (aVal < bVal) return sortDirection === 'asc' ? -1 : 1;
-        if (aVal > bVal) return sortDirection === 'asc' ? 1 : -1;
-        return 0;
-      });
-    }
-
-    return filtered;
-  }, [invoices, searchTerm, statusFilter, storeFilter, dateFromFilter, dateToFilter, sortBy, sortDirection]);
-
-  // Paginação
-  const paginatedInvoices = useMemo(() => {
-    const start = (currentPage - 1) * perPage;
-    const end = start + perPage;
-    return filteredAndSortedInvoices.slice(start, end);
-  }, [filteredAndSortedInvoices, currentPage, perPage]);
-
-  const totalPages = Math.ceil(filteredAndSortedInvoices.length / perPage);
-
   const handleSort = (key: string, direction: SortDirection) => {
-    setSortBy(key);
+    const apiKey = key === 'date' ? 'created_at' : key === 'value' ? 'total_value' : key === 'invoiceNumber' ? 'invoice_number' : key === 'client' ? 'created_at' : key === 'status' ? 'status' : 'created_at';
+    setSortBy(apiKey);
     setSortDirection(direction);
     setCurrentPage(1);
   };
 
   const handleApplyFilters = () => {
+    setAppliedFilters({
+      searchTerm,
+      statusFilter,
+      tipoFilter,
+      storeFilter,
+      dateFromFilter,
+      dateToFilter,
+    });
     setCurrentPage(1);
   };
 
   const handleClearFilters = () => {
     setSearchTerm('');
     setStatusFilter('');
+    setTipoFilter('');
     setStoreFilter('');
     setDateFromFilter('');
     setDateToFilter('');
+    setAppliedFilters({
+      searchTerm: '',
+      statusFilter: '',
+      tipoFilter: '',
+      storeFilter: '',
+      dateFromFilter: '',
+      dateToFilter: '',
+    });
     setCurrentPage(1);
   };
 
@@ -328,19 +244,87 @@ export const InvoiceList: React.FC = () => {
     setCurrentPage(1);
   };
 
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('pt-BR', {
-      style: 'currency',
-      currency: 'BRL',
-    }).format(value);
+  const formatCurrency = (value: number) =>
+    new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
+
+  const handleDownloadXML = async (invoice: ReturnType<typeof mapApiInvoiceToRow>) => {
+    try {
+      const blob = await invoicesService.downloadXml(invoice.id);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `NF-e-${invoice.invoiceNumber}.xml`;
+      a.click();
+      URL.revokeObjectURL(url);
+      showSuccess('Download', 'XML baixado.');
+    } catch (e: any) {
+      showError('Erro ao baixar XML', e.message || 'Tente novamente.');
+    }
   };
 
-  const handleDownloadXML = (invoice: Invoice) => {
-    showSuccess('Download iniciado', `XML da NF-e ${invoice.invoiceNumber} será baixado.`);
+  const handlePrintInvoice = async (invoice: ReturnType<typeof mapApiInvoiceToRow>) => {
+    const docLabel = invoice.invoiceType;
+    const printWindow = window.open('', '_blank', 'width=400,height=700');
+    if (!printWindow) {
+      showError('Impressão', 'Permita popups para imprimir.');
+      return;
+    }
+    try {
+      const inv = await invoicesService.getById(String(invoice.id));
+      const reciboData = invoiceToNFCeData(inv);
+      if (!reciboData) {
+        showError('Impressão', 'Dados da nota incompletos para montar recibo.');
+        printWindow.close();
+        return;
+      }
+      const html = buildReciboHtml(reciboData, docLabel as 'NF-e' | 'NFC-e');
+      printWindow.document.open();
+      printWindow.document.write(html);
+      printWindow.document.close();
+      printWindow.document.body?.offsetHeight;
+      setTimeout(() => { printWindow.print(); printWindow.close(); showSuccess('Impressão', `Recibo ${docLabel} aberto para impressão.`); }, 400);
+    } catch (e: any) {
+      showError('Erro ao imprimir', e.message || 'Tente novamente.');
+      printWindow.close();
+    }
   };
 
-  const handlePrintDANFE = (invoice: Invoice) => {
-    showSuccess('Impressão', `DANFE da NF-e ${invoice.invoiceNumber} será impresso.`);
+  const [exportXmlLoading, setExportXmlLoading] = useState(false);
+  const handleExportXmlZip = async () => {
+    // Usar os mesmos filtros que estão na tela (período, loja, status, tipo, busca) - aplicados ou em edição
+    const filters = {
+      searchTerm,
+      statusFilter,
+      tipoFilter,
+      storeFilter,
+      dateFromFilter,
+      dateToFilter,
+    };
+    const statusApi = filters.statusFilter === 'Autorizada' ? 'authorized' : filters.statusFilter === 'Cancelada' ? 'cancelled' : filters.statusFilter === 'Pendente' ? 'pending' : filters.statusFilter === 'Rejeitada' ? 'rejected' : undefined;
+    setExportXmlLoading(true);
+    try {
+      const blob = await invoicesService.downloadXmlZip({
+        search: filters.searchTerm || undefined,
+        status: statusApi,
+        tipo: filters.tipoFilter === 'NF-e' ? 'nfe' : filters.tipoFilter === 'NFC-e' ? 'nfce' : undefined,
+        store_id: filters.storeFilter || undefined,
+        date_from: filters.dateFromFilter || undefined,
+        date_to: filters.dateToFilter || undefined,
+        order_by: sortBy || 'created_at',
+        order_dir: sortDirection,
+      });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `NF-e-xml-${new Date().toISOString().slice(0, 10)}.zip`;
+      a.click();
+      URL.revokeObjectURL(url);
+      showSuccess('Exportar XML', 'ZIP com os XMLs baixado.');
+    } catch (e: any) {
+      showError('Erro ao exportar XML', e.message || 'Nenhuma NF-e autorizada com XML disponível para os filtros.');
+    } finally {
+      setExportXmlLoading(false);
+    }
   };
 
   return (
@@ -348,8 +332,8 @@ export const InvoiceList: React.FC = () => {
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div className="flex items-center gap-4">
-          <div className="w-14 h-14 rounded-2xl bg-red-50 flex items-center justify-center">
-            <FileText size={28} className="text-red-600" />
+          <div className="w-14 h-14 rounded-2xl flex items-center justify-center" style={{ backgroundColor: 'var(--store-color-light)' }}>
+            <FileText size={28} style={{ color: 'var(--store-color)' }} />
           </div>
           <div>
             <h1 className="text-3xl font-black text-slate-950 tracking-tight">Notas Fiscais Eletrônicas</h1>
@@ -357,36 +341,33 @@ export const InvoiceList: React.FC = () => {
           </div>
         </div>
         <div className="flex gap-3">
-          <Button variant="outline" className="border-slate-200 text-slate-600 bg-white">
-            <BarChart3 size={18} /> Relatório Fiscal
-          </Button>
-          <Button variant="outline" className="border-slate-200 text-slate-600 bg-white">
-            <Download size={18} /> Exportar XML
+          <Button
+            variant="outline"
+            className="border-slate-200 text-slate-600 bg-white"
+            onClick={handleExportXmlZip}
+            disabled={exportXmlLoading}
+            title="Exporta as NF-e autorizadas conforme os filtros da tela (período, loja, status, tipo, busca)"
+          >
+            {exportXmlLoading ? <Loader2 size={18} className="animate-spin" /> : <Download size={18} />}
+            {exportXmlLoading ? 'Exportando...' : 'Exportar XML'}
           </Button>
         </div>
       </div>
 
       {/* Cards de Estatísticas */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <Card className="p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Hoje</p>
-              <p className="text-2xl font-black text-slate-900">{stats.today.count} NF-e</p>
-              <p className="text-sm font-bold text-slate-600 mt-1">{formatCurrency(stats.today.value)}</p>
-            </div>
-            <div className="w-12 h-12 rounded-xl bg-red-50 flex items-center justify-center">
-              <Calendar size={24} className="text-red-600" />
-            </div>
-          </div>
-        </Card>
-
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
         <Card className="p-6">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Mês Atual</p>
-              <p className="text-2xl font-black text-slate-900">{stats.month.count} NF-e</p>
+              <p className="text-2xl font-black text-slate-900">{stats.month.count}</p>
               <p className="text-sm font-bold text-slate-600 mt-1">{formatCurrency(stats.month.value)}</p>
+              {stats.nfeCount > 0 && (
+                <p className="text-xs text-slate-500 mt-0.5">
+                  {stats.nfeCount > 0 && `${stats.nfeCount} NF-e`}
+                  <span className="text-slate-400"> (autorizadas)</span>
+                </p>
+              )}
             </div>
             <div className="w-12 h-12 rounded-xl bg-blue-50 flex items-center justify-center">
               <TrendingUp size={24} className="text-blue-600" />
@@ -397,12 +378,12 @@ export const InvoiceList: React.FC = () => {
         <Card className="p-6">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Taxa de Autorização</p>
-              <p className="text-2xl font-black text-emerald-600">{stats.authorizationRate}%</p>
-              <p className="text-sm font-bold text-slate-600 mt-1">{stats.authorized} autorizadas</p>
+              <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">NF-e emitidas</p>
+              <p className="text-2xl font-black text-slate-900">{stats.nfeCount}</p>
+              <p className="text-sm font-bold text-slate-600 mt-1">autorizadas</p>
             </div>
-            <div className="w-12 h-12 rounded-xl bg-emerald-50 flex items-center justify-center">
-              <FileCheck size={24} className="text-emerald-600" />
+            <div className="w-12 h-12 rounded-xl bg-blue-50 flex items-center justify-center">
+              <FileText size={24} className="text-blue-600" />
             </div>
           </div>
         </Card>
@@ -412,7 +393,13 @@ export const InvoiceList: React.FC = () => {
             <div>
               <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Valor Total</p>
               <p className="text-2xl font-black text-slate-900">{formatCurrency(stats.total.value)}</p>
-              <p className="text-sm font-bold text-slate-600 mt-1">{stats.total.count} notas</p>
+              <p className="text-sm font-bold text-slate-600 mt-1">{stats.total.count}</p>
+              {stats.nfeCount > 0 && (
+                <p className="text-xs text-slate-500 mt-0.5">
+                  {stats.nfeCount > 0 && `${stats.nfeCount} NF-e`}
+                  <span className="text-slate-400"> (autorizadas)</span>
+                </p>
+              )}
             </div>
             <div className="w-12 h-12 rounded-xl bg-slate-50 flex items-center justify-center">
               <DollarSign size={24} className="text-slate-600" />
@@ -440,6 +427,16 @@ export const InvoiceList: React.FC = () => {
               { value: 'Pendente', label: 'Pendente' },
               { value: 'Cancelada', label: 'Cancelada' },
               { value: 'Rejeitada', label: 'Rejeitada' },
+            ]}
+            placeholder="Todos"
+          />
+          <SingleSelect
+            label="Tipo"
+            value={tipoFilter}
+            onChange={(val) => setTipoFilter(val)}
+            options={[
+              { value: '', label: 'Todos' },
+              { value: 'NF-e', label: 'NF-e' },
             ]}
             placeholder="Todos"
           />
@@ -474,11 +471,15 @@ export const InvoiceList: React.FC = () => {
       {/* Contagem de resultados */}
       <div className="flex items-center justify-between gap-4">
         <div className="flex items-center gap-4">
-          <p className="text-sm font-medium text-slate-600">
-            {filteredAndSortedInvoices.length === 0 ? 'Nenhum resultado encontrado' : 
-             filteredAndSortedInvoices.length === 1 ? '1 resultado encontrado' : 
-             `${filteredAndSortedInvoices.length} resultados encontrados`}
-          </p>
+          {loading ? (
+            <Loader2 size={18} className="animate-spin text-slate-400" />
+          ) : (
+            <p className="text-sm font-medium text-slate-600">
+              {meta.total_items === 0 ? 'Nenhum resultado encontrado' :
+                meta.total_items === 1 ? '1 resultado encontrado' :
+                  `${meta.total_items} resultados encontrados`}
+            </p>
+          )}
           {activeFilters > 0 && (
             <ActiveFiltersBadge count={activeFilters} />
           )}
@@ -499,6 +500,7 @@ export const InvoiceList: React.FC = () => {
                   onSort={handleSort}
                   className="px-6 py-4"
                 />
+                <th className="px-6 py-4 text-left text-[10px] font-black uppercase text-slate-400 tracking-widest">Unidade</th>
                 <th className="px-6 py-4 text-left text-[10px] font-black uppercase text-slate-400 tracking-widest">OS</th>
                 <SortableHeader
                   label="Cliente"
@@ -536,9 +538,15 @@ export const InvoiceList: React.FC = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-50">
-              {paginatedInvoices.length === 0 ? (
+              {loading ? (
                 <tr>
-                  <td colSpan={7} className="px-6 py-12 text-center">
+                  <td colSpan={8} className="px-6 py-12 text-center">
+                    <Loader2 size={32} className="animate-spin text-slate-400 mx-auto" />
+                  </td>
+                </tr>
+              ) : invoices.length === 0 ? (
+                <tr>
+                  <td colSpan={8} className="px-6 py-12 text-center">
                     <div className="flex flex-col items-center gap-2">
                       <AlertCircle size={40} className="text-slate-400" />
                       <span className="text-sm text-slate-500">Nenhuma nota fiscal encontrada</span>
@@ -546,17 +554,24 @@ export const InvoiceList: React.FC = () => {
                   </td>
                 </tr>
               ) : (
-                paginatedInvoices.map((invoice) => (
+                invoices.map((invoice) => (
                   <tr key={invoice.id} className="group hover:bg-slate-50/50 transition-colors">
                     <td className="px-6 py-4">
                       <div className="flex flex-col">
                         <span className="text-sm font-black text-slate-900">#{invoice.invoiceNumber}</span>
-                        <span className="text-[10px] font-bold text-slate-400 mt-0.5">Série {invoice.series}</span>
+                        <span className="text-[10px] font-bold text-slate-400 mt-0.5">
+                          {invoice.invoiceType} • Série {invoice.series}
+                        </span>
                       </div>
                     </td>
                     <td className="px-6 py-4">
-                      <button 
-                        onClick={() => window.location.hash = `#/service-orders/${invoice.osNumber}`}
+                      <span className="text-sm font-semibold text-slate-600" title={`Loja emitente (CNPJ diferente por unidade)`}>
+                        {invoice.storeName}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4">
+                      <button
+                        onClick={() => navigate(`/service-orders/${invoice.serviceOrderId}`)}
                         className="text-sm font-bold text-red-600 hover:text-red-700 hover:underline transition-colors"
                       >
                         OS #{invoice.osNumber}
@@ -585,47 +600,43 @@ export const InvoiceList: React.FC = () => {
                       </div>
                     </td>
                     <td className="px-6 py-4">
-                      <Badge variant={getStatusVariant(invoice.status)} className="flex items-center gap-1.5 w-fit">
-                        {getStatusIcon(invoice.status)}
-                        {invoice.status}
-                      </Badge>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Badge variant={getStatusVariant(invoice.status)} className="flex items-center gap-1.5 w-fit">
+                          {getStatusIcon(invoice.status)}
+                          {invoice.status}
+                        </Badge>
+                        {invoice.isDevolucao && (
+                          <Badge variant="info" className="text-[10px] font-semibold uppercase tracking-wide">
+                            Devolução
+                          </Badge>
+                        )}
+                      </div>
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex items-center justify-center gap-2">
-                        <button 
+                        <button
                           title="Visualizar NF-e"
-                          onClick={() => window.location.hash = `#/notas-fiscais/${invoice.id}`}
+                          onClick={() => navigate(`/invoices/${invoice.id}`)}
                           className="p-2 text-slate-400 hover:text-slate-900 hover:bg-white rounded-xl shadow-sm border border-transparent hover:border-slate-100 transition-all"
                         >
                           <Eye size={16} />
                         </button>
-                        {invoice.status === 'Autorizada' && (
-                          <>
-                            <button 
-                              title="Download XML"
-                              onClick={() => handleDownloadXML(invoice)}
-                              className="p-2 text-slate-400 hover:text-blue-600 hover:bg-white rounded-xl shadow-sm border border-transparent hover:border-slate-100 transition-all"
-                            >
-                              <Download size={16} />
-                            </button>
-                            <button 
-                              title="Imprimir DANFE"
-                              onClick={() => handlePrintDANFE(invoice)}
-                              className="p-2 text-slate-400 hover:text-slate-900 hover:bg-white rounded-xl shadow-sm border border-transparent hover:border-slate-100 transition-all"
-                            >
-                              <Printer size={16} />
-                            </button>
-                          </>
-                        )}
-                        {invoice.accessKey && (
-                          <button 
-                            title="Consultar na SEFAZ"
-                            onClick={() => window.open(`https://www.nfe.fazenda.gov.br/portal/consultaRecaptcha.aspx?tipoConteudo=XbSeqxE8pl8=`, '_blank')}
-                            className="p-2 text-slate-400 hover:text-green-600 hover:bg-white rounded-xl shadow-sm border border-transparent hover:border-slate-100 transition-all"
-                          >
-                            <ExternalLink size={16} />
-                          </button>
-                        )}
+                        <button
+                          title="Download XML"
+                          onClick={() => invoice.statusRaw === 'authorized' && handleDownloadXML(invoice)}
+                          disabled={invoice.statusRaw !== 'authorized'}
+                          className="p-2 rounded-xl shadow-sm border border-transparent transition-all disabled:opacity-40 disabled:cursor-not-allowed disabled:pointer-events-none text-slate-400 hover:text-blue-600 hover:bg-white hover:border-slate-100"
+                        >
+                          <Download size={16} />
+                        </button>
+                        <button
+                          title={`Imprimir ${invoice.invoiceType}`}
+                          onClick={() => invoice.statusRaw === 'authorized' && handlePrintInvoice(invoice)}
+                          disabled={invoice.statusRaw !== 'authorized'}
+                          className="p-2 rounded-xl shadow-sm border border-transparent transition-all disabled:opacity-40 disabled:cursor-not-allowed disabled:pointer-events-none text-slate-400 hover:text-slate-900 hover:bg-white hover:border-slate-100"
+                        >
+                          <Printer size={16} />
+                        </button>
                       </div>
                     </td>
                   </tr>
@@ -636,13 +647,13 @@ export const InvoiceList: React.FC = () => {
         </div>
 
         {/* Paginação */}
-        {totalPages > 1 && (
+        {meta.total_pages > 1 && (
           <Pagination
             pagination={{
-              currentPage,
-              totalPages,
-              totalItems: filteredAndSortedInvoices.length,
-              perPage,
+              currentPage: meta.current_page,
+              totalPages: meta.total_pages,
+              totalItems: meta.total_items,
+              perPage: meta.per_page,
             }}
             perPage={perPage}
             onPerPageChange={handlePerPageChange}

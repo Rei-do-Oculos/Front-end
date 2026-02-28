@@ -100,6 +100,7 @@ export const NFCePreview = forwardRef<HTMLDivElement, NFCePreviewProps>(
       accessKey = '41260130060044001786500100001042012449824 76',
       authProtocol = '141260113979101',
       authDate,
+      qrCodeUrl,
       federalTax = 0,
       stateTax = 0,
       municipalTax = 0,
@@ -258,27 +259,31 @@ export const NFCePreview = forwardRef<HTMLDivElement, NFCePreviewProps>(
           )}
         </div>
 
-        {/* QR Code Placeholder */}
+        {/* QR Code */}
         <div style={{ 
           display: 'flex', 
           justifyContent: 'center', 
           alignItems: 'center',
           margin: '8px auto',
         }}>
-          <div style={{
-            width: '80px',
-            height: '80px',
-            border: '1px solid #000',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            fontSize: '8px',
-            textAlign: 'center',
-            backgroundColor: '#f5f5f5',
-          }}>
-            [QR CODE]<br/>
-            NFC-e
-          </div>
+          {qrCodeUrl ? (
+            <img src={qrCodeUrl} alt="QR Code NFC-e" width={80} height={80} style={{ display: 'block' }} />
+          ) : (
+            <div style={{
+              width: '80px',
+              height: '80px',
+              border: '1px solid #000',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: '8px',
+              textAlign: 'center',
+              backgroundColor: '#f5f5f5',
+            }}>
+              [QR CODE]<br/>
+              NFC-e
+            </div>
+          )}
         </div>
 
         {/* Dados da NFC-e */}

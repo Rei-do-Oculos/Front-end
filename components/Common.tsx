@@ -726,9 +726,11 @@ export const SingleSelect: React.FC<{
   onChange: (value: string) => void;
   placeholder?: string;
   searchable?: boolean;
+  /** Chamado quando o usuário digita na busca (para busca remota na API) */
+  onSearch?: (value: string) => void;
   error?: string;
   disabled?: boolean;
-}> = ({ label, options, value = '', onChange, placeholder = "Selecione...", searchable = false, error, disabled = false }) => {
+}> = ({ label, options, value = '', onChange, placeholder = "Selecione...", searchable = false, onSearch, error, disabled = false }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [search, setSearch] = useState('');
   const [position, setPosition] = useState({ top: 0, left: 0, width: 0 });
@@ -872,7 +874,11 @@ export const SingleSelect: React.FC<{
                   type="text"
                   placeholder={!selectedOption ? "Buscar..." : ""}
                   value={search}
-                  onChange={(e) => setSearch(e.target.value)}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    setSearch(v);
+                    onSearch?.(v);
+                  }}
                   className="flex-1 min-w-[100px] bg-transparent outline-none text-sm text-slate-700 placeholder-gray-400"
                   onClick={(e) => e.stopPropagation()}
                 />

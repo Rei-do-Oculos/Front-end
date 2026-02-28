@@ -44,7 +44,7 @@ export const StockList: React.FC = () => {
            <Button variant="outline">
             <ArrowRightLeft size={18} /> Transferências
           </Button>
-          <Button onClick={() => navigate('/estoque/create')} className="shadow-red-600/20">
+          <Button onClick={() => navigate('/frames/create')} className="shadow-red-600/20">
             <Plus size={18} /> Cadastrar Armação
           </Button>
         </div>

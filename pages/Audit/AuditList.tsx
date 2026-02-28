@@ -30,6 +30,7 @@ export const AuditList: React.FC = () => {
   const [storeFilter, setStoreFilter] = useState<string[]>([]);
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
+  const [appliedFilters, setAppliedFilters] = useState<{ eventFilter: string[]; auditableTypeFilter: string[]; userFilter: string[]; storeFilter: string[]; dateFrom: string; dateTo: string }>({ eventFilter: [], auditableTypeFilter: [], userFilter: [], storeFilter: [], dateFrom: '', dateTo: '' });
   const [perPage, setPerPage] = useState<number>(15);
   const [sortBy, setSortBy] = useState<string | null>('created_at');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
@@ -38,14 +39,13 @@ export const AuditList: React.FC = () => {
     autoFetch: false,
   });
 
-  // Calcular quantidade de filtros ativos usando hook padronizado
   const activeFilters = useActiveFilters({
-    eventFilter: eventFilter.filter(f => f !== 'all'),
-    auditableTypeFilter: auditableTypeFilter.filter(f => f !== 'all'),
-    userFilter: userFilter.filter(f => f !== 'all'),
-    storeFilter: storeFilter.filter(f => f !== 'all'),
-    dateFrom,
-    dateTo,
+    eventFilter: appliedFilters.eventFilter.filter(f => f !== 'all'),
+    auditableTypeFilter: appliedFilters.auditableTypeFilter.filter(f => f !== 'all'),
+    userFilter: appliedFilters.userFilter.filter(f => f !== 'all'),
+    storeFilter: appliedFilters.storeFilter.filter(f => f !== 'all'),
+    dateFrom: appliedFilters.dateFrom,
+    dateTo: appliedFilters.dateTo,
   });
 
   const { plucks: usersPlucks, loading: usersPlucksLoading } = usePlucks({
@@ -75,67 +75,45 @@ export const AuditList: React.FC = () => {
   const safeUsersPlucks = Array.isArray(usersPlucks) ? usersPlucks : [];
   const safeStoresPlucks = Array.isArray(storesPlucks) ? storesPlucks : [];
 
-  // Refetch ao trocar de loja (API pode usar X-Store-ID)
+  const buildParams = (f: typeof appliedFilters) => {
+    const params: any = { order_by: sortBy || 'created_at', order_dir: sortDirection || 'desc', per_page: perPage };
+    if (f.eventFilter.length > 0) params.event = f.eventFilter.join(',');
+    if (f.auditableTypeFilter.length > 0) params.auditable_type = f.auditableTypeFilter.join(',');
+    if (f.userFilter.length > 0) params.user_id = f.userFilter.join(',');
+    if (f.storeFilter.length > 0 && !f.storeFilter.includes('all')) {
+      params.store_id = f.storeFilter.filter(id => id !== 'all' && !isNaN(parseInt(id))).join(',');
+    }
+    if (f.dateFrom) params.date_from = f.dateFrom;
+    if (f.dateTo) params.date_to = f.dateTo;
+    return params;
+  };
+
   useEffect(() => {
     const loadAudits = async () => {
       try {
-        await fetchAudits(1, {
-          order_by: sortBy || 'created_at',
-          order_dir: sortDirection || 'desc',
-          per_page: perPage,
-        });
+        await fetchAudits(1, buildParams(appliedFilters));
       } catch (err) {
         console.error('Erro ao carregar auditorias:', err);
       }
     };
     loadAudits();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [perPage, selectedStore?.id]);
+  }, [perPage, selectedStore?.id, appliedFilters, sortBy, sortDirection]);
 
   const handleSort = (key: string, direction: SortDirection) => {
-    const newDirection = direction || 'asc';
     setSortBy(key);
-    setSortDirection(newDirection);
-    
-    const params: any = {};
-    if (eventFilter.length > 0) params.event = eventFilter.join(',');
-    if (auditableTypeFilter.length > 0) params.auditable_type = auditableTypeFilter.join(',');
-    if (userFilter.length > 0) params.user_id = userFilter.join(',');
-    if (storeFilter.length > 0 && !storeFilter.includes('all')) {
-      params.store_id = storeFilter
-        .filter(id => id !== 'all' && !isNaN(parseInt(id)))
-        .join(',');
-    }
-    if (dateFrom) params.date_from = dateFrom;
-    if (dateTo) params.date_to = dateTo;
-    
+    setSortDirection(direction || 'asc');
+    const params = buildParams(appliedFilters);
     params.order_by = key;
-    params.order_dir = newDirection;
-    params.per_page = perPage;
-    
+    params.order_dir = direction || 'asc';
     fetchAudits(pagination?.currentPage || 1, params);
   };
 
   const handleApplyFilters = async () => {
+    const next = { eventFilter: [...eventFilter], auditableTypeFilter: [...auditableTypeFilter], userFilter: [...userFilter], storeFilter: [...storeFilter], dateFrom, dateTo };
+    setAppliedFilters(next);
     try {
-      const params: any = {};
-      if (eventFilter.length > 0) params.event = eventFilter.join(',');
-      if (auditableTypeFilter.length > 0) params.auditable_type = auditableTypeFilter.join(',');
-      if (userFilter.length > 0) params.user_id = userFilter.join(',');
-      if (storeFilter.length > 0 && !storeFilter.includes('all')) {
-        params.store_id = storeFilter
-          .filter(id => id !== 'all' && !isNaN(parseInt(id)))
-          .join(',');
-      }
-      if (dateFrom) params.date_from = dateFrom;
-      if (dateTo) params.date_to = dateTo;
-      
-      if (sortBy) {
-        params.order_by = sortBy;
-        params.order_dir = sortDirection || 'desc';
-      }
-      
-      params.per_page = perPage;
+      const params = buildParams(next);
       await fetchAudits(1, params);
     } catch (err) {
       console.error('Erro ao aplicar filtros:', err);
@@ -149,13 +127,9 @@ export const AuditList: React.FC = () => {
     setStoreFilter([]);
     setDateFrom('');
     setDateTo('');
-    
+    setAppliedFilters({ eventFilter: [], auditableTypeFilter: [], userFilter: [], storeFilter: [], dateFrom: '', dateTo: '' });
     try {
-      await fetchAudits(1, {
-        order_by: sortBy || 'created_at',
-        order_dir: sortDirection || 'desc',
-        per_page: perPage,
-      });
+      await fetchAudits(1, { order_by: sortBy || 'created_at', order_dir: sortDirection || 'desc', per_page: perPage });
     } catch (err) {
       console.error('Erro ao limpar filtros:', err);
     }
@@ -163,28 +137,9 @@ export const AuditList: React.FC = () => {
 
   const handlePerPageChange = async (newPerPage: number) => {
     setPerPage(newPerPage);
-    try {
-      const params: any = {
-        per_page: newPerPage,
-      };
-      if (eventFilter.length > 0) params.event = eventFilter.join(',');
-      if (auditableTypeFilter.length > 0) params.auditable_type = auditableTypeFilter.join(',');
-      if (userFilter.length > 0) params.user_id = userFilter.join(',');
-      if (storeFilter.length > 0 && !storeFilter.includes('all')) {
-        params.store_id = storeFilter
-          .filter(id => id !== 'all' && !isNaN(parseInt(id)))
-          .join(',');
-      }
-      if (dateFrom) params.date_from = dateFrom;
-      if (dateTo) params.date_to = dateTo;
-      if (sortBy) {
-        params.order_by = sortBy;
-        params.order_dir = sortDirection || 'desc';
-      }
-      await fetchAudits(1, params);
-    } catch (err) {
-      console.error('Erro ao alterar itens por página:', err);
-    }
+    const params = buildParams(appliedFilters);
+    params.per_page = newPerPage;
+    await fetchAudits(1, params);
   };
 
   const formatDate = (dateString: string) => {
@@ -612,22 +567,7 @@ export const AuditList: React.FC = () => {
           perPage={perPage}
           onPerPageChange={handlePerPageChange}
           onPageChange={(page) => {
-            const params: any = {};
-            if (eventFilter.length > 0) params.event = eventFilter.join(',');
-            if (auditableTypeFilter.length > 0) params.auditable_type = auditableTypeFilter.join(',');
-            if (userFilter.length > 0) params.user_id = userFilter.join(',');
-            if (storeFilter.length > 0 && !storeFilter.includes('all')) {
-              params.store_id = storeFilter
-                .filter(id => id !== 'all' && !isNaN(parseInt(id)))
-                .join(',');
-            }
-            if (dateFrom) params.date_from = dateFrom;
-            if (dateTo) params.date_to = dateTo;
-            if (sortBy) {
-              params.order_by = sortBy;
-              params.order_dir = sortDirection || 'desc';
-            }
-            params.per_page = perPage;
+            const params = buildParams(appliedFilters);
             fetchAudits(page, params);
           }}
           itemName="logs"

@@ -1,11 +1,12 @@
 import React from 'react';
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useParams } from 'react-router-dom';
 import { Layout } from './components/Layout';
 import { Dashboard } from './pages/Dashboard';
 import { ClientList } from './pages/Clients/ClientList';
 import { ClientForm } from './pages/Clients/ClientForm';
 import { ClientHistory } from './pages/Clients/ClientHistory';
 import { StockList } from './pages/Stock/StockList';
+import { FramesSoldReport } from './pages/Stock/FramesSoldReport';
 import { OrderForm } from './pages/Orders/OrderForm';
 import { OrderList } from './pages/Orders/OrderList';
 import { LabOrders } from './pages/Orders/LabOrders';
@@ -13,9 +14,6 @@ import { StoreList } from './pages/Stores/StoreList';
 import { StoreForm } from './pages/Stores/StoreForm';
 import { TrashList } from './pages/Trash/TrashList';
 import { TrashDetail } from './pages/Trash/TrashDetail';
-import { SellerList } from './pages/Sellers/SellerList';
-import { SellerForm } from './pages/Sellers/SellerForm';
-import { SellerDetail } from './pages/Sellers/SellerDetail';
 import { AuditList } from './pages/Audit/AuditList';
 import { POS } from './pages/Sales/POS';
 import { CashFlow } from './pages/Finance/CashFlow';
@@ -31,6 +29,8 @@ import { UserForm } from './pages/Users/UserForm';
 import { ProfilePage } from './pages/Profile/ProfilePage';
 import { BrandList } from './pages/Brands/BrandList';
 import { BrandForm } from './pages/Brands/BrandForm';
+import { SupplierList } from './pages/Suppliers/SupplierList';
+import { SupplierForm } from './pages/Suppliers/SupplierForm';
 import { LensList } from './pages/Lenses/LensList';
 import { FrameTypeList } from './pages/FrameTypes/FrameTypeList';
 import { FrameTypeForm } from './pages/FrameTypes/FrameTypeForm';
@@ -53,6 +53,11 @@ import { ProtectedRoute } from './components/ProtectedRoute';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { StoreSelector } from './components/StoreSelector';
 import { NotificationProvider } from './contexts/NotificationContext';
+
+/** Redirects para compatibilidade com URLs antigas em português */
+const InvoiceIdRedirect = () => { const { id } = useParams(); return <Navigate to={id ? `/invoices/${id}` : '/invoices'} replace />; };
+const OrderEditRedirect = () => { const { id } = useParams(); return <Navigate to={id ? `/orders/${id}/edit` : '/orders'} replace />; };
+const SupplierEditRedirect = () => { const { id } = useParams(); return <Navigate to={id ? `/suppliers/${id}/edit` : '/suppliers'} replace />; };
 
 const PlaceholderPage = ({ title }: { title: string }) => (
   <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -173,11 +178,8 @@ const StoreSelectorWrapper: React.FC<{ onLogout: () => void }> = ({ onLogout }) 
         <Route path="/clients/create" element={<ProtectedRoute><ClientForm /></ProtectedRoute>} />
         <Route path="/clients/:id/edit" element={<ProtectedRoute><ClientForm /></ProtectedRoute>} />
         <Route path="/clients/:id" element={<ProtectedRoute><ClientHistory /></ProtectedRoute>} />
-        <Route path="/vendedores" element={<ProtectedRoute><SellerList /></ProtectedRoute>} />
-        <Route path="/vendedores/create" element={<ProtectedRoute><SellerForm /></ProtectedRoute>} />
-        <Route path="/vendedores/:id/editar" element={<ProtectedRoute><SellerForm /></ProtectedRoute>} />
-        <Route path="/vendedores/:id" element={<ProtectedRoute><SellerDetail /></ProtectedRoute>} />
-        <Route path="/estoque" element={<ProtectedRoute><StockList /></ProtectedRoute>} />
+        <Route path="/stock" element={<ProtectedRoute><StockList /></ProtectedRoute>} />
+        <Route path="/stock/reports" element={<ProtectedRoute><FramesSoldReport /></ProtectedRoute>} />
         <Route path="/lenses" element={<ProtectedRoute><LensList /></ProtectedRoute>} />
         <Route path="/frame-types" element={<ProtectedRoute><FrameTypeList /></ProtectedRoute>} />
         <Route path="/frame-types/create" element={<ProtectedRoute><FrameTypeForm /></ProtectedRoute>} />
@@ -185,7 +187,7 @@ const StoreSelectorWrapper: React.FC<{ onLogout: () => void }> = ({ onLogout }) 
         <Route path="/frames" element={<ProtectedRoute><FrameList /></ProtectedRoute>} />
         <Route path="/frames/create" element={<ProtectedRoute><FrameForm /></ProtectedRoute>} />
         <Route path="/frames/:id/edit" element={<ProtectedRoute><FrameForm /></ProtectedRoute>} />
-        <Route path="/transferencias" element={<ProtectedRoute><StoreFrameList /></ProtectedRoute>} />
+        <Route path="/transfers" element={<ProtectedRoute><StoreFrameList /></ProtectedRoute>} />
         <Route path="/laboratories" element={<ProtectedRoute><LaboratoryList /></ProtectedRoute>} />
         <Route path="/laboratories/create" element={<ProtectedRoute><LaboratoryForm /></ProtectedRoute>} />
         <Route path="/laboratories/:id" element={<ProtectedRoute><LaboratoryDetail /></ProtectedRoute>} />
@@ -205,12 +207,32 @@ const StoreSelectorWrapper: React.FC<{ onLogout: () => void }> = ({ onLogout }) 
         <Route path="/finance/expenses" element={<ProtectedRoute><ExpenseList /></ProtectedRoute>} />
         <Route path="/finance/expenses/create" element={<ProtectedRoute><ExpenseForm /></ProtectedRoute>} />
         <Route path="/finance/expenses/:id/edit" element={<ProtectedRoute><ExpenseForm /></ProtectedRoute>} />
-        <Route path="/notas-fiscais" element={<ProtectedRoute><InvoiceList /></ProtectedRoute>} />
-        <Route path="/notas-fiscais/:id" element={<ProtectedRoute><InvoiceDetail /></ProtectedRoute>} />
-        <Route path="/pedidos" element={<ProtectedRoute><OrderList /></ProtectedRoute>} />
-        <Route path="/pedidos/laboratorio" element={<ProtectedRoute><LabOrders /></ProtectedRoute>} />
-        <Route path="/pedidos/create" element={<ProtectedRoute><OrderForm /></ProtectedRoute>} />
-        <Route path="/pedidos/:id/editar" element={<ProtectedRoute><OrderForm /></ProtectedRoute>} />
+        <Route path="/invoices" element={<ProtectedRoute><InvoiceList /></ProtectedRoute>} />
+        <Route path="/invoices/:id" element={<ProtectedRoute><InvoiceDetail /></ProtectedRoute>} />
+        <Route path="/orders" element={<ProtectedRoute><OrderList /></ProtectedRoute>} />
+        <Route path="/orders/lab" element={<ProtectedRoute><LabOrders /></ProtectedRoute>} />
+        <Route path="/orders/create" element={<ProtectedRoute><OrderForm /></ProtectedRoute>} />
+        <Route path="/orders/:id/edit" element={<ProtectedRoute><OrderForm /></ProtectedRoute>} />
+        {/* Redirects: rotas antigas em português → inglês */}
+        <Route path="/notas-fiscais" element={<Navigate to="/invoices" replace />} />
+        <Route path="/notas-fiscais/:id" element={<InvoiceIdRedirect />} />
+        <Route path="/vendedores" element={<Navigate to="/" replace />} />
+        <Route path="/vendedores/create" element={<Navigate to="/" replace />} />
+        <Route path="/vendedores/:id/editar" element={<Navigate to="/" replace />} />
+        <Route path="/vendedores/:id" element={<Navigate to="/" replace />} />
+        <Route path="/estoque" element={<Navigate to="/stock" replace />} />
+        <Route path="/estoque/relatorios" element={<Navigate to="/stock/reports" replace />} />
+        <Route path="/transferencias" element={<Navigate to="/transfers" replace />} />
+        <Route path="/pedidos" element={<Navigate to="/orders" replace />} />
+        <Route path="/pedidos/laboratorio" element={<Navigate to="/orders/lab" replace />} />
+        <Route path="/pedidos/create" element={<Navigate to="/orders/create" replace />} />
+        <Route path="/pedidos/:id/editar" element={<OrderEditRedirect />} />
+        <Route path="/suppliers" element={<ProtectedRoute><SupplierList /></ProtectedRoute>} />
+        <Route path="/suppliers/create" element={<ProtectedRoute><SupplierForm /></ProtectedRoute>} />
+        <Route path="/suppliers/:id/edit" element={<ProtectedRoute><SupplierForm /></ProtectedRoute>} />
+        <Route path="/fornecedores" element={<Navigate to="/suppliers" replace />} />
+        <Route path="/fornecedores/create" element={<Navigate to="/suppliers/create" replace />} />
+        <Route path="/fornecedores/:id/editar" element={<SupplierEditRedirect />} />
         <Route path="/permissions" element={<ProtectedRoute><Permissions /></ProtectedRoute>} />
         <Route path="/profiles/create" element={<ProtectedRoute><ProfileForm /></ProtectedRoute>} />
         <Route path="/profiles/:id/edit" element={<ProtectedRoute><ProfileForm /></ProtectedRoute>} />

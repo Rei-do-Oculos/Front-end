@@ -36,8 +36,10 @@ import { useAuth } from '../../services/hooks/useAuth';
 import { framesService, Frame } from '../../services/api/frames';
 import { clientsService, Client } from '../../services/api/clients';
 import { serviceOrdersService } from '../../services/api/serviceOrders';
-import { ReceiptModal } from '../../components/ReceiptModal';
+import { invoicesService } from '../../services/api/invoices';
+import { storesService, type Store as FullStore } from '../../services/api/stores';
 import { ReceiptData } from '../../components/ThermalReceipt';
+import { invoiceToNFCeData, buildReciboHtml } from '../../utils/nfceCupom';
 
 interface CartItem {
   id: number;
@@ -109,7 +111,7 @@ export const POS: React.FC = () => {
   const [createdOsId, setCreatedOsId] = useState<number | null>(null);
   const [createdOsNumber, setCreatedOsNumber] = useState<number | null>(null);
   const [receiptDataForModal, setReceiptDataForModal] = useState<ReceiptData | null>(null);
-  const [showReceiptModal, setShowReceiptModal] = useState(false);
+  const [fullStoreData, setFullStoreData] = useState<FullStore | null>(null);
 
   // Frames e clientes da API
   const [frames, setFrames] = useState<Frame[]>([]);
@@ -150,6 +152,27 @@ export const POS: React.FC = () => {
   useEffect(() => {
     fetchFrames();
   }, [fetchFrames]);
+
+  // Buscar dados completos da loja para recibo (endereço, CNPJ, IE, telefone etc.)
+  useEffect(() => {
+    let active = true;
+    const fetchStoreDetails = async () => {
+      if (!selectedStore?.id) {
+        if (active) setFullStoreData(null);
+        return;
+      }
+      try {
+        const store = await storesService.getById(String(selectedStore.id));
+        if (active) setFullStoreData(store);
+      } catch {
+        if (active) setFullStoreData(null);
+      }
+    };
+    fetchStoreDetails();
+    return () => {
+      active = false;
+    };
+  }, [selectedStore?.id]);
 
   // Buscar clientes (debounced)
   useEffect(() => {
@@ -280,7 +303,8 @@ export const POS: React.FC = () => {
     }
   };
 
-  const prepareReceiptData = (osNumber: number): ReceiptData => {
+  const prepareReceiptData = (osNumber: number, storeDataOverride?: FullStore | null): ReceiptData => {
+    const storeData = storeDataOverride ?? fullStoreData;
     const totalPrice = parseCurrencyFormatted(formatCurrencyInput(totalValueRaw)) || 0;
     const totalQty = Math.max(1, cart.reduce((s, i) => s + i.quantity, 0));
     const pricePerUnit = totalPrice / totalQty;
@@ -296,19 +320,19 @@ export const POS: React.FC = () => {
       expectedPickupDate: null,
       seller: user?.name || 'Vendedor',
       store: {
-        name: selectedStore?.name ?? 'Loja',
-        fancy_name: storeDisplayName ?? selectedStore?.fancy_name ?? selectedStore?.name ?? 'Loja',
-        cnpj: storeCnpj ?? selectedStore?.cnpj ?? '00.000.000/0000-00',
-        ie: null,
-        logradouro: '',
-        numero: '',
-        bairro: '',
-        municipio: '',
-        uf: '',
-        telefone: null,
-        unity: storeUnity ?? selectedStore?.unity ?? null,
-        logo: selectedStore?.logo ?? null,
-        color: selectedStore?.color ?? null,
+        name: storeData?.name ?? selectedStore?.name ?? 'Loja',
+        fancy_name: storeData?.fancy_name ?? storeDisplayName ?? selectedStore?.fancy_name ?? selectedStore?.name ?? 'Loja',
+        cnpj: storeData?.cnpj ?? storeCnpj ?? selectedStore?.cnpj ?? '00.000.000/0000-00',
+        ie: storeData?.ie ?? null,
+        logradouro: storeData?.logradouro ?? '',
+        numero: storeData?.numero ?? '',
+        bairro: storeData?.bairro ?? '',
+        municipio: storeData?.municipio ?? '',
+        uf: storeData?.uf ?? '',
+        telefone: storeData?.telefone ?? null,
+        unity: storeData?.unity ?? storeUnity ?? selectedStore?.unity ?? null,
+        logo: storeData?.logo ?? selectedStore?.logo ?? null,
+        color: storeData?.color ?? selectedStore?.color ?? null,
       },
       client: selectedClient
         ? { name: selectedClient.name, document: selectedClient.document ?? null }
@@ -388,9 +412,21 @@ export const POS: React.FC = () => {
       };
 
       const created = await serviceOrdersService.create(payload as any);
+
+      // Garante dados completos da loja no recibo, sem depender do carregamento assíncrono prévio.
+      let storeForReceipt: FullStore | null = fullStoreData;
+      if (!storeForReceipt && selectedStore?.id) {
+        try {
+          storeForReceipt = await storesService.getById(String(selectedStore.id));
+          setFullStoreData(storeForReceipt);
+        } catch {
+          storeForReceipt = null;
+        }
+      }
+
       setCreatedOsId(created.id);
       setCreatedOsNumber(created.os_number);
-      setReceiptDataForModal(prepareReceiptData(created.os_number));
+      setReceiptDataForModal(prepareReceiptData(created.os_number, storeForReceipt));
       setShowConfirmModal(false);
       setShowFinishModal(true);
       showSuccess('OS criada!', `Ordem de Serviço #${created.os_number} gerada com sucesso.`);
@@ -402,14 +438,103 @@ export const POS: React.FC = () => {
     }
   };
 
-  const handleFinishPrint = (choice: 'receipt' | 'nfe' | 'none') => {
+  const handleDirectNfePrint = async (): Promise<boolean> => {
+    if (!createdOsId) return false;
+    const printWindow = window.open('', '_blank', 'width=400,height=700');
+    if (!printWindow) {
+      showError('Popup bloqueado', 'Permita popups para imprimir a NF-e.');
+      return false;
+    }
+
+    printWindow.document.write(`<!DOCTYPE html><html><head><title>NF-e</title></head><body style="font-family:Arial;padding:24px;text-align:center;"><p>Gerando NF-e...</p></body></html>`);
+    printWindow.document.close();
+
+    try {
+      const result = await handleGenerateInvoice(55, { includeDocument: false });
+      if (!result?.invoice) {
+        printWindow.close();
+        showError('Erro ao emitir nota', 'Não foi possível gerar a NF-e.');
+        return false;
+      }
+
+      const inv = result.invoice;
+      const isRejected = inv.status === 'rejected' || inv.status === 'denied';
+      const rejectionError = isRejected
+        ? (inv.brasilnfe_response as { Error?: string })?.Error || inv.status_message || 'NF-e rejeitada pela SEFAZ.'
+        : null;
+
+      if (isRejected && rejectionError) {
+        printWindow.close();
+        showError('NF-e rejeitada', rejectionError);
+        return false;
+      }
+
+      // Recarrega a nota para garantir campos completos (access_key/qr_code_url) no recibo.
+      let invoiceForPrint = inv;
+      if (invoiceForPrint?.id) {
+        try {
+          const fullInvoice = await invoicesService.getById(String(invoiceForPrint.id));
+          invoiceForPrint = {
+            ...invoiceForPrint,
+            ...fullInvoice,
+          };
+        } catch {
+          // Se falhar o reload, mantém os dados já retornados pela geração.
+        }
+      }
+
+      const reciboData = invoiceToNFCeData(invoiceForPrint);
+      if (reciboData) {
+        const html = buildReciboHtml(reciboData, 'NF-e');
+        printWindow.document.open();
+        printWindow.document.write(html);
+        printWindow.document.close();
+        printWindow.document.body?.offsetHeight;
+        setTimeout(() => {
+          printWindow.print();
+          printWindow.close();
+        }, 400);
+        return true;
+      }
+
+      printWindow.close();
+      showError('Erro ao imprimir', 'NF-e gerada, mas sem dados de impressão.');
+      return false;
+    } catch {
+      printWindow.close();
+      return false;
+    }
+  };
+
+  const handleFinishPrint = async (choice: 'receipt' | 'nfce' | 'nfe' | 'none') => {
     if (choice === 'receipt' && createdOsId) {
       window.open(`/service-orders/${createdOsId}/sheet?print=1`, '_blank');
+      resetSale();
+      return;
     }
     if (choice === 'nfe') {
-      alert('Emissão de NF-e ainda não disponível. Em breve!');
+      const ok = await handleDirectNfePrint();
+      if (ok) resetSale();
+      return;
     }
     resetSale();
+  };
+
+  const handleGenerateInvoice = async (modelo: 55 | 65, options?: { includeDocument?: boolean }) => {
+    if (!createdOsId) return null;
+    try {
+      const inv = await invoicesService.generateFromServiceOrder(
+        String(createdOsId),
+        true,
+        modelo,
+        undefined,
+        options?.includeDocument ?? false
+      );
+      return { pdfBase64: inv.pdf_base64 ?? undefined, invoice: inv };
+    } catch (e: any) {
+      showError('Erro ao emitir nota', e?.message || 'Tente novamente.');
+      return null;
+    }
   };
 
   const resetSale = () => {
@@ -421,19 +546,9 @@ export const POS: React.FC = () => {
     setTotalValueRaw('');
     setShowFinishModal(false);
     setShowConfirmModal(false);
-    setShowReceiptModal(false);
     setCreatedOsId(null);
     setCreatedOsNumber(null);
     setReceiptDataForModal(null);
-  };
-
-  const handleReceiptModalConfirm = (type: 'receipt' | 'nfe' | 'none') => {
-    setShowReceiptModal(false);
-    if (type === 'receipt') {
-      resetSale();
-    } else {
-      handleFinishPrint(type);
-    }
   };
 
   const storeColorCss = storeColor || '#dc2626';
@@ -1045,9 +1160,9 @@ export const POS: React.FC = () => {
             </div>
             <div className="p-6 space-y-4">
               <p className="text-sm text-slate-600 mb-4 text-center">Escolha o que deseja imprimir:</p>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
                 <button
-                  onClick={() => setShowReceiptModal(true)}
+                  onClick={() => handleFinishPrint('receipt')}
                   className="flex flex-col items-center justify-center p-6 rounded-2xl border-2 border-slate-200 hover:border-slate-300 hover:bg-slate-50 transition-all group"
                 >
                   <div className="w-12 h-12 rounded-xl flex items-center justify-center text-white mb-3 group-hover:scale-110 transition-transform" style={{ backgroundColor: 'var(--store-color)' }}>
@@ -1082,18 +1197,6 @@ export const POS: React.FC = () => {
         </div>
       )}
 
-      {/* Modal Recibo/NF-e (mesmo da OS: preview + impressão) */}
-      {showReceiptModal && receiptDataForModal && (
-        <ReceiptModal
-          isOpen={showReceiptModal}
-          onClose={() => setShowReceiptModal(false)}
-          onConfirm={handleReceiptModalConfirm}
-          receiptData={receiptDataForModal}
-          order={null}
-          clientPhone={null}
-          loading={false}
-        />
-      )}
     </div>
   );
 };

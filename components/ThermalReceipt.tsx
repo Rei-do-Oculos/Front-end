@@ -86,6 +86,8 @@ const formatCurrency = (value: number): string => {
   });
 };
 
+const hasText = (value: string | null | undefined): boolean => Boolean(value && String(value).trim());
+
 // Formatar número da OS com zeros à esquerda
 const formatOsNumber = (num: number): string => {
   return String(num).padStart(4, '0');
@@ -93,7 +95,16 @@ const formatOsNumber = (num: number): string => {
 
 export const ThermalReceipt = forwardRef<HTMLDivElement, ThermalReceiptProps>(
   ({ data }, ref) => {
-    const { osNumber, date, expectedPickupDate, seller, store, client, items, total, paymentMethod, installments, payments } = data;
+    const { osNumber, date, expectedPickupDate, store, client, items, total, paymentMethod, installments, payments } = data;
+    const cnpjDigits = (store.cnpj || '').replace(/\D/g, '');
+    const addressLine = [store.logradouro, store.numero]
+      .filter((part) => hasText(part))
+      .join(', ');
+    const neighborhood = hasText(store.bairro) ? store.bairro : '';
+    const cityUf = [store.municipio, store.uf].filter((part) => hasText(part)).join(' - ');
+    const contactLine = [cityUf, hasText(store.telefone) ? store.telefone : '']
+      .filter((part) => hasText(part))
+      .join(' | ');
 
     return (
       <div
@@ -120,16 +131,20 @@ export const ThermalReceipt = forwardRef<HTMLDivElement, ThermalReceiptProps>(
             {store.name}
           </div>
           <div style={{ fontSize: '11px' }}>
-            CNPJ: {formatCNPJ(store.cnpj)}
+            CNPJ: {cnpjDigits.length === 14 ? formatCNPJ(cnpjDigits) : (store.cnpj || 'N/I')}
             {store.ie && ` IE: ${store.ie}`}
           </div>
-          <div style={{ fontSize: '10px' }}>
-            {store.logradouro}, {store.numero} - {store.bairro}
-          </div>
-          <div style={{ fontSize: '10px' }}>
-            {store.municipio} - {store.uf}
-            {store.telefone && ` | ${store.telefone}`}
-          </div>
+          {hasText(addressLine) || hasText(neighborhood) ? (
+            <div style={{ fontSize: '10px' }}>
+              {addressLine}
+              {hasText(addressLine) && hasText(neighborhood) ? ` - ${neighborhood}` : neighborhood}
+            </div>
+          ) : null}
+          {hasText(contactLine) ? (
+            <div style={{ fontSize: '10px' }}>
+              {contactLine}
+            </div>
+          ) : null}
         </div>
 
         {/* Separador */}
@@ -150,7 +165,6 @@ export const ThermalReceipt = forwardRef<HTMLDivElement, ThermalReceiptProps>(
           {expectedPickupDate && (
             <div style={{ fontWeight: 'bold' }}>Retirada prevista: {new Date(expectedPickupDate).toLocaleDateString('pt-BR')}</div>
           )}
-          <div>Vendedor: {seller}</div>
         </div>
 
         {/* Separador */}
@@ -158,8 +172,8 @@ export const ThermalReceipt = forwardRef<HTMLDivElement, ThermalReceiptProps>(
 
         {/* Dados do Cliente */}
         <div style={{ marginBottom: '8px' }}>
-          <div style={{ fontWeight: 'bold', marginBottom: '4px' }}>CLIENTE</div>
-          <div>Nome: {client.name}</div>
+          <div style={{ fontWeight: 'bold', marginBottom: '4px' }}>CONSUMIDOR</div>
+          <div style={{ fontWeight: 'bold' }}>{client.name}</div>
           {client.document && (
             <div>CPF: {formatDocument(client.document)}</div>
           )}

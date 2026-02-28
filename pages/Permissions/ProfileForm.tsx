@@ -13,10 +13,10 @@ import { normalizeToTitleCase } from '../../utils/formatters';
 const SECTOR_ORDER: { label: string; modules: string[] }[] = [
   { label: 'Lojas', modules: ['stores'] },
   { label: 'Clientes', modules: ['clients', 'client-prescriptions'] },
-  { label: 'Estoque', modules: ['frames', 'frame-types', 'store-frames'] },
+  { label: 'Estoque', modules: ['frames', 'frame-types', 'store-frames', 'stock-reports'] },
   { label: 'Lentes', modules: ['lenses'] },
   { label: 'Laboratórios', modules: ['laboratories', 'laboratory-lenses'] },
-  { label: 'Financeiro', modules: ['finance', 'expenses', 'service-orders-overdue'] },
+  { label: 'Financeiro', modules: ['finance', 'expenses', 'service-orders-overdue', 'invoices'] },
   { label: 'Pedidos (OS)', modules: ['service-orders', 'service-orders-lab'] },
   { label: 'Sistema', modules: ['roles', 'permissions', 'users', 'audits', 'trash'] },
 ];

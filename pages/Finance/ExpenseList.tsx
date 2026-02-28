@@ -23,6 +23,7 @@ export const ExpenseList: React.FC = () => {
   const [filterPaymentMethods, setFilterPaymentMethods] = useState<string[]>([]);
   const [filterDateFrom, setFilterDateFrom] = useState('');
   const [filterDateTo, setFilterDateTo] = useState('');
+  const [appliedFilters, setAppliedFilters] = useState<{ searchName: string; filterStores: string[]; filterPaymentMethods: string[]; filterDateFrom: string; filterDateTo: string }>({ searchName: '', filterStores: [], filterPaymentMethods: [], filterDateFrom: '', filterDateTo: '' });
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [sortBy, setSortBy] = useState<string | null>('created_at');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
@@ -34,18 +35,27 @@ export const ExpenseList: React.FC = () => {
   const showStoreFilter = storesList.length > 1;
   const paymentMethodOptions = (Object.entries(PAYMENT_METHOD_LABELS) as [PaymentMethod, string][]).map(([value, label]) => ({ value, label }));
   const activeFilters = useActiveFilters({
-    searchName,
-    filterStores: showStoreFilter ? filterStores : undefined,
-    filterPaymentMethods: filterPaymentMethods,
-    filterDateFrom: filterDateFrom || undefined,
-    filterDateTo: filterDateTo || undefined,
+    searchName: appliedFilters.searchName,
+    filterStores: showStoreFilter ? appliedFilters.filterStores : undefined,
+    filterPaymentMethods: appliedFilters.filterPaymentMethods,
+    filterDateFrom: appliedFilters.filterDateFrom || undefined,
+    filterDateTo: appliedFilters.filterDateTo || undefined,
   });
 
   useEffect(() => {
     fetchStores();
   }, [fetchStores]);
 
-  // Refetch ao trocar de loja ou per page; preserva filtros aplicados
+  const buildParams = (page: number, f = appliedFilters) => {
+    const params: any = { per_page: perPage, page, order_by: sortBy || 'created_at', order_dir: sortDirection || 'desc' };
+    if (f.searchName) params.search = f.searchName;
+    if (showStoreFilter && f.filterStores.length > 0) params.store_id = f.filterStores.map((id) => parseInt(id, 10));
+    if (f.filterPaymentMethods.length > 0) params.payment_method = f.filterPaymentMethods;
+    if (f.filterDateFrom) params.date_from = f.filterDateFrom;
+    if (f.filterDateTo) params.date_to = f.filterDateTo;
+    return params;
+  };
+
   useEffect(() => {
     const load = async () => {
       try {
@@ -55,33 +65,21 @@ export const ExpenseList: React.FC = () => {
       }
     };
     load();
-  }, [perPage, selectedStore?.id]);
-
-  const buildParams = (page: number) => {
-    const params: any = { per_page: perPage, page, order_by: sortBy || 'created_at', order_dir: sortDirection || 'desc' };
-    if (searchName) params.search = searchName;
-    if (showStoreFilter && filterStores.length > 0) params.store_id = filterStores.map((id) => parseInt(id, 10));
-    if (filterPaymentMethods.length > 0) params.payment_method = filterPaymentMethods;
-    if (filterDateFrom) params.date_from = filterDateFrom;
-    if (filterDateTo) params.date_to = filterDateTo;
-    return params;
-  };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [perPage, selectedStore?.id, appliedFilters, sortBy, sortDirection]);
 
   const handleSort = (key: string, direction: SortDirection) => {
     const dir = direction || 'asc';
     setSortBy(key);
     setSortDirection(dir);
-    const params: any = { per_page: perPage, page: pagination?.currentPage || 1, order_by: key, order_dir: dir };
-    if (searchName) params.search = searchName;
-    if (showStoreFilter && filterStores.length > 0) params.store_id = filterStores.map((id) => parseInt(id, 10));
-    if (filterPaymentMethods.length > 0) params.payment_method = filterPaymentMethods;
-    if (filterDateFrom) params.date_from = filterDateFrom;
-    if (filterDateTo) params.date_to = filterDateTo;
+    const params = buildParams(pagination?.currentPage || 1);
+    params.order_by = key;
+    params.order_dir = dir;
     fetchExpenses(pagination?.currentPage || 1, params);
   };
 
   const handleApplyFilters = async () => {
-    await fetchExpenses(1, buildParams(1));
+    setAppliedFilters({ searchName, filterStores: [...filterStores], filterPaymentMethods: [...filterPaymentMethods], filterDateFrom, filterDateTo });
   };
 
   const handleClearFilters = () => {
@@ -90,12 +88,15 @@ export const ExpenseList: React.FC = () => {
     setFilterPaymentMethods([]);
     setFilterDateFrom('');
     setFilterDateTo('');
+    setAppliedFilters({ searchName: '', filterStores: [], filterPaymentMethods: [], filterDateFrom: '', filterDateTo: '' });
     fetchExpenses(1, { order_by: sortBy || 'created_at', order_dir: sortDirection || 'desc', per_page: perPage });
   };
 
   const handlePerPageChange = (newPerPage: number) => {
     setPerPage(newPerPage);
-    fetchExpenses(1, { ...buildParams(1), per_page: newPerPage });
+    const params = buildParams(1);
+    params.per_page = newPerPage;
+    fetchExpenses(1, params);
   };
 
   const handleDeleteClick = (exp: Expense) => {
