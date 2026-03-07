@@ -929,7 +929,7 @@ export const ServiceOrderLabList: React.FC = () => {
                               {actionButton.label}
                             </Button>
                           )}
-                          {canRevert(order.status) && hasPermission('service-orders-lab.send') && (
+                          {canRevert(order.status) && hasPermission('service-orders-lab.revert') && (
                             <button
                               title="Reverter estado"
                               onClick={() => handleRevertClick(order)}

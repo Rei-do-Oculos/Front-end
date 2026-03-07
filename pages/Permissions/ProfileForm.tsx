@@ -14,10 +14,11 @@ const SECTOR_ORDER: { label: string; modules: string[] }[] = [
   { label: 'Lojas', modules: ['stores'] },
   { label: 'Clientes', modules: ['clients', 'client-prescriptions'] },
   { label: 'Estoque', modules: ['frames', 'frame-types', 'store-frames', 'stock-reports'] },
-  { label: 'Lentes', modules: ['lenses'] },
+  // { label: 'Lentes', modules: ['lenses'] },
   { label: 'Laboratórios', modules: ['laboratories', 'laboratory-lenses'] },
   { label: 'Financeiro', modules: ['finance', 'expenses', 'service-orders-overdue', 'invoices'] },
   { label: 'Pedidos (OS)', modules: ['service-orders', 'service-orders-lab'] },
+  { label: 'PDV', modules: ['pdv'] },
   { label: 'Sistema', modules: ['roles', 'permissions', 'users', 'audits', 'trash'] },
 ];
 
@@ -163,10 +164,11 @@ export const ProfileForm: React.FC = () => {
     });
   };
 
-  // Módulos que não pertencem a nenhum setor (avulsos)
+  // Módulos que não pertencem a nenhum setor (avulsos) — excluir os ocultos no front (ex.: Lentes)
+  const HIDDEN_MODULES = ['lenses'];
   const allSectorModules = useMemo(() => new Set(SECTOR_ORDER.flatMap(s => s.modules)), []);
   const standaloneModules = useMemo(() => {
-    return Object.keys(permissionsByModule).filter(m => !allSectorModules.has(m));
+    return Object.keys(permissionsByModule).filter(m => !allSectorModules.has(m) && !HIDDEN_MODULES.includes(m));
   }, [permissionsByModule, allSectorModules]);
 
   // Setores com apenas os módulos que existem em permissionsByModule
@@ -490,53 +492,6 @@ export const ProfileForm: React.FC = () => {
                   );
                 })}
 
-                {/* Módulos avulsos (fora dos setores) */}
-                {standaloneModules.length > 0 && (
-                  <div className="pt-2 border-t border-slate-200">
-                    <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-2">Outros</p>
-                    <div className="flex flex-wrap gap-2">
-                      {standaloneModules.map((module) => {
-                        const modulePerms = permissionsByModule[module] || [];
-                        const isExpanded = expandedModules.has(module);
-                        const isFullySelected = isModuleFullySelected(module);
-                        const selectedCount = modulePerms.filter(p => formData.permissions.includes(p.id)).length;
-                        return (
-                          <div key={module} className="flex-1 min-w-[140px]">
-                            <button
-                              type="button"
-                              onClick={() => toggleModule(module)}
-                              className={`w-full inline-flex items-center justify-between gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-                                isExpanded ? 'text-white' : isFullySelected ? 'border-2' : selectedCount > 0 ? 'bg-slate-100 border-2 border-slate-200' : 'bg-white border-2 border-slate-200 hover:bg-slate-50'
-                              }`}
-                              style={isExpanded ? { backgroundColor: 'var(--store-color)' } : isFullySelected ? { backgroundColor: 'var(--store-color-light)', color: 'var(--store-color)', borderColor: 'var(--store-color)' } : undefined}
-                            >
-                              {translateResource(module)}
-                              {selectedCount > 0 && <span className="text-[10px]">{selectedCount}/{modulePerms.length}</span>}
-                              {isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-                            </button>
-                            {isExpanded && (
-                              <div className="mt-2 p-2 bg-slate-50 rounded-lg border border-slate-100">
-                                {modulePerms.map((perm) => {
-                                  const isSelected = formData.permissions.includes(perm.id);
-                                  return (
-                                    <label key={perm.id} className="flex items-center gap-2 p-1.5 hover:bg-white rounded cursor-pointer text-xs">
-                                      <div className={`w-3.5 h-3.5 border-2 rounded flex items-center justify-center ${isSelected ? '' : 'border-slate-300'}`}
-                                        style={isSelected ? { backgroundColor: 'var(--store-color)', borderColor: 'var(--store-color)' } : undefined}
-                                        onClick={() => togglePermission(perm.id)}>
-                                        {isSelected && <Check size={8} className="text-white" />}
-                                      </div>
-                                      <span onClick={() => togglePermission(perm.id)}>{translatePermission(perm.name)}</span>
-                                    </label>
-                                  );
-                                })}
-                              </div>
-                            )}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
               </div>
             )}
             <p className="text-xs text-slate-400 mt-2">

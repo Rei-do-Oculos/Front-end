@@ -102,6 +102,8 @@ export interface InvoiceListParams {
   date_to?: string;
   order_by?: string;
   order_dir?: 'asc' | 'desc';
+  /** Formato do arquivo de exportação: zip ou rar */
+  format?: 'zip' | 'rar';
 }
 
 const endpoint = '/v1/invoices';
@@ -197,14 +199,22 @@ export const invoicesService = {
   },
 
   /**
-   * Exportar XMLs em ZIP (mesmos filtros da listagem; apenas notas autorizadas).
+   * Exportar XMLs em ZIP ou RAR (mesmos filtros da listagem; apenas notas autorizadas).
+   * Retorna blob e nome do arquivo (geral ou nome da loja) vindo do Content-Disposition.
    */
-  async downloadXmlZip(params: Omit<InvoiceListParams, 'page' | 'per_page'> = {}): Promise<Blob> {
+  async downloadXmlZip(params: Omit<InvoiceListParams, 'page' | 'per_page'> = {}): Promise<{ blob: Blob; filename: string }> {
     const response = await apiClient.get<Blob>(`${endpoint}/export/xml`, {
       params: { ...params, per_page: undefined, page: undefined },
       responseType: 'blob',
     });
-    return response.data as unknown as Blob;
+    const blob = response.data as unknown as Blob;
+    const disposition = (response as any).headers?.['content-disposition'];
+    let filename = `NF-e-xml-${new Date().toISOString().slice(0, 10)}.${params.format === 'rar' ? 'rar' : 'zip'}`;
+    if (disposition) {
+      const match = disposition.match(/filename\*?=(?:UTF-8'')?"?([^";\n]+)"?/i) || disposition.match(/filename="?([^";\n]+)"?/i);
+      if (match && match[1]) filename = match[1].trim().replace(/^["']|["']$/g, '');
+    }
+    return { blob, filename };
   },
 
   /**

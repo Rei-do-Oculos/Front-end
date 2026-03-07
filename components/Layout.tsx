@@ -48,8 +48,7 @@ const menuItems: MenuItem[] = [
   { 
     title: 'PDV / Vendas', 
     icon: <ShoppingCart size={20} />, 
-    path: '/pdv',
-    highlight: true 
+    path: '/pdv'
   },
   { 
     title: 'Lojas / Unidades', 
@@ -72,11 +71,8 @@ const menuItems: MenuItem[] = [
       { title: 'Relatórios', path: '/stock/reports' }
     ]
   },
-  { 
-    title: 'Lentes', 
-    icon: <Glasses size={20} />, 
-    path: '/lenses'
-  },
+  // CRUD Lentes oculto no front por enquanto (opcional na OS)
+  // { title: 'Lentes', icon: <Glasses size={20} />, path: '/lenses' },
   { 
     title: 'Laboratórios', 
     icon: <FlaskConical size={20} />, 
@@ -183,38 +179,13 @@ const SidebarContent: React.FC<SidebarContentProps> = ({
                     toggleSubmenu(item.title);
                   }
                 }}
-                className={`w-full flex items-center justify-between p-3 ${styles.button.default} cursor-pointer transition-all duration-300 ${
-                  item.highlight ? 'border border-[var(--store-color-opacity-20)] text-[var(--store-color-dark)] hover:bg-[var(--store-color)] hover:text-white mb-2' : 'mb-2'
-                } ${
-                  item.highlight
-                    ? (isActive(item.path, item.submenu) ? 'text-white border-transparent shadow-lg' : '')
-                    : (isActive(item.path, item.submenu) ? 'text-white shadow-lg' : 'text-slate-400 hover:bg-white/5 hover:text-white')
+                className={`w-full flex items-center justify-between p-3 ${styles.button.default} cursor-pointer transition-all duration-300 mb-2 ${
+                  isActive(item.path, item.submenu) ? 'text-white shadow-lg' : 'text-slate-400 hover:bg-white/5 hover:text-white'
                 }`}
-                style={item.highlight && isActive(item.path, item.submenu) ? {
-                  backgroundColor: 'var(--store-color)',
-                  boxShadow: '0 10px 15px -3px var(--store-color-opacity-20)',
-                } : item.highlight ? {
-                  backgroundColor: 'var(--store-color-opacity-10)',
-                } : item.highlight && !isActive(item.path, item.submenu) ? {
-                  backgroundColor: 'var(--store-color-opacity-10)',
-                  borderColor: 'var(--store-color-opacity-20)',
-                  color: 'var(--store-color-dark)',
-                } : isActive(item.path, item.submenu) ? {
+                style={isActive(item.path, item.submenu) ? {
                   backgroundColor: 'var(--store-color)',
                   boxShadow: '0 10px 15px -3px var(--store-color-opacity-10)',
                 } : undefined}
-                onMouseEnter={(e) => {
-                  if (item.highlight && !isActive(item.path, item.submenu)) {
-                    e.currentTarget.style.backgroundColor = 'var(--store-color)';
-                    e.currentTarget.style.color = 'white';
-                  }
-                }}
-                onMouseLeave={(e) => {
-                  if (item.highlight && !isActive(item.path, item.submenu)) {
-                    e.currentTarget.style.backgroundColor = 'var(--store-color-opacity-10)';
-                    e.currentTarget.style.color = 'var(--store-color-dark)';
-                  }
-                }}
               >
                 <div className="flex items-center gap-3.5">
                   <span className={`${isActive(item.path) ? 'text-white' : ''} group-hover:scale-110 transition-transform`}>

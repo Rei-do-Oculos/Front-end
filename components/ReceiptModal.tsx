@@ -50,7 +50,7 @@ interface ReceiptModalProps {
   initialType?: DocType;
   /** Emitir nota na SEFAZ. modelo: 65=NFC-e (cupom), 55=NF-e. Retorna pdfBase64 e/ou invoice. */
   onGenerateInvoice?: (modelo: 55 | 65, options?: { includeDocument?: boolean }) => Promise<{ pdfBase64?: string; invoice?: Invoice } | null>;
-  /** Se o usuário tem acesso à loja da OS para gerar NF-e. Quando false, oculta a opção de gerar nova nota (imprimir existente segue disponível). */
+  /** Se o usuário tem acesso à loja da OS. Quando false, oculta toda a opção NF-e (gerar e imprimir existente). */
   canGenerateInvoice?: boolean;
 }
 
@@ -80,6 +80,13 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
   React.useEffect(() => {
     if (isOpen && initialType) setSelectedType(normalizeDocType(initialType));
   }, [isOpen, initialType]);
+
+  // Se não tem acesso à loja, não deixar NF-e selecionada (opção fica oculta)
+  React.useEffect(() => {
+    if (isOpen && !canGenerateInvoice && (selectedType === 'nfe' || selectedType === 'nfce')) {
+      setSelectedType('receipt');
+    }
+  }, [isOpen, canGenerateInvoice, selectedType]);
 
   React.useEffect(() => {
     if (isOpen) setIncludeDocumentOnInvoice(false);
@@ -345,7 +352,7 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
       />
 
       {/* Modal */}
-      <div className="relative bg-white rounded-3xl shadow-2xl max-w-3xl w-full mx-4 max-h-[90vh] overflow-hidden">
+      <div className="relative bg-white rounded-3xl shadow-2xl max-w-md w-full mx-4 overflow-hidden">
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-slate-100">
           <h2 className="text-xl font-bold text-slate-900">
@@ -361,9 +368,9 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
         </div>
 
         {/* Content */}
-        <div className="p-6 flex gap-6 max-h-[calc(90vh-180px)] overflow-auto">
+        <div className="p-6 space-y-4">
           {/* Opções */}
-          <div className="w-64 flex-shrink-0 space-y-4">
+          <div className="space-y-4">
             <p className="text-sm font-medium text-slate-600 mb-4">
               Escolha o tipo de documento:
             </p>
@@ -411,8 +418,8 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
 
             {/* Opção NFC-e ocultada no front por decisão de negócio */}
 
-            {/* Opção NF-e - quando já emitida: permite imprimir. Quando não emitida: só mostra se canGenerateInvoice */}
-            {(hasInvoice || canGenerateInvoice) && (hasInvoice ? (
+            {/* Opção NF-e - só mostra se usuário tem acesso à loja (nem "Nota já gerada" nem "Gerar" para outra loja) */}
+            {canGenerateInvoice && (hasInvoice ? (
               <label
                 className={`flex items-center gap-4 p-4 rounded-2xl border-2 cursor-pointer transition-all ${
                   selectedType === 'nfe' ? 'border-slate-200' : 'border-slate-200 hover:border-slate-300'
@@ -507,86 +514,72 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
             </label>
           </div>
 
-          {/* Preview do Documento */}
-          <div className="flex-1 flex flex-col items-center">
-            <p className="text-sm font-medium text-slate-600 mb-4">
-              Pré-visualização:
-            </p>
-            {(selectedType === 'nfce' || selectedType === 'nfe') && onGenerateInvoice && !hasInvoice && (
-              <div className="w-full mb-4 p-4 rounded-xl border-2 border-amber-200 bg-amber-50">
-                <div className="flex items-center justify-between gap-3 mb-2">
-                  <label className="flex items-center gap-2 text-amber-900 font-semibold cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={includeDocumentOnInvoice}
-                      onChange={(e) => {
-                        setIncludeDocumentOnInvoice(e.target.checked);
-                        setAddCpfError(null);
-                      }}
-                    />
-                    CPF na nota
-                  </label>
-                  {hasClientDocument && (
-                    <span className="text-xs text-amber-800">
-                      Documento do cliente: {formatCpfDisplay(clientDoc!)}
-                    </span>
-                  )}
-                </div>
-                {!hasClientDocument && includeDocumentOnInvoice && (
-                  <>
-                    <div className="flex items-center gap-2 text-amber-800 font-medium mb-2">
-                      <User size={18} />
-                      Cliente sem CPF/CNPJ cadastrado
-                    </div>
-                    <p className="text-sm text-amber-700 mb-3">
-                      Adicione o documento para incluir na nota fiscal:
-                    </p>
-                    <div className="flex gap-3">
-                      <input
-                        type="text"
-                        placeholder="CPF ou CNPJ"
-                        value={addCpfValue}
-                        onChange={(e) => { setAddCpfValue(e.target.value); setAddCpfError(null); }}
-                        className="flex-1 px-4 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-amber-400 focus:border-amber-500"
-                        maxLength={18}
-                      />
-                    </div>
-                  </>
+          {/* CPF na nota e erro (só quando NF-e sem nota gerada) */}
+          {(selectedType === 'nfce' || selectedType === 'nfe') && onGenerateInvoice && !hasInvoice && (
+            <div className="w-full p-4 rounded-xl border-2 border-amber-200 bg-amber-50">
+              <div className="flex items-center justify-between gap-3 mb-2">
+                <label className="flex items-center gap-2 text-amber-900 font-semibold cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={includeDocumentOnInvoice}
+                    onChange={(e) => {
+                      setIncludeDocumentOnInvoice(e.target.checked);
+                      setAddCpfError(null);
+                    }}
+                  />
+                  CPF na nota
+                </label>
+                {hasClientDocument && (
+                  <span className="text-xs text-amber-800">
+                    Documento do cliente: {formatCpfDisplay(clientDoc!)}
+                  </span>
                 )}
-                {!includeDocumentOnInvoice && (
-                  <p className="text-sm text-amber-700">
-                    A nota será emitida como consumidor não identificado.
+              </div>
+              {!hasClientDocument && includeDocumentOnInvoice && (
+                <>
+                  <div className="flex items-center gap-2 text-amber-800 font-medium mb-2">
+                    <User size={18} />
+                    Cliente sem CPF/CNPJ cadastrado
+                  </div>
+                  <p className="text-sm text-amber-700 mb-3">
+                    Adicione o documento para incluir na nota fiscal:
                   </p>
-                )}
-                {addCpfError && <p className="text-sm text-red-600 mt-2">{addCpfError}</p>}
-              </div>
-            )}
-            {invoiceError && (selectedType === 'nfce' || selectedType === 'nfe') && (
-              <div className="w-full mb-4 p-4 rounded-xl bg-red-50 border border-red-200">
-                <p className="text-sm font-medium text-red-800">NF-e rejeitada:</p>
-                <p className="text-sm text-red-700 mt-1">{invoiceError}</p>
-                <p className="text-xs text-red-600 mt-2">Corrija os dados e tente novamente. A impressão não foi aberta.</p>
-              </div>
-            )}
-            <div 
-              className="bg-slate-100 p-6 rounded-2xl overflow-auto max-h-[500px]"
-              style={{ 
-                boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.1)',
-              }}
-            >
-              <div className="shadow-lg">
-                {(selectedType === 'nfce' || selectedType === 'nfe') ? (
-                  <NFCePreview ref={nfceRef} data={nfceData} />
-                ) : (
-                  <ThermalReceipt ref={receiptRef} data={receiptData} />
-                )}
-              </div>
+                  <div className="flex gap-3">
+                    <input
+                      type="text"
+                      placeholder="CPF ou CNPJ"
+                      value={addCpfValue}
+                      onChange={(e) => { setAddCpfValue(e.target.value); setAddCpfError(null); }}
+                      className="flex-1 px-4 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-amber-400 focus:border-amber-500"
+                      maxLength={18}
+                    />
+                  </div>
+                </>
+              )}
+              {!includeDocumentOnInvoice && (
+                <p className="text-sm text-amber-700">
+                  A nota será emitida como consumidor não identificado.
+                </p>
+              )}
+              {addCpfError && <p className="text-sm text-red-600 mt-2">{addCpfError}</p>}
             </div>
-            {(selectedType === 'nfce' || selectedType === 'nfe') && !onGenerateInvoice && (
-              <p className="text-xs text-amber-600 mt-3 text-center">
-                * Este é apenas um preview. Emissão fiscal será feita ao clicar em Imprimir.
-              </p>
-            )}
+          )}
+          {invoiceError && (selectedType === 'nfce' || selectedType === 'nfe') && (
+            <div className="w-full p-4 rounded-xl bg-red-50 border border-red-200">
+              <p className="text-sm font-medium text-red-800">NF-e rejeitada:</p>
+              <p className="text-sm text-red-700 mt-1">{invoiceError}</p>
+              <p className="text-xs text-red-600 mt-2">Corrija os dados e tente novamente. A impressão não foi aberta.</p>
+            </div>
+          )}
+
+          {/* Conteúdo oculto para impressão (refs usados em handlePrint) */}
+          <div className="sr-only absolute left-[-9999px] top-0" aria-hidden="true">
+            <div ref={receiptRef}>
+              <ThermalReceipt data={receiptData} />
+            </div>
+            <div ref={nfceRef}>
+              <NFCePreview data={nfceData} />
+            </div>
           </div>
         </div>
 

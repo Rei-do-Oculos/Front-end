@@ -20,7 +20,7 @@ const resourceTranslations: Record<string, string> = {
   'sellers': 'Vendedores',
   'stock': 'Estoque',
   'dashboard': 'Dashboard',
-  'pdv': 'PDV',
+  'pdv': 'Ponto de Venda (PDV)',
   'finance': 'Financeiro',
   'expenses': 'Despesas',
   'frames': 'Armações',
@@ -44,6 +44,8 @@ const actionTranslations: Record<string, string> = {
   'update': 'Editar',
   'delete': 'Excluir',
   'list': 'Listar',
+  'access': 'Acessar',
+  'sell': 'Venda',
   'plucks': 'Listar Simplificado',
   'restore': 'Restaurar',
   'permissions.sync': 'Sincronizar Permissões',
@@ -64,6 +66,7 @@ const actionTranslations: Record<string, string> = {
   'generate': 'Emitir',
   'cancel': 'Cancelar',
   'gerar-devolucao': 'Gerar Devolução',
+  'revert': 'Reverter estado',
 };
 
 /**

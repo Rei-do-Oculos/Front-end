@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   FileText,
@@ -14,9 +14,11 @@ import {
   TrendingUp,
   AlertCircle,
   Loader2,
+  ChevronDown,
 } from 'lucide-react';
 import { Card, Button, Input, SingleSelect, FilterSection, ActiveFiltersBadge, Pagination, Badge, SortableHeader, SortDirection } from '../../components/Common';
 import { usePlucks } from '../../services/hooks/usePlucks';
+import { usePermission } from '../../services/hooks/usePermission';
 import { storesService } from '../../services/api/stores';
 import { useActiveFilters } from '../../hooks/useActiveFilters';
 import { useNotification } from '../../hooks/useNotification';
@@ -82,6 +84,7 @@ function mapApiInvoiceToRow(inv: ApiInvoice) {
 export const InvoiceList: React.FC = () => {
   const navigate = useNavigate();
   const { showSuccess, showError } = useNotification();
+  const { hasSuperAdminRole } = usePermission();
   const [invoices, setInvoices] = useState<ReturnType<typeof mapApiInvoiceToRow>[]>([]);
   const [meta, setMeta] = useState({ current_page: 1, total_pages: 1, total_items: 0, per_page: 15 });
   const [stats, setStats] = useState({
@@ -119,7 +122,7 @@ export const InvoiceList: React.FC = () => {
     searchTerm: appliedFilters.searchTerm,
     statusFilter: appliedFilters.statusFilter,
     tipoFilter: appliedFilters.tipoFilter,
-    storeFilter: appliedFilters.storeFilter,
+    storeFilter: hasSuperAdminRole ? appliedFilters.storeFilter : '',
     dateFromFilter: appliedFilters.dateFromFilter,
     dateToFilter: appliedFilters.dateToFilter,
   });
@@ -135,7 +138,7 @@ export const InvoiceList: React.FC = () => {
         search: a.searchTerm || undefined,
         status: statusApi,
         tipo: a.tipoFilter === 'NF-e' ? 'nfe' : a.tipoFilter === 'NFC-e' ? 'nfce' : undefined,
-        store_id: a.storeFilter || undefined,
+        store_id: hasSuperAdminRole ? (a.storeFilter || undefined) : undefined,
         date_from: a.dateFromFilter || undefined,
         date_to: a.dateToFilter || undefined,
         order_by: sortBy || 'created_at',
@@ -148,13 +151,13 @@ export const InvoiceList: React.FC = () => {
       })
       .catch(() => setInvoices([]))
       .finally(() => setLoading(false));
-  }, [currentPage, perPage, appliedFilters, sortBy, sortDirection]);
+  }, [currentPage, perPage, appliedFilters, sortBy, sortDirection, hasSuperAdminRole]);
 
   const fetchStats = useCallback(() => {
     const a = appliedFilters;
     const statusApi = a.statusFilter === 'Autorizada' ? 'authorized' : a.statusFilter === 'Cancelada' ? 'cancelled' : a.statusFilter === 'Pendente' ? 'pending' : a.statusFilter === 'Rejeitada' ? 'rejected' : undefined;
     const params = {
-      store_id: a.storeFilter ? Number(a.storeFilter) : undefined,
+      store_id: hasSuperAdminRole && a.storeFilter ? Number(a.storeFilter) : undefined,
       status: statusApi,
       tipo: a.tipoFilter === 'NF-e' ? 'nfe' as const : a.tipoFilter === 'NFC-e' ? 'nfce' as const : undefined,
       date_from: a.dateFromFilter || undefined,
@@ -172,7 +175,7 @@ export const InvoiceList: React.FC = () => {
         });
       })
       .catch(() => {});
-  }, [appliedFilters]);
+  }, [appliedFilters, hasSuperAdminRole]);
 
   useEffect(() => {
     fetchList();
@@ -290,8 +293,21 @@ export const InvoiceList: React.FC = () => {
   };
 
   const [exportXmlLoading, setExportXmlLoading] = useState(false);
-  const handleExportXmlZip = async () => {
-    // Usar os mesmos filtros que estão na tela (período, loja, status, tipo, busca) - aplicados ou em edição
+  const [exportMenuOpen, setExportMenuOpen] = useState(false);
+  const exportMenuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (exportMenuRef.current && !exportMenuRef.current.contains(e.target as Node)) {
+        setExportMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const handleExportXmlZip = async (format: 'zip' | 'rar') => {
+    setExportMenuOpen(false);
     const filters = {
       searchTerm,
       statusFilter,
@@ -303,25 +319,38 @@ export const InvoiceList: React.FC = () => {
     const statusApi = filters.statusFilter === 'Autorizada' ? 'authorized' : filters.statusFilter === 'Cancelada' ? 'cancelled' : filters.statusFilter === 'Pendente' ? 'pending' : filters.statusFilter === 'Rejeitada' ? 'rejected' : undefined;
     setExportXmlLoading(true);
     try {
-      const blob = await invoicesService.downloadXmlZip({
+      const { blob, filename } = await invoicesService.downloadXmlZip({
         search: filters.searchTerm || undefined,
         status: statusApi,
         tipo: filters.tipoFilter === 'NF-e' ? 'nfe' : filters.tipoFilter === 'NFC-e' ? 'nfce' : undefined,
-        store_id: filters.storeFilter || undefined,
+        store_id: hasSuperAdminRole ? (filters.storeFilter || undefined) : undefined,
         date_from: filters.dateFromFilter || undefined,
         date_to: filters.dateToFilter || undefined,
         order_by: sortBy || 'created_at',
         order_dir: sortDirection,
+        format,
       });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `NF-e-xml-${new Date().toISOString().slice(0, 10)}.zip`;
+      a.download = filename;
       a.click();
       URL.revokeObjectURL(url);
-      showSuccess('Exportar XML', 'ZIP com os XMLs baixado.');
+      showSuccess('Exportar XML', `${format === 'rar' ? 'RAR' : 'ZIP'} com os XMLs baixado.`);
     } catch (e: any) {
-      showError('Erro ao exportar XML', e.message || 'Nenhuma NF-e autorizada com XML disponível para os filtros.');
+      let msg = e?.message || 'Nenhuma NF-e autorizada com XML disponível para os filtros.';
+      if (e?.response?.data instanceof Blob) {
+        try {
+          const text = await e.response.data.text();
+          const j = JSON.parse(text);
+          msg = j?.data?.errors?.message ?? j?.data?.message ?? msg;
+        } catch {
+          // mantém msg padrão
+        }
+      } else if (e?.response?.data?.data?.errors?.message) {
+        msg = e.response.data.data.errors.message;
+      }
+      showError('Erro ao exportar XML', msg);
     } finally {
       setExportXmlLoading(false);
     }
@@ -340,17 +369,40 @@ export const InvoiceList: React.FC = () => {
             <p className="text-gray-500 font-medium mt-1">Fiscal • Emissão • Controle</p>
           </div>
         </div>
-        <div className="flex gap-3">
+        <div className="relative" ref={exportMenuRef}>
           <Button
             variant="outline"
             className="border-slate-200 text-slate-600 bg-white"
-            onClick={handleExportXmlZip}
+            onClick={() => setExportMenuOpen((open) => !open)}
             disabled={exportXmlLoading}
-            title="Exporta as NF-e autorizadas conforme os filtros da tela (período, loja, status, tipo, busca)"
+            title={hasSuperAdminRole ? 'Exporta as NF-e autorizadas conforme os filtros (geral ou por loja). Loja: apenas da própria unidade.' : 'Exporta as NF-e autorizadas da sua loja conforme período, status e tipo.'}
           >
             {exportXmlLoading ? <Loader2 size={18} className="animate-spin" /> : <Download size={18} />}
             {exportXmlLoading ? 'Exportando...' : 'Exportar XML'}
+            <ChevronDown size={16} className={`ml-1 transition-transform ${exportMenuOpen ? 'rotate-180' : ''}`} />
           </Button>
+          {exportMenuOpen && (
+            <div className="absolute right-0 top-full z-50 mt-1 min-w-[180px] rounded-xl border border-slate-200 bg-white py-1 shadow-lg">
+              <button
+                type="button"
+                className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm font-medium text-slate-700 hover:bg-slate-50"
+                onClick={() => handleExportXmlZip('zip')}
+                disabled={exportXmlLoading}
+              >
+                <Download size={16} className="text-slate-500" />
+                Exportar como ZIP
+              </button>
+              <button
+                type="button"
+                className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm font-medium text-slate-700 hover:bg-slate-50"
+                onClick={() => handleExportXmlZip('rar')}
+                disabled={exportXmlLoading}
+              >
+                <Download size={16} className="text-slate-500" />
+                Exportar como RAR
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
@@ -440,19 +492,21 @@ export const InvoiceList: React.FC = () => {
             ]}
             placeholder="Todos"
           />
-          <SingleSelect
-            label="Unidade"
-            value={storeFilter}
-            onChange={(val) => setStoreFilter(val)}
-            options={[
-              { value: '', label: 'Todas' },
-              ...safeStoresPlucks.map((store: any) => ({ 
-                value: String(store.id), 
-                label: store.name 
-              })),
-            ]}
-            placeholder="Todas"
-          />
+          {hasSuperAdminRole && (
+            <SingleSelect
+              label="Unidade"
+              value={storeFilter}
+              onChange={(val) => setStoreFilter(val)}
+              options={[
+                { value: '', label: 'Todas' },
+                ...safeStoresPlucks.map((store: any) => ({ 
+                  value: String(store.id), 
+                  label: store.name 
+                })),
+              ]}
+              placeholder="Todas"
+            />
+          )}
           <Input 
             label="Data Início" 
             type="date"

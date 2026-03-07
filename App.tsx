@@ -168,6 +168,7 @@ const StoreSelectorWrapper: React.FC<{ onLogout: () => void }> = ({ onLogout }) 
     <Layout onLogout={onLogout}>
       <PWAUpdatePrompt />
       <Routes>
+        <Route path="/login" element={<Navigate to="/" replace />} />
         <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
         <Route path="/pdv" element={<ProtectedRoute><POS /></ProtectedRoute>} />
         <Route path="/stores" element={<ProtectedRoute><StoreList /></ProtectedRoute>} />
