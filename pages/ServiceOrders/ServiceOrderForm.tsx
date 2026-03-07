@@ -4,6 +4,7 @@ import { Card, Button, Input, NumberInput, SingleSelect, MultiSelect } from '../
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { useServiceOrders } from '../../services/hooks/useServiceOrders';
 import { useClients } from '../../services/hooks/useClients';
+import type { Client } from '../../services/api/clients';
 import { useLaboratories } from '../../services/hooks/useLaboratories';
 import { useLaboratoryLenses } from '../../services/hooks/useLaboratoryLenses';
 import { useFrames } from '../../services/hooks/useFrames';
@@ -13,6 +14,7 @@ import { useNotification } from '../../hooks/useNotification';
 import { useStore } from '../../contexts/StoreContext';
 import { useAuth } from '../../services/hooks/useAuth';
 import { usePermission } from '../../services/hooks/usePermission';
+import { userHasAccessToStore } from '../../utils/storeAccess';
 import { serviceOrderSchema, formatZodErrors } from '../../schemas/serviceOrder.schema';
 import { ReceiptModal } from '../../components/ReceiptModal';
 import { ReceiptData } from '../../components/ThermalReceipt';
@@ -185,12 +187,14 @@ export const ServiceOrderForm: React.FC = () => {
   const [saving, setSaving] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [clientSearch, setClientSearch] = useState('');
+  /** Cliente carregado quando vem da URL (?client_id=) para exibir no select */
+  const [preselectedClientData, setPreselectedClientData] = useState<Client | null>(null);
   
   // Pegar client_id da URL se vier da página de clientes
   const preselectedClientId = searchParams.get('client_id') || '';
   
   const { getServiceOrder, createServiceOrder, updateServiceOrder } = useServiceOrders({ autoFetch: false });
-  const { clients, fetchClients } = useClients({ autoFetch: false });
+  const { clients, fetchClients, getClient } = useClients({ autoFetch: false });
   const { laboratories, fetchLaboratories, loading: loadingLaboratories } = useLaboratories({ autoFetch: false });
   const { laboratoryLenses, fetchLaboratoryLenses, loading: loadingLabLenses } = useLaboratoryLenses({ autoFetch: false });
   const { frames, fetchFrames, loading: loadingFrames } = useFrames({ autoFetch: false });
@@ -318,6 +322,23 @@ export const ServiceOrderForm: React.FC = () => {
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [clientSearch]);
+
+  // Carregar cliente preselecionado da URL 
+  useEffect(() => {
+    if (!preselectedClientId || !isCreateMode) {
+      setPreselectedClientData(null);
+      return;
+    }
+    let cancelled = false;
+    getClient(preselectedClientId)
+      .then((client) => {
+        if (!cancelled && client) setPreselectedClientData(client);
+      })
+      .catch(() => {
+        if (!cancelled) setPreselectedClientData(null);
+      });
+    return () => { cancelled = true; };
+  }, [preselectedClientId, isCreateMode, getClient]);
 
   // Função para converter objeto com índices numéricos para array
   const toArray = (data: any): any[] => {
@@ -787,7 +808,7 @@ export const ServiceOrderForm: React.FC = () => {
   };
 
   const clientsList = Array.isArray(clients) ? clients : [];
-  // Incluir cliente da OS nas opções quando carregado (para visualização/edição mostrar o nome)
+  // Incluir cliente da OS nas opções quando carregado (edição/visualização) ou cliente preselecionado da URL (Nova OS a partir do cliente)
   const clientSelectOptions = useMemo(() => {
     const opts = clientsList.map((c) => ({ value: String(c.id), label: c.name }));
     if (formData.client_id && loadedOrder?.client && !opts.some((o) => o.value === formData.client_id)) {
@@ -796,8 +817,14 @@ export const ServiceOrderForm: React.FC = () => {
         label: loadedOrder.client.name || `Cliente #${loadedOrder.client.id}`,
       });
     }
+    if (formData.client_id && preselectedClientData && String(preselectedClientData.id) === formData.client_id && !opts.some((o) => o.value === formData.client_id)) {
+      opts.push({
+        value: String(preselectedClientData.id),
+        label: preselectedClientData.name || `Cliente #${preselectedClientData.id}`,
+      });
+    }
     return opts;
-  }, [clientsList, formData.client_id, loadedOrder?.client]);
+  }, [clientsList, formData.client_id, loadedOrder?.client, preselectedClientData]);
   const laboratoriesList = Array.isArray(laboratories) ? laboratories : [];
   const laboratoryLensesList = Array.isArray(laboratoryLenses) ? laboratoryLenses : [];
   const framesList = Array.isArray(frames) ? frames : [];
@@ -1155,7 +1182,7 @@ export const ServiceOrderForm: React.FC = () => {
             </div>
           </div>
 
-          {/* Armações e Lentes (MultiSelect) */}
+          {/* Armações (Lentes oculto no front por enquanto — opcional na OS) */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
             <MultiSelect
               label="Armações"
@@ -1166,18 +1193,6 @@ export const ServiceOrderForm: React.FC = () => {
                 label: `${frame.code} - ${frame.description}` 
               }))}
               placeholder="Buscar armações..."
-              searchable
-              disabled={isViewMode}
-            />
-            <MultiSelect
-              label="Lentes"
-              value={formData.lenses}
-              onChange={(vals) => handleFieldChange('lenses', vals)}
-              options={lensesList.map((lens) => ({ 
-                value: String(lens.id), 
-                label: lens.name 
-              }))}
-              placeholder="Buscar lentes..."
               searchable
               disabled={isViewMode}
             />
@@ -1702,6 +1717,7 @@ export const ServiceOrderForm: React.FC = () => {
           order={formData.client_id ? { id: 0, client_id: parseInt(formData.client_id), client: null } as any : null}
           loading={saving}
           onGenerateInvoice={handleGenerateInvoice}
+          canGenerateInvoice={userHasAccessToStore(formData.store_id, user)}
         />
       )}
 
