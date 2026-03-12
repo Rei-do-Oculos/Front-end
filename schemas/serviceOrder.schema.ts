@@ -20,9 +20,9 @@ export const serviceOrderSchema = z.object({
     .refine(
       (val) => {
         const num = parseFloat(String(val).replace(',', '.').replace(/[^\d.]/g, ''));
-        return !isNaN(num) && num >= 0;
+        return !isNaN(num) && num > 0;
       },
-      'Preço deve ser maior ou igual a zero'
+      'Preço é obrigatório e deve ser maior que zero'
     ),
 
   // Laboratório (opcional)
@@ -164,14 +164,15 @@ export const serviceOrderSchema = z.object({
 
 export type ServiceOrderFormData = z.infer<typeof serviceOrderSchema>;
 
-// Função helper para formatar erros do Zod
+// Função helper para formatar erros do Zod (Zod 4 usa .issues, não .errors)
 export function formatZodErrors(error: z.ZodError): Record<string, string> {
   const errors: Record<string, string> = {};
-  error.errors.forEach((err) => {
-    const path = err.path.join('.');
-    if (!errors[path]) {
+  const issues = (error?.issues ?? []) as Array<{ path: (string | number)[]; message: string }>;
+  for (const err of issues) {
+    const path = (err.path ?? []).join('.');
+    if (path && !errors[path]) {
       errors[path] = err.message;
     }
-  });
+  }
   return errors;
 }
