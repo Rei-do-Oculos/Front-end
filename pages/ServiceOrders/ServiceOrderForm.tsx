@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Save, ArrowLeft, FileText, Loader2, Search, Edit, Plus, Trash2 } from 'lucide-react';
 import { Card, Button, Input, NumberInput, SingleSelect, MultiSelect } from '../../components/Common';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
@@ -186,6 +186,8 @@ export const ServiceOrderForm: React.FC = () => {
   const [loading, setLoading] = useState(!!id); // Loading se tiver id (view ou edit)
   const [saving, setSaving] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const errorBannerRef = useRef<HTMLDivElement>(null);
+
   const [clientSearch, setClientSearch] = useState('');
   /** Cliente carregado quando vem da URL (?client_id=) para exibir no select */
   const [preselectedClientData, setPreselectedClientData] = useState<Client | null>(null);
@@ -220,6 +222,13 @@ export const ServiceOrderForm: React.FC = () => {
   
   // Loading geral inclui dados auxiliares
   const auxiliaryDataLoading = loadingLaboratories || loadingLabLenses || loadingFrames || loadingLenses;
+
+  // Rolar até o banner de erro quando houver validação
+  useEffect(() => {
+    if (errors.form) {
+      errorBannerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }, [errors.form]);
 
   // Determinar loja padrão
   const defaultStoreId = useMemo(() => {
@@ -686,17 +695,57 @@ export const ServiceOrderForm: React.FC = () => {
     return { pdfBase64: inv.pdf_base64 ?? undefined, invoice: inv };
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const validateAndSubmit = async () => {
     setErrors({});
 
     // Validação com Zod
     const result = serviceOrderSchema.safeParse(formData);
     if (!result.success) {
-      const zodErrors = formatZodErrors(result.error);
-      setErrors(zodErrors);
-      const firstError = result.error.issues[0]?.message || 'Verifique os campos obrigatórios';
-      showError(firstError);
+      try {
+        const zodErrors = formatZodErrors(result.error);
+        const firstError = result.error?.issues?.[0]?.message || 'Verifique os campos obrigatórios';
+        setErrors({ ...zodErrors, form: firstError });
+        showError('Campos obrigatórios', firstError);
+      } catch (err) {
+        const msg = result.error?.issues?.[0]?.message || 'Verifique os campos obrigatórios';
+        setErrors({ form: msg });
+        showError('Campos obrigatórios', msg);
+      }
+      return;
+    }
+
+    // Validações customizadas da OS
+    const hasFrames = formData.frames.length > 0;
+    const hasLab = !!formData.laboratory_id;
+    const hasLabProducts = formData.laboratory_lenses.length > 0;
+    const priceNum = formData.price ? parseFloat(parseCurrency(formData.price)) : 0;
+    const hasPaymentSingle = !formData.use_partial_payments && !!formData.payment_method;
+    const hasPaymentPartial = formData.use_partial_payments && formData.partial_payments.some(
+      p => p.payment_method && p.amount && parseFloat(parseCurrency(p.amount)) > 0
+    );
+    const partialSumValid = formData.use_partial_payments && formData.partial_payments.length > 0
+      ? Math.abs(formData.partial_payments.reduce((s, p) => s + (p.amount ? parseFloat(parseCurrency(p.amount)) : 0), 0) - priceNum) < 0.01
+      : false;
+
+    const customErrors: Record<string, string> = {};
+    if (hasLab && !hasLabProducts) {
+      customErrors.laboratory_lenses = 'Se laboratório selecionado, informe ao menos um produto de laboratório.';
+    } else if (!hasFrames && !(hasLab && hasLabProducts)) {
+      customErrors.frames = 'Selecione ao menos uma armação OU um laboratório com produto de laboratório.';
+    }
+    if (priceNum <= 0) {
+      customErrors.price = 'Preço é obrigatório.';
+    }
+    if (!hasFrames && hasLab && hasLabProducts && !formData.rim_use) {
+      customErrors.rim_use = 'Quando não há armação mas há laboratório e lente, o aro de uso é obrigatório.';
+    }
+    if (!hasPaymentSingle && !(formData.use_partial_payments && hasPaymentPartial && partialSumValid)) {
+      customErrors.payment_method = 'Forma de pagamento é obrigatória.';
+    }
+    if (Object.keys(customErrors).length > 0) {
+      const firstMsg = Object.values(customErrors)[0] || 'Verifique os campos obrigatórios.';
+      setErrors({ ...customErrors, form: firstMsg });
+      showError('Campos obrigatórios', firstMsg);
       return;
     }
 
@@ -800,6 +849,11 @@ export const ServiceOrderForm: React.FC = () => {
     }
   };
 
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    await validateAndSubmit();
+  };
+
   const handleFieldChange = (field: string, value: any) => {
     setFormData({ ...formData, [field]: value });
     if (errors[field]) {
@@ -834,6 +888,9 @@ export const ServiceOrderForm: React.FC = () => {
   const filteredLaboratoryLenses = formData.laboratory_id 
     ? laboratoryLensesList.filter(l => String(l.laboratory_id) === formData.laboratory_id)
     : laboratoryLensesList;
+
+  // Aro de uso é obrigatório quando: sem armação + tem laboratório + tem produto de laboratório
+  const rimUseRequired = !formData.frames?.length && !!formData.laboratory_id && formData.laboratory_lenses?.length > 0;
 
   // Mostrar loading enquanto carrega OS ou dados auxiliares (no modo view/edit)
   if (loading || (id && auxiliaryDataLoading)) {
@@ -883,7 +940,7 @@ export const ServiceOrderForm: React.FC = () => {
         </div>
       </div>
 
-      <form onSubmit={handleSubmit}>
+      <form onSubmit={handleSubmit} noValidate>
         {isEditMode && loadedOrder?.status === 'completed' && !hasSuperAdminRole && (
           <div className="mb-6 p-6 rounded-xl border-2 border-amber-400 bg-amber-50">
             <div className="flex items-start gap-4">
@@ -905,8 +962,9 @@ export const ServiceOrderForm: React.FC = () => {
         <fieldset disabled={isViewMode || isOtherStoreOrder || (isEditMode && loadedOrder?.status === 'completed' && !hasSuperAdminRole)} className={isViewMode ? '' : 'disabled:opacity-70'}>
         <Card className="p-8">
           {errors.form && (
-            <div className="mb-6 border rounded-xl p-4" style={{ backgroundColor: 'var(--store-color-light)', borderColor: 'var(--store-color-opacity-20)' }}>
-              <p className="text-sm font-bold" style={{ color: 'var(--store-color)' }}>{errors.form}</p>
+            <div ref={errorBannerRef} className="mb-6 border-2 border-red-300 rounded-xl p-4 bg-red-50 shadow-sm" role="alert">
+              <p className="text-sm font-bold text-red-700">{errors.form}</p>
+              <p className="text-xs text-red-600 mt-1">Corrija os campos abaixo e tente novamente.</p>
             </div>
           )}
 
@@ -1182,7 +1240,7 @@ export const ServiceOrderForm: React.FC = () => {
             </div>
           </div>
 
-          {/* Armações (Lentes oculto no front por enquanto — opcional na OS) */}
+          {/* Armações (ou laboratório com produtos) */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
             <MultiSelect
               label="Armações"
@@ -1195,7 +1253,9 @@ export const ServiceOrderForm: React.FC = () => {
               placeholder="Buscar armações..."
               searchable
               disabled={isViewMode}
+              error={errors.frames}
             />
+            <p className="text-xs text-slate-500 mt-1">Ou selecione laboratório com produtos abaixo.</p>
           </div>
 
           {/* Laboratório - sempre visível para teste */}
@@ -1291,6 +1351,7 @@ export const ServiceOrderForm: React.FC = () => {
                   label="Produtos do Laboratório"
                   value={formData.laboratory_lenses}
                   onChange={(vals) => handleFieldChange('laboratory_lenses', vals)}
+                  error={errors.laboratory_lenses}
                   options={(() => {
                     const snapshotLabels: Record<string, string> = {};
                     if (orderLaboratoryLensesSnapshot?.length) {
@@ -1335,7 +1396,7 @@ export const ServiceOrderForm: React.FC = () => {
               <div className="flex flex-wrap items-end gap-6">
                 <div className="w-48">
                   <label className="block text-[10px] font-semibold text-slate-500 uppercase tracking-widest mb-2">
-                    Preço
+                    Preço <span className="text-red-500">*</span>
                   </label>
                   <div className="relative">
                     <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm font-bold text-slate-400">
@@ -1400,7 +1461,12 @@ export const ServiceOrderForm: React.FC = () => {
                       className="w-11 h-6 bg-slate-200 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[var(--store-color)]"
                     />
                   </div>
-                  <span className="text-sm font-medium text-slate-600">Aro de uso</span>
+                  <span className="text-sm font-medium text-slate-600">
+                    Aro de uso
+                    {!formData.frames?.length && formData.laboratory_id && formData.laboratory_lenses?.length > 0 && (
+                      <span className="text-red-500 ml-0.5">*</span>
+                    )}
+                  </span>
                 </label>
                 <label className="inline-flex items-center gap-2 cursor-pointer select-none pb-3">
                   <div className="relative">
@@ -1423,7 +1489,7 @@ export const ServiceOrderForm: React.FC = () => {
                 <div className="flex flex-wrap items-end gap-6">
                   <div className="w-48">
                     <SingleSelect
-                      label="Forma de Pagamento"
+                      label="Forma de Pagamento *"
                       value={formData.payment_method}
                       onChange={(val) => {
                         setFormData(prev => ({
@@ -1437,6 +1503,7 @@ export const ServiceOrderForm: React.FC = () => {
                       }}
                       options={paymentOptions}
                       placeholder="Selecione..."
+                      error={errors.payment_method}
                       disabled={isViewMode || isOtherStoreOrder || (loadedOrder?.status === 'completed' && !hasSuperAdminRole)}
                     />
                   </div>
@@ -1662,9 +1729,9 @@ export const ServiceOrderForm: React.FC = () => {
             />
           </div>
 
-          {/* Botões - apenas para criar/editar (no modo view ficam no cabeçalho) */}
+          {/* Botões dentro do card */}
           {!isViewMode && (
-            <div className="flex gap-4 pt-4 border-t border-slate-100">
+            <div className="flex gap-4 pt-6 mt-6 border-t border-slate-100">
               <Button
                 type="button"
                 variant="outline"
@@ -1674,7 +1741,13 @@ export const ServiceOrderForm: React.FC = () => {
                 <ArrowLeft size={18} /> Voltar
               </Button>
               {!(isEditMode && loadedOrder?.status === 'completed' && !hasSuperAdminRole) && (
-                <Button type="submit" disabled={saving}>
+                <Button
+                  type="button"
+                  disabled={saving}
+                  onClick={() => {
+                    void validateAndSubmit();
+                  }}
+                >
                   {saving ? (
                     <>
                       <Loader2 size={18} className="animate-spin" /> Salvando...

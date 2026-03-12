@@ -61,7 +61,7 @@ export const ClientForm: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // Validações (conforme backend: name, phone, document obrigatórios)
+    // Validações (conforme backend: nome e telefone obrigatórios; CPF/CNPJ opcional)
     if (!formData.name.trim()) {
       showError('Validação', 'O nome é obrigatório');
       return;
@@ -70,15 +70,16 @@ export const ClientForm: React.FC = () => {
       showError('Validação', 'O telefone é obrigatório');
       return;
     }
-    if (!formData.document || !formData.document.replace(/\D/g, '').trim()) {
-      showError('Validação', 'O CPF/CNPJ é obrigatório');
-      return;
-    }
 
     try {
       if (isEditMode && id) {
         await updateClient(id, formData);
         showSuccess('Cliente atualizado!', 'O cliente foi atualizado com sucesso.');
+
+        // Após atualizar, permanecer no fluxo atual: voltar para a lista
+        setTimeout(() => {
+          navigate('/clients');
+        }, 1000);
       } else {
         // Sempre incluir a loja logada ao criar o cliente
         // Se não houver loja selecionada, usar a primeira disponível
@@ -94,14 +95,14 @@ export const ClientForm: React.FC = () => {
           email: formData.email && formData.email.trim() ? formData.email.trim() : null,
           stores: [storeId],
         };
-        await createClient(createData);
+        const created = await createClient(createData);
         showSuccess('Cliente criado!', 'O cliente foi criado com sucesso.');
-      }
 
-      // Redirecionar após um pequeno delay para mostrar a notificação
-      setTimeout(() => {
-        navigate('/clients');
-      }, 1000);
+        // Após criar, ir para a aba de visualização (histórico) do cliente recém-criado
+        setTimeout(() => {
+          navigate(`/clients/${created.id}`);
+        }, 1000);
+      }
     } catch (err: any) {
       console.error('Erro ao salvar cliente:', err);
       const errorMessage = err.response?.data?.data?.errors 
@@ -246,14 +247,13 @@ export const ClientForm: React.FC = () => {
               maxLength={15}
             />
             <Input 
-              label="CPF/CNPJ *" 
+              label="CPF/CNPJ" 
               placeholder="000.000.000-00" 
               value={formData.document}
               onChange={(e) => {
                 const formatted = formatDocument(e.target.value);
                 setFormData({ ...formData, document: formatted });
               }}
-              required
               maxLength={14}
             />
             <Input 

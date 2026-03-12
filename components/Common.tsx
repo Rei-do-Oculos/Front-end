@@ -498,7 +498,8 @@ export const MultiSelect: React.FC<{
   searchable?: boolean;
   disabled?: boolean;
   disabledMessage?: string;
-}> = ({ label, options, value = [], onChange, placeholder = "Selecione...", searchable = true, disabled = false, disabledMessage }) => {
+  error?: string;
+}> = ({ label, options, value = [], onChange, placeholder = "Selecione...", searchable = true, disabled = false, disabledMessage, error }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [search, setSearch] = useState('');
   const [position, setPosition] = useState({ top: 0, left: 0, width: 0 });
@@ -610,16 +611,29 @@ export const MultiSelect: React.FC<{
     </>
   ) : null;
 
+  const renderLabel = () => {
+    if (!label) return null;
+    if (label.includes('*')) {
+      const [before, after] = label.split('*');
+      return (
+        <label className="text-[10px] lg:text-[11px] font-bold text-slate-500 uppercase tracking-[0.15em] ml-1">
+          {before}<span className="text-red-500">*</span>{after}
+        </label>
+      );
+    }
+    return <label className="text-[10px] lg:text-[11px] font-bold text-slate-500 uppercase tracking-[0.15em] ml-1">{label}</label>;
+  };
+
   return (
     <div className="space-y-1.5 lg:space-y-2 w-full relative">
-      {label && <label className="text-[10px] lg:text-[11px] font-bold text-slate-500 uppercase tracking-[0.15em] ml-1">{label}</label>}
+      {label && renderLabel()}
       <div className="relative">
         <div
           ref={buttonRef}
           onClick={() => !disabled && !isOpen && setIsOpen(true)}
-          className={`w-full px-4 py-3 lg:px-5 lg:py-3.5 ${styles.input.default} bg-gray-50 border-2 border-slate-200 text-sm font-medium transition-all outline-none text-left flex items-center justify-between min-h-[48px] ${disabled ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'} ${isOpen ? 'bg-white ring-2' : ''}`}
+          className={`w-full px-4 py-3 lg:px-5 lg:py-3.5 ${styles.input.default} bg-gray-50 border-2 text-sm font-medium transition-all outline-none text-left flex items-center justify-between min-h-[48px] ${disabled ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'} ${isOpen ? 'bg-white ring-2' : ''} ${error ? 'border-red-500' : 'border-slate-200'}`}
           style={{
-            borderColor: isOpen ? 'var(--store-color)' : undefined,
+            borderColor: error ? '#ef4444' : (isOpen ? 'var(--store-color)' : undefined),
             '--tw-ring-color': 'var(--store-color-opacity-20)',
           } as React.CSSProperties}
         >
@@ -711,6 +725,7 @@ export const MultiSelect: React.FC<{
         
         {typeof document !== 'undefined' && createPortal(dropdownContent, document.body)}
       </div>
+      {error && <p className="text-xs text-red-500 font-medium mt-1">{error}</p>}
     </div>
   );
 };
@@ -831,9 +846,22 @@ export const SingleSelect: React.FC<{
     </>
   ) : null;
 
+  const renderLabel = () => {
+    if (!label) return null;
+    if (label.includes('*')) {
+      const [before, after] = label.split('*');
+      return (
+        <label className="text-[10px] lg:text-[11px] font-bold text-slate-500 uppercase tracking-[0.15em] ml-1">
+          {before}<span className="text-red-500">*</span>{after}
+        </label>
+      );
+    }
+    return <label className="text-[10px] lg:text-[11px] font-bold text-slate-500 uppercase tracking-[0.15em] ml-1">{label}</label>;
+  };
+
   return (
     <div className="space-y-1.5 lg:space-y-2 w-full relative">
-      {label && <label className="text-[10px] lg:text-[11px] font-bold text-slate-500 uppercase tracking-[0.15em] ml-1">{label}</label>}
+      {label && renderLabel()}
       <div className="relative">
         <div
           ref={buttonRef}
