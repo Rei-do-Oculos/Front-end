@@ -491,7 +491,7 @@ export const Badge: React.FC<{ children: React.ReactNode; variant?: 'primary' | 
 
 export const MultiSelect: React.FC<{
   label?: string;
-  options: { label: string; value: string }[];
+  options: { label: string; value: string; selectedLabel?: string }[];
   value: string[];
   onChange: (values: string[]) => void;
   placeholder?: string;
@@ -653,7 +653,7 @@ export const MultiSelect: React.FC<{
                         color: 'var(--store-color-dark)',
                       }}
                     >
-                      {option.label}
+                      {option.selectedLabel ?? option.label}
                       <button
                         type="button"
                         onClick={(e) => {
@@ -692,7 +692,7 @@ export const MultiSelect: React.FC<{
                       color: 'var(--store-color-dark)',
                     }}
                   >
-                    {option.label}
+                    {option.selectedLabel ?? option.label}
                     {!disabled && (
                       <button
                         type="button"

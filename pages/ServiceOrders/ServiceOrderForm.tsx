@@ -107,9 +107,25 @@ const formatDegree = (value: string): string => {
   return formatDegreeWithLimits(value, -30, 30);
 };
 
-// Função para formatar cilíndrico no blur: -10 a +10, 2 casas decimais
+// Função para formatar cilíndrico no blur: sempre negativo, limite -10 a 0, 2 casas decimais
 const formatCylindrical = (value: string): string => {
-  return formatDegreeWithLimits(value, -10, 10);
+  if (!value) return '';
+
+  let cleaned = filterDegreeInput(value);
+  cleaned = cleaned.replace(/[+-]/g, '').replace(',', '.');
+
+  let num = parseFloat(cleaned);
+  if (isNaN(num)) return '';
+
+  // Cilíndrico deve ficar sempre em notação negativa.
+  num = -Math.abs(num);
+
+  // Limitar para a faixa válida
+  if (num < -10) num = -10;
+  if (num > 0) num = 0;
+
+  if (num === 0) return '-0,00';
+  return num.toFixed(2).replace('.', ',');
 };
 
 // Função para filtrar eixo: apenas números
@@ -245,6 +261,7 @@ export const ServiceOrderForm: React.FC = () => {
     client_id: preselectedClientId,
     store_id: defaultStoreId,
     user_id: user?.id ? String(user.id) : '',
+    laboratory_ids: [] as string[],
     laboratory_id: '',
     expected_pickup_date: '',
     // Longe - OD
@@ -409,6 +426,7 @@ export const ServiceOrderForm: React.FC = () => {
               client_id: String(order.client_id) || '',
               store_id: String(order.store_id) || '',
               user_id: String(order.user_id) || '',
+              laboratory_ids: order.laboratory_id ? [String(order.laboratory_id)] : [],
               laboratory_id: order.laboratory_id ? String(order.laboratory_id) : '',
               expected_pickup_date: order.expected_pickup_date ? order.expected_pickup_date.slice(0, 10) : '',
               // Longe - OD
@@ -584,18 +602,58 @@ export const ServiceOrderForm: React.FC = () => {
     
     const storeData = storesList.find(s => String(s.id) === formData.store_id);
     const clientData = clientsList.find(c => String(c.id) === formData.client_id);
-    const labData = laboratoriesList.find(l => String(l.id) === formData.laboratory_id);
-    
     const totalPrice = formData.price ? parseFloat(parseCurrency(formData.price)) : 0;
     
-    // Montar lista de itens (armações selecionadas)
-    const selectedFrames = formData.frames.map(frameId => 
+    // Montar lista de itens do comprovante: produtos de laboratório + armações
+    const selectedLabProducts = formData.laboratory_lenses.map((lensId) => {
+      const lens = laboratoryLensesList.find(l => String(l.id) === String(lensId));
+      return {
+        id: lens?.id ?? Number(lensId),
+        name: lens?.name || `Produto #${lensId}`,
+        laboratory_id: lens?.laboratory_id ?? 0,
+      };
+    });
+    const selectedFrames = formData.frames.map(frameId =>
       framesList.find(f => String(f.id) === frameId)
     ).filter(Boolean);
-    
-    const items = selectedFrames.length > 0 
-      ? selectedFrames.map(f => f?.description || `Armação ${f?.code}`)
-      : ['Serviço Óptico'];
+
+    const labProductsMap = selectedLabProducts.reduce<Record<string, { description: string; quantity: number }>>((acc, product) => {
+      const key = String(product.name || 'Produto');
+      if (!acc[key]) {
+        acc[key] = { description: key, quantity: 0 };
+      }
+      acc[key].quantity += 1;
+      return acc;
+    }, {});
+    const frameItemsMap = selectedFrames.reduce<Record<string, { description: string; quantity: number }>>((acc, frame) => {
+      const description = frame?.description || `Armação ${frame?.code}`;
+      if (!acc[description]) {
+        acc[description] = { description, quantity: 0 };
+      }
+      acc[description].quantity += 1;
+      return acc;
+    }, {});
+
+    const combinedItemsMap: Record<string, { description: string; quantity: number }> = {
+      ...labProductsMap,
+    };
+    Object.values(frameItemsMap).forEach((item) => {
+      if (!combinedItemsMap[item.description]) {
+        combinedItemsMap[item.description] = { ...item };
+      } else {
+        combinedItemsMap[item.description].quantity += item.quantity;
+      }
+    });
+
+    const hasFrames = Object.keys(frameItemsMap).length > 0;
+    if (!hasFrames && formData.rim_use) {
+      combinedItemsMap['Aro de uso'] = { description: 'Aro de uso', quantity: 1 };
+    }
+
+    const combinedItems = Object.values(combinedItemsMap);
+    const items = combinedItems.length > 0
+      ? combinedItems
+      : [{ description: 'Serviço Óptico', quantity: 1 }];
     
     return {
       osNumber,
@@ -618,20 +676,12 @@ export const ServiceOrderForm: React.FC = () => {
     };
   };
 
-  // Callback quando confirma no modal de comprovante de entrada
-  const handleEntryReceiptConfirm = async (printed: boolean) => {
-    if (pendingPayload) {
-      setSaving(true);
-      const realOsNumber = await performSave(pendingPayload);
-      setSaving(false);
-      
-      if (realOsNumber) {
-        setShowEntryReceiptModal(false);
-        setPendingPayload(null);
-        setCreatedOsNumber(null);
-        navigate('/service-orders/lab');
-      }
-    }
+  // Callback quando confirma/fecha o modal de comprovante de entrada
+  const handleEntryReceiptConfirm = (_printed: boolean) => {
+    setShowEntryReceiptModal(false);
+    setPendingPayload(null);
+    setCreatedOsNumber(null);
+    navigate('/service-orders/lab');
   };
 
   // Função para executar o salvamento. Retorna ServiceOrder (create) ou null (update).
@@ -716,7 +766,7 @@ export const ServiceOrderForm: React.FC = () => {
 
     // Validações customizadas da OS
     const hasFrames = formData.frames.length > 0;
-    const hasLab = !!formData.laboratory_id;
+    const hasLab = formData.laboratory_ids.length > 0;
     const hasLabProducts = formData.laboratory_lenses.length > 0;
     const priceNum = formData.price ? parseFloat(parseCurrency(formData.price)) : 0;
     const hasPaymentSingle = !formData.use_partial_payments && !!formData.payment_method;
@@ -753,7 +803,9 @@ export const ServiceOrderForm: React.FC = () => {
       client_id: parseInt(formData.client_id),
       store_id: parseInt(formData.store_id),
       user_id: parseInt(formData.user_id),
-      laboratory_id: formData.send_to_lab && formData.laboratory_id ? parseInt(formData.laboratory_id) : null,
+      laboratory_id: formData.send_to_lab && formData.laboratory_ids.length > 0
+        ? parseInt(formData.laboratory_ids[0])
+        : null,
       expected_pickup_date: formData.expected_pickup_date || null,
       // Longe - OD
       far_od_spherical: parseNumericField(formData.far_od_spherical),
@@ -828,12 +880,24 @@ export const ServiceOrderForm: React.FC = () => {
       return;
     }
 
-    // No modo de criação (com laboratório), mostrar modal de comprovante de entrada antes de salvar
+    // No modo de criação (com laboratório), salvar primeiro para exibir o nº real da OS no comprovante
     if (isCreateMode && formData.send_to_lab) {
-      const provisionalOsNumber = Date.now() % 10000;
-      setCreatedOsNumber(provisionalOsNumber);
-      setPendingPayload(payload);
-      setShowEntryReceiptModal(true);
+      setSaving(true);
+      try {
+        const createdOrder = await performSave(payload);
+        const realOsNumber = createdOrder?.os_number ?? createdOrder?.id;
+        if (realOsNumber) {
+          setPendingPayload(null);
+          setCreatedOsNumber(realOsNumber);
+          setShowEntryReceiptModal(true);
+        } else {
+          navigate('/service-orders/lab');
+        }
+      } catch {
+        // Erro já tratado em performSave
+      } finally {
+        setSaving(false);
+      }
       return;
     }
 
@@ -885,12 +949,12 @@ export const ServiceOrderForm: React.FC = () => {
   const lensesList = Array.isArray(lenses) ? lenses : [];
 
   // Filtrar laboratoryLenses pelo laboratório selecionado
-  const filteredLaboratoryLenses = formData.laboratory_id 
-    ? laboratoryLensesList.filter(l => String(l.laboratory_id) === formData.laboratory_id)
+  const filteredLaboratoryLenses = formData.laboratory_ids.length > 0
+    ? laboratoryLensesList.filter(l => formData.laboratory_ids.includes(String(l.laboratory_id)))
     : laboratoryLensesList;
 
   // Aro de uso é obrigatório quando: sem armação + tem laboratório + tem produto de laboratório
-  const rimUseRequired = !formData.frames?.length && !!formData.laboratory_id && formData.laboratory_lenses?.length > 0;
+  const rimUseRequired = !formData.frames?.length && formData.laboratory_ids.length > 0 && formData.laboratory_lenses?.length > 0;
 
   // Mostrar loading enquanto carrega OS ou dados auxiliares (no modo view/edit)
   if (loading || (id && auxiliaryDataLoading)) {
@@ -1037,7 +1101,7 @@ export const ServiceOrderForm: React.FC = () => {
                   />
                   <NumberInput
                     label="Cilíndrico"
-                    placeholder="0,00"
+                    placeholder="-0,00"
                     value={formData.far_od_cylindrical}
                     onChange={(val) => handleFieldChange('far_od_cylindrical', val)}
                     onBlur={(val) => handleFieldChange('far_od_cylindrical', formatCylindrical(val))}
@@ -1073,7 +1137,7 @@ export const ServiceOrderForm: React.FC = () => {
                   />
                   <NumberInput
                     label="Cilíndrico"
-                    placeholder="0,00"
+                    placeholder="-0,00"
                     value={formData.far_oe_cylindrical}
                     onChange={(val) => handleFieldChange('far_oe_cylindrical', val)}
                     onBlur={(val) => handleFieldChange('far_oe_cylindrical', formatCylindrical(val))}
@@ -1116,7 +1180,7 @@ export const ServiceOrderForm: React.FC = () => {
                   />
                   <NumberInput
                     label="Cilíndrico"
-                    placeholder="0,00"
+                    placeholder="-0,00"
                     value={formData.near_od_cylindrical}
                     onChange={(val) => handleFieldChange('near_od_cylindrical', val)}
                     onBlur={(val) => handleFieldChange('near_od_cylindrical', formatCylindrical(val))}
@@ -1152,7 +1216,7 @@ export const ServiceOrderForm: React.FC = () => {
                   />
                   <NumberInput
                     label="Cilíndrico"
-                    placeholder="0,00"
+                    placeholder="-0,00"
                     value={formData.near_oe_cylindrical}
                     onChange={(val) => handleFieldChange('near_oe_cylindrical', val)}
                     onBlur={(val) => handleFieldChange('near_oe_cylindrical', formatCylindrical(val))}
@@ -1255,41 +1319,68 @@ export const ServiceOrderForm: React.FC = () => {
               disabled={isViewMode}
               error={errors.frames}
             />
-            <p className="text-xs text-slate-500 mt-1">Ou selecione laboratório com produtos abaixo.</p>
+            <div className="flex flex-col gap-2">
+              <label className="inline-flex items-center gap-2 cursor-pointer select-none mt-7">
+                <div className="relative">
+                  <input
+                    type="checkbox"
+                    checked={!!formData.rim_use}
+                    onChange={(e) => handleFieldChange('rim_use', e.target.checked ? '1' : '')}
+                    className="sr-only peer"
+                  />
+                  <div
+                    className="w-11 h-6 bg-slate-200 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[var(--store-color)]"
+                  />
+                </div>
+                <span className="text-sm font-medium text-slate-600">
+                  Aro de uso
+                  {rimUseRequired && <span className="text-red-500 ml-0.5">*</span>}
+                </span>
+              </label>
+            </div>
           </div>
 
           {/* Laboratório - sempre visível para teste */}
           <div className="mb-8">
-            <h3 className="text-lg font-bold text-slate-900 mb-4">Laboratório</h3>
+            <h3 className="text-lg font-bold text-slate-900 mb-4">Laboratórios</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
-                <SingleSelect
-                  label="Laboratório"
-                  value={formData.laboratory_id}
-                  onChange={(val) => {
+                <MultiSelect
+                  label="Laboratórios"
+                  value={formData.laboratory_ids}
+                  onChange={(vals) => {
                     setFormData(prev => ({
                       ...prev,
-                      laboratory_id: val,
-                      laboratory_lenses: [],
-                      expected_pickup_date: !val ? '' : prev.expected_pickup_date,
-                      send_to_lab: !!val, // Ativa envio para lab quando seleciona laboratório
+                      laboratory_ids: vals,
+                      // Mantém compatibilidade com backend atual (laboratório principal = primeiro selecionado)
+                      laboratory_id: vals.length > 0 ? vals[0] : '',
+                      laboratory_lenses: prev.laboratory_lenses.filter((lensId) =>
+                        laboratoryLensesList.some(
+                          lens => String(lens.id) === lensId && vals.includes(String(lens.laboratory_id))
+                        )
+                      ),
+                      expected_pickup_date: vals.length === 0 ? '' : prev.expected_pickup_date,
+                      send_to_lab: vals.length > 0,
                     }));
                   }}
                   options={laboratoriesList.map((lab) => ({ 
                     value: String(lab.id), 
                     label: lab.name 
                   }))}
-                  placeholder="Selecione o laboratório..."
+                  placeholder="Selecione os laboratórios..."
                   searchable
                   disabled={isViewMode}
                 />
-                {formData.laboratory_id && formData.laboratory_lenses.length > 0 && (() => {
+                {formData.laboratory_ids.length > 0 && formData.laboratory_lenses.length > 0 && (() => {
                   const selectedLenses = formData.laboratory_lenses
                     .map(lid => filteredLaboratoryLenses.find(l => String(l.id) === lid))
-                    .filter(Boolean) as { delivery_days?: number | null }[];
+                    .filter(Boolean) as { delivery_days?: number | string | null }[];
                   const maxDays = selectedLenses.reduce((max, l) => {
-                    const d = l?.delivery_days;
-                    return d != null && d > (max ?? -1) ? d : max;
+                    const rawDays = l?.delivery_days;
+                    const parsedDays = typeof rawDays === 'string' ? parseInt(rawDays, 10) : rawDays;
+                    const days = Number.isFinite(parsedDays) ? Number(parsedDays) : null;
+                    if (days == null || days < 0) return max;
+                    return days > (max ?? -1) ? days : max;
                   }, null as number | null);
                   
                   // Função para adicionar dias úteis
@@ -1353,31 +1444,50 @@ export const ServiceOrderForm: React.FC = () => {
                   onChange={(vals) => handleFieldChange('laboratory_lenses', vals)}
                   error={errors.laboratory_lenses}
                   options={(() => {
-                    const snapshotLabels: Record<string, string> = {};
+                    const laboratoryNamesById: Record<string, string> = {};
+                    laboratoriesList.forEach((lab) => {
+                      laboratoryNamesById[String(lab.id)] = lab.name;
+                    });
+
+                    const snapshotLabels: Record<string, { label: string; selectedLabel: string }> = {};
                     if (orderLaboratoryLensesSnapshot?.length) {
                       orderLaboratoryLensesSnapshot.forEach((lens) => {
+                        const lensWithLab = laboratoryLensesList.find(l => String(l.id) === String(lens.id));
+                        const labName = lensWithLab
+                          ? (laboratoryNamesById[String(lensWithLab.laboratory_id)] || lensWithLab.laboratory?.name || 'Laboratório')
+                          : 'Laboratório';
                         const costAtSale = lens.cost_price_at_sale ?? lens.cost_price;
-                        snapshotLabels[String(lens.id)] = `${lens.name} - R$ ${formatFromNumber(costAtSale)}${lens.promotion_applied ? ' • Promoção' : ''}`;
+                        const showLabInDropdown = formData.laboratory_ids.length > 1;
+                        snapshotLabels[String(lens.id)] = {
+                          label: showLabInDropdown ? `${lens.name} - ${labName}` : lens.name,
+                          selectedLabel: `${lens.name} (R$ ${formatFromNumber(costAtSale)}) - ${labName}`,
+                        };
                       });
                     }
                     if (isViewMode && orderLaboratoryLensesSnapshot && orderLaboratoryLensesSnapshot.length > 0) {
                       return orderLaboratoryLensesSnapshot.map((lens) => ({
                         value: String(lens.id),
-                        label: snapshotLabels[String(lens.id)] ?? `${lens.name} - R$ ${formatFromNumber(lens.cost_price_at_sale ?? lens.cost_price)}`,
+                        label: snapshotLabels[String(lens.id)]?.label ?? lens.name,
+                        selectedLabel: snapshotLabels[String(lens.id)]?.selectedLabel
+                          ?? `${lens.name} (R$ ${formatFromNumber(lens.cost_price_at_sale ?? lens.cost_price)})`,
                       }));
                     }
-                    return filteredLaboratoryLenses.map((lens) => ({
-                      value: String(lens.id),
-                      label: snapshotLabels[String(lens.id)] ?? `${lens.name} - R$ ${formatFromNumber(
-                        lens.promotion_active && lens.promotional_cost_price != null
-                          ? lens.promotional_cost_price
-                          : lens.cost_price
-                      )}${lens.promotion_active ? ' • Promoção' : ''}`,
-                    }));
+                    const showLabInDropdown = formData.laboratory_ids.length > 1;
+                    return filteredLaboratoryLenses.map((lens) => {
+                      const labName = laboratoryNamesById[String(lens.laboratory_id)] || lens.laboratory?.name || 'Laboratório';
+                      const valueToShow = lens.promotion_active && lens.promotional_cost_price != null
+                        ? lens.promotional_cost_price
+                        : lens.cost_price;
+                      return {
+                        value: String(lens.id),
+                        label: showLabInDropdown ? `${lens.name} - ${labName}` : lens.name,
+                        selectedLabel: `${lens.name} (R$ ${formatFromNumber(valueToShow)}) - ${labName}`,
+                      };
+                    });
                   })()}
                   placeholder="Selecione produtos..."
-                  disabled={isViewMode || !formData.laboratory_id}
-                  disabledMessage={isViewMode ? undefined : "Selecione um laboratório"}
+                  disabled={isViewMode || formData.laboratory_ids.length === 0}
+                  disabledMessage={isViewMode ? undefined : "Selecione ao menos um laboratório"}
                   searchable
                 />
               </div>
@@ -1448,25 +1558,6 @@ export const ServiceOrderForm: React.FC = () => {
                     />
                   </div>
                   <span className="text-sm font-medium text-slate-600">Pagamento parcial/misto</span>
-                </label>
-                <label className="inline-flex items-center gap-2 cursor-pointer select-none pb-3">
-                  <div className="relative">
-                    <input
-                      type="checkbox"
-                      checked={!!formData.rim_use}
-                      onChange={(e) => handleFieldChange('rim_use', e.target.checked ? '1' : '')}
-                      className="sr-only peer"
-                    />
-                    <div 
-                      className="w-11 h-6 bg-slate-200 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[var(--store-color)]"
-                    />
-                  </div>
-                  <span className="text-sm font-medium text-slate-600">
-                    Aro de uso
-                    {!formData.frames?.length && formData.laboratory_id && formData.laboratory_lenses?.length > 0 && (
-                      <span className="text-red-500 ml-0.5">*</span>
-                    )}
-                  </span>
                 </label>
                 <label className="inline-flex items-center gap-2 cursor-pointer select-none pb-3">
                   <div className="relative">
@@ -1798,11 +1889,7 @@ export const ServiceOrderForm: React.FC = () => {
       {showEntryReceiptModal && createdOsNumber && (
         <EntryReceiptModal
           isOpen={showEntryReceiptModal}
-          onClose={() => {
-            setShowEntryReceiptModal(false);
-            setPendingPayload(null);
-            setCreatedOsNumber(null);
-          }}
+          onClose={() => handleEntryReceiptConfirm(false)}
           onConfirm={handleEntryReceiptConfirm}
           receiptData={prepareEntryReceiptData(createdOsNumber)}
           loading={saving}

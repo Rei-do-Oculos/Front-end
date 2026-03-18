@@ -19,7 +19,10 @@ export interface EntryReceiptData {
   expectedPickupDate?: string | null;
   store: EntryReceiptStore;
   client: EntryReceiptClient;
-  items: string[]; // Descrições dos itens/serviços
+  items: Array<{
+    description: string;
+    quantity: number;
+  }>;
   total: number;
   paymentMethod?: string | null;
 }
@@ -38,7 +41,7 @@ const formatCurrency = (value: number): string => {
 
 // Formatar número da OS com zeros à esquerda
 const formatOsNumber = (num: number): string => {
-  return String(num).padStart(6, '0');
+  return String(num);
 };
 
 // Labels para formas de pagamento
@@ -93,10 +96,10 @@ export const EntryReceipt = forwardRef<HTMLDivElement, EntryReceiptProps>(
         {/* Separador */}
         <div style={{ borderTop: '1px dashed #000', margin: '8px 0' }} />
 
-        {/* Número de Controle */}
+        {/* Número do Pedido */}
         <div style={{ textAlign: 'center', marginBottom: '12px' }}>
           <div style={{ fontSize: '14px', fontWeight: 'bold' }}>
-            N de controle: {formatOsNumber(osNumber)}
+            Nº do pedido: {formatOsNumber(osNumber)}
           </div>
         </div>
 
@@ -114,7 +117,13 @@ export const EntryReceipt = forwardRef<HTMLDivElement, EntryReceiptProps>(
         {/* Itens/Serviços */}
         {items.length > 0 && (
           <div style={{ marginBottom: '8px' }}>
-            <div>Em manutenção: {items.join(', ')}</div>
+            <div style={{ marginBottom: '4px' }}>Produtos:</div>
+            {items.map((item, index) => (
+              <div key={`${item.description}-${index}`}>
+                {item.description}
+                {item.description === 'Aro de uso' ? '' : ` x${item.quantity}`}
+              </div>
+            ))}
           </div>
         )}
 
@@ -123,7 +132,7 @@ export const EntryReceipt = forwardRef<HTMLDivElement, EntryReceiptProps>(
 
         {/* Valor */}
         <div style={{ marginBottom: '8px' }}>
-          <div>Valor em serviços: R$ {formatCurrency(total)}</div>
+          <div>Valor em produtos: R$ {formatCurrency(total)}</div>
           <div style={{ fontWeight: 'bold', marginTop: '4px' }}>
             Total: R$ {formatCurrency(total)}
           </div>

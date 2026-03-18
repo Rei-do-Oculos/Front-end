@@ -487,8 +487,8 @@ export const AuditList: React.FC = () => {
                                     <h4 className="text-[11px] font-black text-slate-900 uppercase tracking-widest">Alterações de Dados</h4>
                                   </div>
                                   
-                                  <div className="bg-white rounded-2xl border shadow-sm overflow-hidden" style={{ borderColor: 'var(--store-color-opacity-20)' }}>
-                                    <table className="w-full text-left">
+                                  <div className="bg-white rounded-2xl border shadow-sm overflow-auto max-h-72" style={{ borderColor: 'var(--store-color-opacity-20)' }}>
+                                    <table className="w-full text-left min-w-[500px]">
                                       <thead>
                                         <tr className="bg-slate-50">
                                           <th className="px-4 py-2 text-[9px] font-black text-slate-400 uppercase tracking-widest">Campo</th>
@@ -532,18 +532,18 @@ export const AuditList: React.FC = () => {
                                     <Info size={16} style={{ color: 'var(--store-color)' }} />
                                     <h4 className="text-[11px] font-black text-slate-900 uppercase tracking-widest">Informações Adicionais</h4>
                                   </div>
-                                  <div className="grid grid-cols-2 gap-4">
-                                    <div className="p-4 bg-white rounded-2xl border border-slate-100 shadow-sm">
+                                  <div className="grid grid-cols-2 gap-4 overflow-auto max-h-72">
+                                    <div className="p-4 bg-white rounded-2xl border border-slate-100 shadow-sm overflow-auto min-w-0">
                                       <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Endereço IP</p>
-                                      <p className="text-xs font-bold text-slate-900 tracking-tight">{audit.ip_address || '-'}</p>
+                                      <p className="text-xs font-bold text-slate-900 tracking-tight break-all">{audit.ip_address || '-'}</p>
                                     </div>
-                                    <div className="p-4 bg-white rounded-2xl border border-slate-100 shadow-sm">
+                                    <div className="p-4 bg-white rounded-2xl border border-slate-100 shadow-sm overflow-auto min-w-0">
                                       <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Navegador</p>
-                                      <p className="text-xs font-bold text-slate-900 tracking-tight truncate">{audit.user_agent || '-'}</p>
+                                      <p className="text-xs font-bold text-slate-900 tracking-tight break-all whitespace-pre-wrap">{audit.user_agent || '-'}</p>
                                     </div>
-                                    <div className="col-span-2 p-4 bg-white rounded-2xl border border-slate-100 shadow-sm">
+                                    <div className="col-span-2 p-4 bg-white rounded-2xl border border-slate-100 shadow-sm overflow-auto min-w-0">
                                       <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">URL de Origem</p>
-                                      <p className="text-xs font-bold text-slate-900 tracking-tight truncate">{audit.url || '-'}</p>
+                                      <p className="text-xs font-bold text-slate-900 tracking-tight break-all">{audit.url || '-'}</p>
                                     </div>
                                   </div>
                                 </div>

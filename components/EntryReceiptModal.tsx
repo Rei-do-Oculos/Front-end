@@ -1,4 +1,5 @@
 import React, { useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { X, Printer } from 'lucide-react';
 import { EntryReceipt, EntryReceiptData } from './EntryReceipt';
 
@@ -89,12 +90,12 @@ export const EntryReceiptModal: React.FC<EntryReceiptModalProps> = ({
     onConfirm(false);
   };
 
-  return (
-    <div 
-      className="fixed inset-0 z-[9999] flex items-center justify-center"
+  const modalContent = (
+    <div
+      className="fixed inset-0 z-[9999] flex items-start sm:items-center justify-center overflow-y-auto p-4 sm:p-6"
       style={{ backgroundColor: 'rgba(0, 0, 0, 0.5)' }}
     >
-      <div className="bg-white rounded-2xl shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-hidden">
+      <div className="bg-white rounded-2xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-hidden">
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b">
           <h2 className="text-xl font-bold text-slate-900">Comprovante de Entrada</h2>
@@ -150,6 +151,9 @@ export const EntryReceiptModal: React.FC<EntryReceiptModalProps> = ({
       </div>
     </div>
   );
+
+  if (typeof document === 'undefined') return modalContent;
+  return createPortal(modalContent, document.body);
 };
 
 export default EntryReceiptModal;

@@ -290,15 +290,9 @@ export const ClientList: React.FC = () => {
           value={searchPhone}
           onChange={(e) => setSearchPhone(maskPhoneInput(e.target.value))}
         />
-        <Input 
-          label="Data de Cadastro" 
-          type="date" 
-          value={dateFrom}
-          onChange={(e) => setDateFrom(e.target.value)}
-        />
         <MultiSelect
           label="Lojas"
-          placeholder="Selecione as lojas ou deixe vazio para todas"
+          placeholder="Selecione Lojas"
           options={[
             { label: 'Todas as Lojas', value: 'all' },
             ...(storesForFilter.length > 0 ? storesForFilter : availableStores).map(store => ({
@@ -314,6 +308,18 @@ export const ClientList: React.FC = () => {
               setSelectedStores(values.filter(v => v !== 'all'));
             }
           }}
+        />
+        <Input 
+          label="Data de Cadastro (De)" 
+          type="date" 
+          value={dateFrom}
+          onChange={(e) => setDateFrom(e.target.value)}
+        />
+        <Input 
+          label="Data de Cadastro (Até)" 
+          type="date" 
+          value={dateTo}
+          onChange={(e) => setDateTo(e.target.value)}
         />
       </FilterSection>
 

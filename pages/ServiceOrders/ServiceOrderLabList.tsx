@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { Loader2, FlaskConical, User, Building2, Send, Package, CheckCircle, AlertTriangle, Eye, Plus, Trash2, RotateCcw } from 'lucide-react';
+import { Loader2, FlaskConical, User, Building2, Send, Package, CheckCircle, AlertTriangle, Eye, Plus, Trash2, RotateCcw, Printer } from 'lucide-react';
 import { Card, Button, Input, SingleSelect, FilterSection, Modal, ActiveFiltersBadge, SortableHeader, SortDirection, Pagination, AccessDeniedCard, Badge } from '../../components/Common';
 import { useServiceOrders } from '../../services/hooks/useServiceOrders';
 import { useStores } from '../../services/hooks/useStores';
@@ -17,6 +17,8 @@ import { useNavigate } from 'react-router-dom';
 import { ReceiptModal } from '../../components/ReceiptModal';
 import { ReceiptData } from '../../components/ThermalReceipt';
 import { invoicesService } from '../../services/api/invoices';
+import { EntryReceiptModal } from '../../components/EntryReceiptModal';
+import { EntryReceiptData } from '../../components/EntryReceipt';
 
 // Status labels e cores
 const STATUS_CONFIG: Record<ServiceOrderStatus, { label: string; color: 'warning' | 'info' | 'primary' | 'success' | 'danger' }> = {
@@ -25,6 +27,13 @@ const STATUS_CONFIG: Record<ServiceOrderStatus, { label: string; color: 'warning
   ready_for_pickup: { label: 'Aguardando Retirada', color: 'primary' },
   completed: { label: 'Finalizada', color: 'success' },
   overdue: { label: 'Inadimplente', color: 'danger' },
+};
+
+const toItemsArray = <T,>(value: T[] | Record<string, T> | null | undefined): T[] => {
+  if (!value) return [];
+  if (Array.isArray(value)) return value;
+  if (typeof value === 'object') return Object.values(value);
+  return [];
 };
 
 export const ServiceOrderLabList: React.FC = () => {
@@ -37,6 +46,7 @@ export const ServiceOrderLabList: React.FC = () => {
     loading, 
     actionLoading, 
     error, 
+    getServiceOrder,
     fetchLabOrders, 
     sendToLab, 
     markArrived, 
@@ -101,6 +111,9 @@ export const ServiceOrderLabList: React.FC = () => {
     amount: string;
     installments: string;
   }>>([]);
+  const [showEntryReceiptModal, setShowEntryReceiptModal] = useState(false);
+  const [entryReceiptOrder, setEntryReceiptOrder] = useState<ServiceOrder | null>(null);
+  const [entryReceiptLoading, setEntryReceiptLoading] = useState(false);
 
   // Carregar dados auxiliares
   useEffect(() => {
@@ -632,6 +645,98 @@ export const ServiceOrderLabList: React.FC = () => {
     setCompletedOrder(null);
   };
 
+  const prepareEntryReceiptData = (order: ServiceOrder): EntryReceiptData => {
+    const storesList = Array.isArray(stores) ? stores : [];
+    const clientsList = Array.isArray(clients) ? clients : [];
+    const storeData = storesList.find(s => s.id === order.store_id);
+    const clientData = clientsList.find(c => c.id === order.client_id);
+    const labLenses = toItemsArray(order.laboratory_lenses as any);
+    const orderFrames = toItemsArray(order.frames as any);
+
+    const labProductItems = labLenses.length > 0
+      ? labLenses.reduce<Array<{ description: string; quantity: number }>>((acc, lens: any) => {
+          const description = lens.name || 'Produto';
+          const existing = acc.find(item => item.description === description);
+          if (existing) {
+            existing.quantity += 1;
+          } else {
+            acc.push({ description, quantity: 1 });
+          }
+          return acc;
+        }, [])
+      : [];
+    const frameItems = orderFrames.length > 0
+      ? orderFrames.reduce<Array<{ description: string; quantity: number }>>((acc, frame: any) => {
+          const description = frame.description || `Armação ${frame.code || ''}`;
+          const existing = acc.find(item => item.description === description);
+          if (existing) {
+            existing.quantity += 1;
+          } else {
+            acc.push({ description, quantity: 1 });
+          }
+          return acc;
+        }, [])
+      : [];
+
+    const combinedItemsMap: Record<string, { description: string; quantity: number }> = {};
+    [...labProductItems, ...frameItems].forEach((item) => {
+      if (!combinedItemsMap[item.description]) {
+        combinedItemsMap[item.description] = { ...item };
+      } else {
+        combinedItemsMap[item.description].quantity += item.quantity;
+      }
+    });
+
+    const hasFrames = frameItems.length > 0;
+    if (!hasFrames && order.rim_use) {
+      combinedItemsMap['Aro de uso'] = { description: 'Aro de uso', quantity: 1 };
+    }
+
+    const itemsWithRimUse = Object.values(combinedItemsMap).length > 0
+      ? Object.values(combinedItemsMap)
+      : [{ description: 'Serviço Óptico', quantity: 1 }];
+
+    return {
+      osNumber: order.os_number,
+      date: new Date().toLocaleString('pt-BR'),
+      expectedPickupDate: order.expected_pickup_date || null,
+      store: {
+        name: storeData?.name || order.store?.name || 'Loja',
+        fancy_name: storeData?.fancy_name || (order.store as any)?.fancy_name || order.store?.name || 'Loja',
+        logradouro: storeData?.logradouro || (order.store as any)?.logradouro || '',
+        numero: storeData?.numero || (order.store as any)?.numero || '',
+        telefone: storeData?.telefone || (order.store as any)?.telefone || null,
+      },
+      client: {
+        name: clientData?.name || order.client?.name || 'Cliente',
+        telefone: clientData?.phone || (order.client as any)?.phone || null,
+      },
+      items: itemsWithRimUse,
+      total: order.price || 0,
+      paymentMethod: order.payment_method || null,
+    };
+  };
+
+  const handleOpenEntryReceiptModal = async (order: ServiceOrder) => {
+    setEntryReceiptLoading(true);
+    try {
+      // A listagem traz payload resumido; buscamos a OS completa para imprimir produtos corretamente.
+      const fullOrder = await getServiceOrder(String(order.id));
+      setEntryReceiptOrder(fullOrder || order);
+      setShowEntryReceiptModal(true);
+    } catch (err: any) {
+      console.error('Erro ao carregar OS para impressão:', err);
+      showError(err?.message || 'Não foi possível carregar os dados completos da OS para impressão.');
+    } finally {
+      setEntryReceiptLoading(false);
+    }
+  };
+
+  const handleEntryReceiptConfirm = (_print: boolean) => {
+    setShowEntryReceiptModal(false);
+    setEntryReceiptOrder(null);
+  };
+
   // Emitir NFC-e ou NF-e ao imprimir (envia à Brasil NFe)
   const handleGenerateInvoice = async (modelo: 55 | 65, options?: { includeDocument?: boolean }): Promise<{ pdfBase64?: string; invoice?: import('../../services/api/invoices').Invoice } | null> => {
     if (!completedOrder?.id) return null;
@@ -916,6 +1021,22 @@ export const ServiceOrderLabList: React.FC = () => {
                               }}
                             >
                               <Eye size={16} />
+                            </button>
+                          )}
+                          {hasPermission('service-orders-lab.list') && (
+                            <button
+                              title="Imprimir comprovante de entrada"
+                              onClick={() => handleOpenEntryReceiptModal(order)}
+                              disabled={entryReceiptLoading}
+                              className="p-2 text-slate-400 hover:bg-white rounded-xl shadow-sm border border-transparent hover:border-slate-100 transition-all"
+                              onMouseEnter={(e) => {
+                                e.currentTarget.style.color = 'var(--store-color-dark)';
+                              }}
+                              onMouseLeave={(e) => {
+                                e.currentTarget.style.color = '';
+                              }}
+                            >
+                              <Printer size={16} />
                             </button>
                           )}
                           {actionButton && hasPermission(actionButton.permission) && (
@@ -1404,6 +1525,16 @@ export const ServiceOrderLabList: React.FC = () => {
           receiptData={prepareReceiptData(completedOrder)}
           order={completedOrder}
           clientPhone={(Array.isArray(clients) ? clients : []).find(c => c.id === completedOrder.client_id)?.phone || (completedOrder.client as any)?.phone}
+        />
+      )}
+
+      {showEntryReceiptModal && entryReceiptOrder && (
+        <EntryReceiptModal
+          isOpen={showEntryReceiptModal}
+          onClose={() => handleEntryReceiptConfirm(false)}
+          onConfirm={handleEntryReceiptConfirm}
+          receiptData={prepareEntryReceiptData(entryReceiptOrder)}
+          loading={processing || entryReceiptLoading}
         />
       )}
     </div>
