@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { Save, ArrowLeft, FileText, Loader2, Search, Edit, Plus, Trash2 } from 'lucide-react';
+import { Save, ArrowLeft, FileText, Loader2, Search, Edit, Plus, Trash2, Eye, EyeOff } from 'lucide-react';
 import { Card, Button, Input, NumberInput, SingleSelect, MultiSelect } from '../../components/Common';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { useServiceOrders } from '../../services/hooks/useServiceOrders';
@@ -233,6 +233,8 @@ export const ServiceOrderForm: React.FC = () => {
   // Estado para o modal de recibo
   const [showReceiptModal, setShowReceiptModal] = useState(false);
   const [showEntryReceiptModal, setShowEntryReceiptModal] = useState(false);
+  /** Padrão: valores dos produtos do laboratório ocultos (***). Eye para alternar. */
+  const [showLabProductValues, setShowLabProductValues] = useState(false);
   const [pendingPayload, setPendingPayload] = useState<any>(null);
   const [createdOsNumber, setCreatedOsNumber] = useState<number | null>(null);
   
@@ -339,11 +341,12 @@ export const ServiceOrderForm: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Buscar clientes quando digitar (debounce 300ms)
+  // Buscar clientes ao digitar nome, CPF ou telefone (debounce 300ms)
   useEffect(() => {
-    if (clientSearch.length < 2) return;
+    const trimmed = clientSearch.trim();
+    if (!trimmed) return;
     const timer = setTimeout(() => {
-      fetchClients(1, { search: clientSearch, per_page: 50 });
+      fetchClients(1, { search: trimmed, per_page: 50 });
     }, 300);
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -382,6 +385,7 @@ export const ServiceOrderForm: React.FC = () => {
       { value: 'debit_card', label: 'Cartão de Débito' },
       { value: 'cash', label: 'Dinheiro' },
       { value: 'pix', label: 'PIX' },
+      { value: 'permuta', label: 'Permuta' },
     ];
     if (formData.send_to_lab) {
       base.push({ value: 'on_pickup', label: 'Pagamento na Retirada' });
@@ -786,6 +790,15 @@ export const ServiceOrderForm: React.FC = () => {
     if (priceNum <= 0) {
       customErrors.price = 'Preço é obrigatório.';
     }
+    if (formData.expected_pickup_date) {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const pickDate = new Date(formData.expected_pickup_date);
+      pickDate.setHours(0, 0, 0, 0);
+      if (pickDate < today) {
+        customErrors.expected_pickup_date = 'A data de previsão de entrega não pode ser anterior a hoje.';
+      }
+    }
     if (!hasFrames && hasLab && hasLabProducts && !formData.rim_use) {
       customErrors.rim_use = 'Quando não há armação mas há laboratório e lente, o aro de uso é obrigatório.';
     }
@@ -945,7 +958,14 @@ export const ServiceOrderForm: React.FC = () => {
   }, [clientsList, formData.client_id, loadedOrder?.client, preselectedClientData]);
   const laboratoriesList = Array.isArray(laboratories) ? laboratories : [];
   const laboratoryLensesList = Array.isArray(laboratoryLenses) ? laboratoryLenses : [];
-  const framesList = Array.isArray(frames) ? frames : [];
+  // Incluir armações da OS carregada (ex.: vindas do PDV) - a API de frames exclui as já vinculadas a OS
+  const framesList = React.useMemo(() => {
+    const fromApi = Array.isArray(frames) ? frames : [];
+    const fromOrder = toArray(loadedOrder?.frames) || [];
+    const ids = new Set(fromApi.map((f: { id: number }) => f.id));
+    const extra = fromOrder.filter((f: { id?: number }) => f?.id && !ids.has(f.id));
+    return [...fromApi, ...extra];
+  }, [frames, loadedOrder?.frames]);
   const lensesList = Array.isArray(lenses) ? lenses : [];
 
   // Filtrar laboratoryLenses pelo laboratório selecionado
@@ -1405,6 +1425,7 @@ export const ServiceOrderForm: React.FC = () => {
                     const day = String(date.getDate()).padStart(2, '0');
                     return `${year}-${month}-${day}`;
                   };
+                  const todayStr = formatDateForInput(new Date());
                   
                   return (
                     <div className="mt-4">
@@ -1414,6 +1435,8 @@ export const ServiceOrderForm: React.FC = () => {
                         value={formData.expected_pickup_date}
                         onChange={(e) => handleFieldChange('expected_pickup_date', e.target.value)}
                         disabled={isViewMode}
+                        min={todayStr}
+                        error={errors.expected_pickup_date}
                       />
                       <p className="mt-1 text-xs text-slate-500">Data que o vendedor informa ao cliente para retirar a OS. Esta data será exibida como "Previsão de entrega" no recibo.</p>
                       {maxDays != null && maxDays > 0 && suggestedDate && (
@@ -1438,8 +1461,23 @@ export const ServiceOrderForm: React.FC = () => {
                 })()}
               </div>
               <div>
-            <MultiSelect
-                  label="Produtos do Laboratório"
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="text-[10px] lg:text-[11px] font-bold text-slate-500 uppercase tracking-[0.15em] ml-1">
+                    Produtos do Laboratório
+                  </label>
+                  {formData.laboratory_lenses.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setShowLabProductValues((v) => !v)}
+                      className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-500 transition-colors"
+                      title={showLabProductValues ? 'Ocultar valores' : 'Ver valores'}
+                    >
+                      {showLabProductValues ? <EyeOff size={16} /> : <Eye size={16} />}
+                    </button>
+                  )}
+                </div>
+                <MultiSelect
+                  label=""
                   value={formData.laboratory_lenses}
                   onChange={(vals) => handleFieldChange('laboratory_lenses', vals)}
                   error={errors.laboratory_lenses}
@@ -1448,7 +1486,6 @@ export const ServiceOrderForm: React.FC = () => {
                     laboratoriesList.forEach((lab) => {
                       laboratoryNamesById[String(lab.id)] = lab.name;
                     });
-
                     const snapshotLabels: Record<string, { label: string; selectedLabel: string }> = {};
                     if (orderLaboratoryLensesSnapshot?.length) {
                       orderLaboratoryLensesSnapshot.forEach((lens) => {
@@ -1458,19 +1495,27 @@ export const ServiceOrderForm: React.FC = () => {
                           : 'Laboratório';
                         const costAtSale = lens.cost_price_at_sale ?? lens.cost_price;
                         const showLabInDropdown = formData.laboratory_ids.length > 1;
+                        const fullSelected = `${lens.name} (R$ ${formatFromNumber(costAtSale)}) - ${labName}`;
                         snapshotLabels[String(lens.id)] = {
                           label: showLabInDropdown ? `${lens.name} - ${labName}` : lens.name,
-                          selectedLabel: `${lens.name} (R$ ${formatFromNumber(costAtSale)}) - ${labName}`,
+                          selectedLabel: showLabProductValues ? fullSelected : `${lens.name} (***)${showLabInDropdown ? ` - ${labName}` : ''}`,
                         };
                       });
                     }
                     if (isViewMode && orderLaboratoryLensesSnapshot && orderLaboratoryLensesSnapshot.length > 0) {
-                      return orderLaboratoryLensesSnapshot.map((lens) => ({
-                        value: String(lens.id),
-                        label: snapshotLabels[String(lens.id)]?.label ?? lens.name,
-                        selectedLabel: snapshotLabels[String(lens.id)]?.selectedLabel
-                          ?? `${lens.name} (R$ ${formatFromNumber(lens.cost_price_at_sale ?? lens.cost_price)})`,
-                      }));
+                      return orderLaboratoryLensesSnapshot.map((lens) => {
+                        const lensWithLab = laboratoryLensesList.find(l => String(l.id) === String(lens.id));
+                        const labName = lensWithLab
+                          ? (laboratoryNamesById[String(lensWithLab.laboratory_id)] || (lensWithLab as any).laboratory?.name || 'Laboratório')
+                          : 'Laboratório';
+                        const showLabInDropdown = formData.laboratory_ids.length > 1;
+                        const fullSelected = `${lens.name} (R$ ${formatFromNumber(lens.cost_price_at_sale ?? lens.cost_price)})${showLabInDropdown ? ` - ${labName}` : ''}`;
+                        return {
+                          value: String(lens.id),
+                          label: snapshotLabels[String(lens.id)]?.label ?? lens.name,
+                          selectedLabel: showLabProductValues ? fullSelected : `${lens.name} (***)${showLabInDropdown ? ` - ${labName}` : ''}`,
+                        };
+                      });
                     }
                     const showLabInDropdown = formData.laboratory_ids.length > 1;
                     return filteredLaboratoryLenses.map((lens) => {
@@ -1478,10 +1523,11 @@ export const ServiceOrderForm: React.FC = () => {
                       const valueToShow = lens.promotion_active && lens.promotional_cost_price != null
                         ? lens.promotional_cost_price
                         : lens.cost_price;
+                      const fullSelected = `${lens.name} (R$ ${formatFromNumber(valueToShow)})${showLabInDropdown ? ` - ${labName}` : ''}`;
                       return {
                         value: String(lens.id),
                         label: showLabInDropdown ? `${lens.name} - ${labName}` : lens.name,
-                        selectedLabel: `${lens.name} (R$ ${formatFromNumber(valueToShow)}) - ${labName}`,
+                        selectedLabel: showLabProductValues ? fullSelected : `${lens.name} (***)${showLabInDropdown ? ` - ${labName}` : ''}`,
                       };
                     });
                   })()}
@@ -1665,6 +1711,7 @@ export const ServiceOrderForm: React.FC = () => {
                                 { value: 'debit_card', label: 'Cartão de Débito' },
                                 { value: 'cash', label: 'Dinheiro' },
                                 { value: 'pix', label: 'PIX' },
+                                { value: 'permuta', label: 'Permuta' },
                               ]}
                               placeholder="Selecione..."
                               disabled={isViewMode || isOtherStoreOrder || (loadedOrder?.status === 'completed' && !hasSuperAdminRole)}

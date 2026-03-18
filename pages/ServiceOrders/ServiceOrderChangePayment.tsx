@@ -332,6 +332,7 @@ export const ServiceOrderChangePayment: React.FC = () => {
                       { value: 'debit_card', label: 'Cartão de Débito' },
                       { value: 'cash', label: 'Dinheiro' },
                       { value: 'pix', label: 'PIX' },
+                      { value: 'permuta', label: 'Permuta' },
                     ]}
                     placeholder="Selecione a forma de pagamento..."
                   />
@@ -395,6 +396,7 @@ export const ServiceOrderChangePayment: React.FC = () => {
                               { value: 'debit_card', label: 'Cartão de Débito' },
                               { value: 'cash', label: 'Dinheiro' },
                               { value: 'pix', label: 'PIX' },
+                              { value: 'permuta', label: 'Permuta' },
                             ]}
                             placeholder="Selecione..."
                           />

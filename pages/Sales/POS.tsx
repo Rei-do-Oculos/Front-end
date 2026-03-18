@@ -27,7 +27,9 @@ import {
   ChevronDown,
   LogOut,
   Store,
-  SplitSquareVertical
+  SplitSquareVertical,
+  Printer,
+  RefreshCw
 } from 'lucide-react';
 import { Card, Button, Input, Badge } from '../../components/Common';
 import { useNotification } from '../../hooks/useNotification';
@@ -38,7 +40,7 @@ import { clientsService, Client } from '../../services/api/clients';
 import { serviceOrdersService } from '../../services/api/serviceOrders';
 import { invoicesService } from '../../services/api/invoices';
 import { storesService, type Store as FullStore } from '../../services/api/stores';
-import { ReceiptData } from '../../components/ThermalReceipt';
+import { ReceiptData, ThermalReceipt } from '../../components/ThermalReceipt';
 import { invoiceToNFCeData, buildReciboHtml } from '../../utils/nfceCupom';
 
 interface CartItem {
@@ -48,7 +50,7 @@ interface CartItem {
   quantity: number;
 }
 
-type PaymentMethod = 'credit_card' | 'debit_card' | 'cash' | 'pix' | 'parcial';
+type PaymentMethod = 'credit_card' | 'debit_card' | 'cash' | 'pix' | 'permuta' | 'parcial';
 
 type PartialPaymentRow = {
   id: number;
@@ -111,6 +113,8 @@ export const POS: React.FC = () => {
   const [createdOsId, setCreatedOsId] = useState<number | null>(null);
   const [createdOsNumber, setCreatedOsNumber] = useState<number | null>(null);
   const [receiptDataForModal, setReceiptDataForModal] = useState<ReceiptData | null>(null);
+  const [showReceiptPrintModal, setShowReceiptPrintModal] = useState(false);
+  const receiptPrintRef = useRef<HTMLDivElement>(null);
   const [fullStoreData, setFullStoreData] = useState<FullStore | null>(null);
 
   // Frames e clientes da API
@@ -506,10 +510,44 @@ export const POS: React.FC = () => {
     }
   };
 
+  const handlePrintReceiptFromModal = () => {
+    const receiptEl = receiptPrintRef.current;
+    if (!receiptEl || !receiptDataForModal) return;
+    const printWindow = window.open('', '_blank', 'width=350,height=600');
+    if (!printWindow) {
+      showError('Impressão', 'Permita popups para imprimir o recibo.');
+      return;
+    }
+    const styles = `
+      <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { background: white; color: black; line-height: 1.4; font-family: 'Courier New', monospace; font-size: 12px; width: 80mm; max-width: 80mm; }
+        @page { size: 80mm auto; margin: 0; }
+        @media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
+      </style>
+    `;
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Recibo OS ${receiptDataForModal.osNumber}</title>
+          ${styles}
+        </head>
+        <body>${receiptEl.innerHTML}</body>
+      </html>
+    `);
+    printWindow.document.close();
+    printWindow.onload = () => {
+      setTimeout(() => {
+        printWindow.print();
+        printWindow.close();
+      }, 250);
+    };
+  };
+
   const handleFinishPrint = async (choice: 'receipt' | 'nfce' | 'nfe' | 'none') => {
-    if (choice === 'receipt' && createdOsId) {
-      window.open(`/service-orders/${createdOsId}/sheet?print=1`, '_blank');
-      resetSale();
+    if (choice === 'receipt' && receiptDataForModal) {
+      setShowReceiptPrintModal(true);
       return;
     }
     if (choice === 'nfe') {
@@ -546,6 +584,7 @@ export const POS: React.FC = () => {
     setTotalValueRaw('');
     setShowFinishModal(false);
     setShowConfirmModal(false);
+    setShowReceiptPrintModal(false);
     setCreatedOsId(null);
     setCreatedOsNumber(null);
     setReceiptDataForModal(null);
@@ -847,11 +886,12 @@ export const POS: React.FC = () => {
               </div>
               <div className="space-y-1.5 pt-2 border-t border-slate-200">
                 <p className="text-xs font-bold text-slate-500">Forma de Pagamento</p>
-                <div className="grid grid-cols-4 gap-2">
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
                   {[
                     { key: 'credit_card' as const, icon: CreditCard, label: 'Cartão' },
                     { key: 'pix' as const, icon: QrCode, label: 'PIX' },
                     { key: 'cash' as const, icon: Banknote, label: 'Dinheiro' },
+                    { key: 'permuta' as const, icon: RefreshCw, label: 'Permuta' },
                     { key: 'parcial' as const, icon: SplitSquareVertical, label: 'Parcial' },
                   ].map(({ key, icon: Icon, label }) => (
                     <button
@@ -910,13 +950,14 @@ export const POS: React.FC = () => {
                         <div key={row.id} className="flex gap-2 items-center p-2 bg-white rounded-lg border border-slate-200">
                           <select
                             value={row.method}
-                            onChange={e => setPartialPayments(prev => prev.map(r => r.id === row.id ? { ...r, method: e.target.value as 'credit_card'|'pix'|'cash' } : r))}
+                            onChange={e => setPartialPayments(prev => prev.map(r => r.id === row.id ? { ...r, method: e.target.value as 'credit_card'|'pix'|'cash'|'permuta' } : r))}
                             className="flex-1 min-w-0 px-2 py-1.5 text-xs font-medium border-0 rounded bg-slate-50 focus:ring-2 focus:ring-[var(--store-color)]"
-                            title={row.method === 'credit_card' ? 'Cartão' : row.method === 'pix' ? 'PIX' : 'Dinheiro'}
+                            title={row.method === 'credit_card' ? 'Cartão' : row.method === 'pix' ? 'PIX' : row.method === 'permuta' ? 'Permuta' : 'Dinheiro'}
                           >
                             <option value="credit_card">Cartão</option>
                             <option value="pix">PIX</option>
                             <option value="cash">Dinheiro</option>
+                            <option value="permuta">Permuta</option>
                           </select>
                           <input
                             type="text"
@@ -1103,14 +1144,16 @@ export const POS: React.FC = () => {
                         ? `Cartão${installments > 1 ? ` (${installments}x)` : ''}`
                         : paymentMethod === 'pix'
                           ? 'PIX'
-                          : 'Dinheiro'}
+                          : paymentMethod === 'permuta'
+                            ? 'Permuta'
+                            : 'Dinheiro'}
                   </span>
                 </div>
                 {paymentMethod === 'parcial' && partialPayments.filter(p => (parseCurrencyFormatted(formatCurrencyInput(p.amountRaw)) || 0) > 0).length > 0 && (
                   <div className="text-xs space-y-1">
                     {partialPayments.filter(p => (parseCurrencyFormatted(formatCurrencyInput(p.amountRaw)) || 0) > 0).map(p => (
                       <div key={p.id} className="flex justify-between text-slate-600">
-                        <span>{p.method === 'credit_card' ? 'Cartão' : p.method === 'pix' ? 'PIX' : 'Dinheiro'}{p.method === 'credit_card' && p.installments > 1 ? ` (${p.installments}x)` : ''}</span>
+                        <span>{p.method === 'credit_card' ? 'Cartão' : p.method === 'pix' ? 'PIX' : p.method === 'permuta' ? 'Permuta' : 'Dinheiro'}{p.method === 'credit_card' && p.installments > 1 ? ` (${p.installments}x)` : ''}</span>
                         <span className="font-bold text-slate-900">R$ {(parseCurrencyFormatted(formatCurrencyInput(p.amountRaw)) || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
                       </div>
                     ))}
@@ -1191,6 +1234,34 @@ export const POS: React.FC = () => {
               </div>
               <Button variant="outline" onClick={resetSale} className="w-full border-slate-200 text-slate-600 bg-white mt-4">
                 <ArrowLeft size={18} /> Nova Venda
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Recibo Térmico (dentro do PDV) */}
+      {showReceiptPrintModal && receiptDataForModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60] animate-in fade-in duration-200 p-4">
+          <div className="bg-white rounded-3xl shadow-2xl max-w-md w-full p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-bold text-slate-900">Recibo</h3>
+              <button
+                onClick={() => setShowReceiptPrintModal(false)}
+                className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-xl transition-all"
+              >
+                <X size={20} />
+              </button>
+            </div>
+            <div className="overflow-auto max-h-[60vh] flex justify-center mb-4 bg-slate-50 rounded-xl p-4">
+              <ThermalReceipt ref={receiptPrintRef} data={receiptDataForModal} />
+            </div>
+            <div className="flex gap-3">
+              <Button onClick={handlePrintReceiptFromModal} className="flex-1" style={{ backgroundColor: 'var(--store-color)' }}>
+                <Printer size={18} /> Imprimir
+              </Button>
+              <Button variant="outline" onClick={() => setShowReceiptPrintModal(false)} className="flex-1">
+                Fechar
               </Button>
             </div>
           </div>

@@ -12,6 +12,7 @@ export interface RevenueByPaymentMethod {
   debit_card: number;
   cash: number;
   pix: number;
+  permuta: number;
 }
 
 export interface DashboardStats {

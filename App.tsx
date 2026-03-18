@@ -42,7 +42,7 @@ import { LaboratoryForm } from './pages/Laboratories/LaboratoryForm';
 import { LaboratoryDetail } from './pages/Laboratories/LaboratoryDetail';
 import { LaboratoryLensList } from './pages/LaboratoryLenses/LaboratoryLensList';
 import { LaboratoryLensForm } from './pages/LaboratoryLenses/LaboratoryLensForm';
-import { ServiceOrderList, ServiceOrderForm, ServiceOrderLabList, ServiceOrderChangePayment, ServiceOrderSheetPage } from './pages/ServiceOrders';
+import { ServiceOrderList, ServiceOrderForm, ServiceOrderLabList, ServiceOrderChangePayment, ServiceOrderSheetPage, ServiceOrderReceiptPage } from './pages/ServiceOrders';
 import { Chat } from './pages/Chat';
 import { Login } from './pages/Login';
 import { NotFound404 } from './pages/NotFound404';
@@ -201,6 +201,7 @@ const StoreSelectorWrapper: React.FC<{ onLogout: () => void }> = ({ onLogout }) 
         <Route path="/service-orders/lab" element={<ProtectedRoute><ServiceOrderLabList /></ProtectedRoute>} />
         <Route path="/service-orders/:id/change-payment" element={<ProtectedRoute><ServiceOrderChangePayment /></ProtectedRoute>} />
         <Route path="/service-orders/:id/sheet" element={<ProtectedRoute><ServiceOrderSheetPage /></ProtectedRoute>} />
+        <Route path="/service-orders/:id/receipt" element={<ProtectedRoute><ServiceOrderReceiptPage /></ProtectedRoute>} />
         <Route path="/service-orders/:id" element={<ProtectedRoute><ServiceOrderForm /></ProtectedRoute>} />
         <Route path="/service-orders/:id/edit" element={<ProtectedRoute><ServiceOrderForm /></ProtectedRoute>} />
         <Route path="/finance" element={<ProtectedRoute><CashFlow /></ProtectedRoute>} />

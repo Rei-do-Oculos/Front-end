@@ -101,6 +101,7 @@ export const CashFlow: React.FC = () => {
     { value: 'debit_card', label: 'Cartão de Débito' },
     { value: 'cash', label: 'Dinheiro' },
     { value: 'pix', label: 'PIX' },
+    { value: 'permuta', label: 'Permuta' },
   ], []);
 
   // Carregar dados (apenas quando o usuário clica em Aplicar/Limpar)
@@ -421,8 +422,8 @@ export const CashFlow: React.FC = () => {
         </div>
       ) : (
         <>
-          {/* Totais por forma de pagamento: Cartão, Dinheiro, PIX - compactos acima */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
+          {/* Totais por forma de pagamento: Cartão, Dinheiro, PIX, Permuta - compactos acima */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
             <div className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm flex items-center gap-3">
               <div className="p-2 rounded-lg bg-blue-50 text-blue-600 shrink-0">
                 <CreditCard size={18} />
@@ -459,6 +460,17 @@ export const CashFlow: React.FC = () => {
                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">PIX</p>
                 <p className="text-lg font-black truncate" style={{ color: 'var(--store-color)' }}>
                   {formatCurrency(dashboard?.revenue_by_payment_method?.pix ?? 0)}
+                </p>
+              </div>
+            </div>
+            <div className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm flex items-center gap-3">
+              <div className="p-2 rounded-lg bg-amber-50 text-amber-600 shrink-0">
+                <RefreshCw size={18} />
+              </div>
+              <div className="min-w-0">
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Permuta</p>
+                <p className="text-lg font-black text-amber-600 truncate">
+                  {formatCurrency(dashboard?.revenue_by_payment_method?.permuta ?? 0)}
                 </p>
               </div>
             </div>

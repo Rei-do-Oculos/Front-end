@@ -329,6 +329,7 @@ export const Layout: React.FC<{ children: React.ReactNode; onLogout: () => void 
   const location = useLocation();
   const { user } = useAuth();
   const isSheetPage = location.pathname.includes('/service-orders/') && location.pathname.endsWith('/sheet');
+  const isReceiptPage = location.pathname.includes('/service-orders/') && location.pathname.endsWith('/receipt');
   const isInvoiceDetailPage = /^\/invoices\/[^/]+$/.test(location.pathname);
   const { selectedStore, availableStores, setSelectedStore, storeColor, storeUnity, storeDisplayName } = useStore();
   const [storeDropdownOpen, setStoreDropdownOpen] = useState(false);
@@ -601,7 +602,7 @@ export const Layout: React.FC<{ children: React.ReactNode; onLogout: () => void 
   const isPDVPage = location.pathname === '/pdv';
 
   return (
-    <div className={`flex h-screen bg-[#f8f9fc] overflow-hidden font-sans text-slate-900 ${isSheetPage ? 'print-sheet-page' : ''} ${isInvoiceDetailPage ? 'print-invoice-detail-page' : ''}`}>
+    <div className={`flex h-screen bg-[#f8f9fc] overflow-hidden font-sans text-slate-900 ${isSheetPage || isReceiptPage ? 'print-sheet-page' : ''} ${isInvoiceDetailPage ? 'print-invoice-detail-page' : ''}`}>
       {!isPDVPage && (
         <>
           {/* Sidebar Desktop */}

@@ -57,6 +57,7 @@ const paymentLabel: Record<string, string> = {
   debit_card: 'Cartão de Débito',
   cash: 'Dinheiro',
   pix: 'PIX',
+  permuta: 'Permuta',
   on_pickup: 'Pagamento na Retirada',
 };
 

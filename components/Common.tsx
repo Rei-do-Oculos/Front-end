@@ -794,7 +794,8 @@ export const SingleSelect: React.FC<{
 
   const selectedOption = options.find(opt => opt.value === value);
 
-  const filteredOptions = searchable && search
+  // Quando onSearch existe, a busca é remota (API) - não filtrar localmente (permite buscar por CPF/telefone)
+  const filteredOptions = searchable && search && !onSearch
     ? options.filter(opt => opt.label.toLowerCase().includes(search.toLowerCase()))
     : options;
 

@@ -112,19 +112,24 @@ function buildPdfContent(
     </table>
     <table style="width: 100%; border-collapse: collapse; margin-bottom: 24px;">
       <tr>
-        <td style="padding: 10px; background: #eff6ff; border-radius: 8px; border-left: 4px solid #2563eb; width: 33%;">
+        <td style="padding: 10px; background: #eff6ff; border-radius: 8px; border-left: 4px solid #2563eb; width: 25%;">
           <div style="font-size: 9px; color: #6b7280;">Cartão</div>
           <div style="font-size: 14px; font-weight: 700; color: #2563eb;">${formatCurrency((d?.revenue_by_payment_method?.credit_card ?? 0) + (d?.revenue_by_payment_method?.debit_card ?? 0))}</div>
         </td>
         <td style="width: 1%;"></td>
-        <td style="padding: 10px; background: #f0fdf4; border-radius: 8px; border-left: 4px solid #16a34a; width: 33%;">
+        <td style="padding: 10px; background: #f0fdf4; border-radius: 8px; border-left: 4px solid #16a34a; width: 25%;">
           <div style="font-size: 9px; color: #6b7280;">Dinheiro</div>
           <div style="font-size: 14px; font-weight: 700; color: #16a34a;">${formatCurrency(d?.revenue_by_payment_method?.cash ?? 0)}</div>
         </td>
         <td style="width: 1%;"></td>
-        <td style="padding: 10px; background: #fef3c7; border-radius: 8px; border-left: 4px solid ${color}; width: 33%;">
+        <td style="padding: 10px; background: #fef3c7; border-radius: 8px; border-left: 4px solid ${color}; width: 25%;">
           <div style="font-size: 9px; color: #6b7280;">PIX</div>
           <div style="font-size: 14px; font-weight: 700; color: #b45309;">${formatCurrency(d?.revenue_by_payment_method?.pix ?? 0)}</div>
+        </td>
+        <td style="width: 1%;"></td>
+        <td style="padding: 10px; background: #fffbeb; border-radius: 8px; border-left: 4px solid #d97706; width: 25%;">
+          <div style="font-size: 9px; color: #6b7280;">Permuta</div>
+          <div style="font-size: 14px; font-weight: 700; color: #d97706;">${formatCurrency(d?.revenue_by_payment_method?.permuta ?? 0)}</div>
         </td>
       </tr>
     </table>

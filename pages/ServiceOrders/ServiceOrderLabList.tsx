@@ -1177,6 +1177,7 @@ export const ServiceOrderLabList: React.FC = () => {
                       { value: 'debit_card', label: 'Cartão de Débito' },
                       { value: 'cash', label: 'Dinheiro' },
                       { value: 'pix', label: 'PIX' },
+                      { value: 'permuta', label: 'Permuta' },
                     ]}
                     placeholder="Selecione a forma de pagamento..."
                   />
@@ -1241,6 +1242,7 @@ export const ServiceOrderLabList: React.FC = () => {
                               { value: 'debit_card', label: 'Cartão de Débito' },
                               { value: 'cash', label: 'Dinheiro' },
                               { value: 'pix', label: 'PIX' },
+                              { value: 'permuta', label: 'Permuta' },
                             ]}
                             placeholder="Selecione..."
                           />
