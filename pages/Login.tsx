@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
-import { Eye, EyeOff } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Eye, EyeOff, Lock, Mail, AlertCircle } from 'lucide-react';
 import { useAuth } from '../services/hooks/useAuth';
+import { extractLoginFailureMessage } from '../utils/loginApiError';
 
 interface LoginProps {
   onLogin: () => void;
@@ -11,145 +12,144 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
-  const { login, isLoading } = useAuth();
+  const { login, isLoading, error: contextError } = useAuth();
 
-  const normalizeLoginMessage = (msg: string): string => {
-    const t = msg.trim();
-    if (t === 'The provided credentials are incorrect.') return 'E-mail ou senha inválidos.';
-    return t;
-  };
-
-  /** Lê primeiro texto útil de um objeto errors (Laravel ou ResponseHelper). */
-  const pickFromErrorsObject = (errors: unknown): string | null => {
-    if (!errors || typeof errors !== 'object') return null;
-    const o = errors as Record<string, unknown>;
-    const msg = o.message;
-    if (typeof msg === 'string' && msg.trim()) return msg;
-    if (Array.isArray(msg) && typeof msg[0] === 'string') return msg[0];
-    for (const key of ['email', 'password']) {
-      const v = o[key];
-      if (Array.isArray(v) && typeof v[0] === 'string') return v[0];
-      if (typeof v === 'string' && v.trim()) return v;
+  useEffect(() => {
+    if (contextError) {
+      setError(contextError);
     }
-    for (const v of Object.values(o)) {
-      if (Array.isArray(v) && typeof v[0] === 'string') return v[0];
-      if (typeof v === 'string' && v.trim()) return v;
-    }
-    return null;
-  };
-
-  const getLoginErrorMessage = (err: any): string => {
-    if (!err.response) {
-      if (err.message?.includes('Network Error') || err.code === 'ERR_NETWORK') {
-        return 'Erro de conexão. Verifique se o servidor está rodando.';
-      }
-      if (err.message?.includes('CORS')) {
-        return 'Erro de CORS. Verifique a configuração do servidor.';
-      }
-      return err.message || 'Erro ao conectar com o servidor.';
-    }
-
-    const d = err.response?.data;
-    if (!d || typeof d !== 'object') {
-      return 'E-mail ou senha inválidos.';
-    }
-
-    // 1) Laravel validação (422): { message, errors: { email: [...] } }
-    const fromFlatErrors = pickFromErrorsObject(d.errors);
-    if (fromFlatErrors) return normalizeLoginMessage(fromFlatErrors);
-
-    if (typeof d.message === 'string' && d.message.trim()) {
-      return normalizeLoginMessage(d.message);
-    }
-
-    // 2) Login falho / API padronizada (401): { success, data: { errors: { email: [...] } } }
-    const fromNested = pickFromErrorsObject(d.data?.errors);
-    if (fromNested) return normalizeLoginMessage(fromNested);
-
-    return 'E-mail ou senha inválidos.';
-  };
+  }, [contextError]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
 
-    if (!email || !password) {
-      setError('Por favor, preencha todos os campos');
+    if (!email.trim() || !password) {
+      setError('Preencha e-mail e senha para continuar.');
       return;
     }
 
     try {
-      await login({ email, password });
+      await login({ email: email.trim(), password });
       onLogin();
-    } catch (err: any) {
-      setError(getLoginErrorMessage(err));
+    } catch (err: unknown) {
+      const msg =
+        err instanceof Error && err.message
+          ? err.message
+          : extractLoginFailureMessage(err);
+      setError(msg);
     }
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100 flex items-center justify-center p-6">
-      <div className="w-full max-w-md">
-        <div className="bg-white border border-gray-200 shadow-sm rounded-2xl overflow-hidden">
-          <div className="p-8 sm:p-10">
-            <div className="text-center mb-8">
-              <h1 className="text-2xl font-bold text-gray-900 tracking-tight">
-               ERP <span className="text-red-600">ÓTICA</span>
-              </h1>
-            </div>
+    <div className="relative min-h-screen flex items-center justify-center p-6 sm:p-8">
+      <h1 className="sr-only">Login — Rei do Óculos</h1>
 
-            <form onSubmit={handleSubmit} className="space-y-5">
+      {/* Fundo em tela cheia */}
+      <div
+        className="fixed inset-0 bg-cover bg-center bg-no-repeat -z-20"
+        style={{ backgroundImage: "url('/imagemfundo.jpg')" }}
+        aria-hidden
+      />
+      <div
+        className="fixed inset-0 -z-10"
+        style={{
+          background:
+            'linear-gradient(145deg, rgba(15, 23, 42, 0.68) 0%, rgba(15, 23, 42, 0.52) 50%, rgba(30, 41, 59, 0.48) 100%)',
+        }}
+        aria-hidden
+      />
+      <div
+        className="fixed inset-0 -z-10 bg-gradient-to-b from-black/20 via-transparent to-black/40 pointer-events-none"
+        aria-hidden
+      />
+
+      <div className="relative z-10 w-full max-w-[420px]">
+        <div className="bg-white/55 backdrop-blur-lg rounded-2xl shadow-[0_25px_50px_-12px_rgba(15,23,42,0.28)] border border-white/45 ring-1 ring-white/15 p-8 sm:p-9">
+          <div className="flex justify-center mb-8">
+            <img
+              src="/LOGO.png"
+              alt="Rei do Óculos"
+              className="w-[min(130px,52vw)] sm:w-32 h-auto object-contain"
+              decoding="async"
+            />
+          </div>
+
+          <form onSubmit={handleSubmit} className="space-y-5" noValidate aria-label="Acesso à conta">
               {error && (
                 <div
                   role="alert"
-                  aria-live="polite"
-                  className="bg-red-50 border border-red-200 text-red-700 px-4 py-2.5 rounded-xl text-sm"
+                  aria-live="assertive"
+                  id="login-error"
+                  className="flex gap-3 rounded-xl border border-red-200/80 bg-red-50/75 backdrop-blur-sm px-4 py-3 text-sm text-red-800"
                 >
-                  {error}
+                  <AlertCircle className="w-5 h-5 shrink-0 text-red-600 mt-0.5" aria-hidden />
+                  <span className="leading-snug font-medium">{error}</span>
                 </div>
               )}
 
               <div>
-                <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1.5">
+                <label htmlFor="email" className="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">
                   E-mail
                 </label>
-                <input
-                  id="email"
-                  type="email"
-                  autoComplete="email"
-                  inputMode="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="ex: email@dousuario.com"
-                  required
-                  disabled={isLoading}
-                  className="w-full px-4 py-2.5 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent disabled:bg-gray-50 disabled:cursor-not-allowed"
-                />
+                <div className="relative">
+                  <Mail
+                    className="absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none text-black"
+                    size={18}
+                    strokeWidth={1.5}
+                    aria-hidden
+                  />
+                  <input
+                    id="email"
+                    type="email"
+                    autoComplete="email"
+                    inputMode="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="Seu e-mail"
+                    disabled={isLoading}
+                    aria-invalid={!!error}
+                    aria-describedby={error ? 'login-error' : undefined}
+                    className="w-full pl-11 pr-4 py-3 rounded-xl border border-white/40 bg-white/35 backdrop-blur-sm text-slate-900 text-sm placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-red-600/30 focus:border-red-600/80 focus:bg-white/45 disabled:opacity-60 disabled:cursor-not-allowed transition-[box-shadow,background-color]"
+                  />
+                </div>
               </div>
 
               <div>
-                <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1.5">
+                <label htmlFor="password" className="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">
                   Senha
                 </label>
                 <div className="relative">
+                  <Lock
+                    className="absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none text-black"
+                    size={18}
+                    strokeWidth={1.5}
+                    aria-hidden
+                  />
                   <input
                     id="password"
                     type={showPassword ? 'text' : 'password'}
                     autoComplete="current-password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    placeholder="••••••••"
-                    required
+                    placeholder="Sua senha"
                     disabled={isLoading}
-                    className="w-full px-4 py-2.5 pr-10 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent disabled:bg-gray-50 disabled:cursor-not-allowed"
+                    aria-invalid={!!error}
+                    aria-describedby={error ? 'login-error' : undefined}
+                    className="w-full pl-11 pr-12 py-3 rounded-xl border border-white/40 bg-white/35 backdrop-blur-sm text-slate-900 text-sm placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-red-600/30 focus:border-red-600/80 focus:bg-white/45 disabled:opacity-60 disabled:cursor-not-allowed transition-[box-shadow,background-color]"
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
                     disabled={isLoading}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors disabled:cursor-not-allowed"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded-lg text-black hover:bg-white/40 transition-colors disabled:opacity-50"
                     aria-label={showPassword ? 'Ocultar senha' : 'Mostrar senha'}
                   >
-                    {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                    {showPassword ? (
+                      <EyeOff size={18} strokeWidth={1.5} className="text-black" />
+                    ) : (
+                      <Eye size={18} strokeWidth={1.5} className="text-black" />
+                    )}
                   </button>
                 </div>
               </div>
@@ -157,23 +157,24 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
               <button
                 type="submit"
                 disabled={isLoading}
-                className="w-full bg-red-600 text-white py-2.5 px-4 rounded-xl font-medium text-sm hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
+                className="w-full mt-2 py-3.5 px-4 rounded-xl bg-red-600/95 text-white text-sm font-semibold shadow-lg shadow-red-600/25 hover:bg-red-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring-offset-2 focus-visible:ring-offset-transparent disabled:opacity-55 disabled:cursor-not-allowed disabled:shadow-none transition-all flex items-center justify-center gap-2"
               >
                 {isLoading ? (
-                  <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  <>
+                    <span className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    Entrando…
+                  </>
                 ) : (
                   'Entrar'
                 )}
               </button>
-
             </form>
-
-            <div className="mt-6 text-center space-y-1">
-              <p className="text-xs text-gray-400">Desenvolvido por TecWeb Digital</p>
-            </div>
-          </div>
         </div>
       </div>
+
+      <p className="fixed bottom-0 inset-x-0 z-10 pb-5 pt-2 text-center text-[11px] sm:text-xs text-white/80 drop-shadow-[0_1px_2px_rgba(0,0,0,0.5)]">
+        © {new Date().getFullYear()} Tec Web Digital
+      </p>
     </div>
   );
 };

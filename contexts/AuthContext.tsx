@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import { authService, LoginDto, User } from '../services/api/auth';
+import { extractLoginFailureMessage } from '../utils/loginApiError';
 
 interface AuthContextType {
   user: User | null;
@@ -54,35 +55,18 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       if (response.success && response.data?.user) {
         setUser(response.data.user);
       } else {
-        const errorMsg = response.data?.errors?.email?.[0] ||
-          response.data?.errors?.password?.[0] ||
+        const inner = (response as { data?: { errors?: Record<string, string[]> } }).data;
+        const errorMsg =
+          inner?.errors?.email?.[0] ||
+          inner?.errors?.password?.[0] ||
           'Credenciais inválidas';
         throw new Error(errorMsg);
       }
-    } catch (err: any) {
-      const d = err.response?.data;
-      const pick = (errors: unknown): string | null => {
-        if (!errors || typeof errors !== 'object') return null;
-        const o = errors as Record<string, unknown>;
-        for (const key of ['email', 'password', 'message']) {
-          const v = o[key];
-          if (Array.isArray(v) && typeof v[0] === 'string') return v[0];
-          if (typeof v === 'string' && v.trim()) return v;
-        }
-        for (const v of Object.values(o)) {
-          if (Array.isArray(v) && typeof v[0] === 'string') return v[0];
-          if (typeof v === 'string' && v.trim()) return v;
-        }
-        return null;
-      };
-      const apiError =
-        pick(d?.errors) ||
-        (typeof d?.message === 'string' && d.message.trim() ? d.message : null) ||
-        pick(d?.data?.errors) ||
-        err.message ||
-        'Erro ao fazer login';
+    } catch (err: unknown) {
+      const apiError = extractLoginFailureMessage(err);
       setError(apiError);
-      throw err;
+      // Relançar Error com mensagem clara — o catch na tela de login usa err.message
+      throw new Error(apiError);
     } finally {
       setIsLoading(false);
     }
