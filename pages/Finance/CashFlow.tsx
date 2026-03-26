@@ -28,7 +28,8 @@ import {
   FileDown,
   CreditCard,
   Banknote,
-  QrCode
+  QrCode,
+  Briefcase,
 } from 'lucide-react';
 import { exportCashFlowPdf } from '../../utils/cashFlowExport';
 
@@ -506,7 +507,7 @@ export const CashFlow: React.FC = () => {
               <p className="text-2xl font-black text-red-600">{formatCurrency(dashboard?.costs || 0)}</p>
             </div>
 
-            {/* Lucro */}
+            {/* Lucro (já desconta custos + despesas operacionais da loja) */}
             <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm hover:shadow-lg transition-all">
               <div className="flex items-center justify-between mb-4">
                 <div className="p-3 rounded-xl bg-emerald-50 text-emerald-600">
@@ -516,8 +517,15 @@ export const CashFlow: React.FC = () => {
                   {dashboard?.profit_margin ?? 0}% margem
                 </span>
               </div>
-              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Lucro</p>
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Lucro operacional</p>
               <p className="text-2xl font-black text-emerald-600">{formatCurrency(dashboard?.profit ?? 0)}</p>
+              {hasPermission('expenses-admin.list') && (
+                <p className="text-xs text-slate-500 mt-2 leading-snug">
+                  Após despesas administrativas:{' '}
+                  <span className="font-bold text-slate-800">{formatCurrency(dashboard?.profit_after_administrative ?? dashboard?.profit ?? 0)}</span>
+                  <span className="text-slate-400"> ({dashboard?.profit_margin_after_administrative ?? 0}% s/ faturamento)</span>
+                </p>
+              )}
             </div>
 
             {/* Ticket Médio */}
@@ -535,8 +543,12 @@ export const CashFlow: React.FC = () => {
             </div>
           </div>
 
-          {/* Cards Secundários (mesma linha): Aguardando Retirada, Inadimplências, Despesas */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          {/* Cards Secundários: retirada, inadimplência, despesas loja; + administrativas se tiver permissão */}
+          <div
+            className={`grid grid-cols-1 sm:grid-cols-2 gap-4 ${
+              hasPermission('expenses-admin.list') ? 'xl:grid-cols-4' : 'xl:grid-cols-3'
+            }`}
+          >
             {/* Aguardando Retirada */}
             <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm hover:shadow-lg transition-all">
               <div className="flex items-center justify-between mb-4">
@@ -579,10 +591,26 @@ export const CashFlow: React.FC = () => {
                   <Receipt size={24} />
                 </div>
               </div>
-              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Despesas</p>
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Despesas da loja</p>
               <p className="text-2xl font-black text-orange-600">{formatCurrency(dashboard?.expenses ?? 0)}</p>
-              <p className="text-xs text-slate-500 mt-2">Clique para ver detalhes</p>
+              <p className="text-xs text-slate-500 mt-2">Operacionais • data do pagamento ou do cadastro</p>
             </div>
+
+            {hasPermission('expenses-admin.list') && (
+              <div
+                className="bg-white p-6 rounded-2xl border border-violet-200 shadow-sm hover:shadow-lg transition-all cursor-pointer"
+                onClick={() => navigate('/finance/admin-expenses')}
+              >
+                <div className="flex items-center justify-between mb-4">
+                  <div className="p-3 rounded-xl bg-violet-50 text-violet-700">
+                    <Briefcase size={24} />
+                  </div>
+                </div>
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Despesas administrativas</p>
+                <p className="text-2xl font-black text-violet-700">{formatCurrency(dashboard?.administrative_expenses ?? 0)}</p>
+                <p className="text-xs text-slate-500 mt-2">Gestão • clique para ver detalhes</p>
+              </div>
+            )}
           </div>
 
           {/* Faturamento por Loja e Top Vendedores (2 na linha, meio a meio) */}

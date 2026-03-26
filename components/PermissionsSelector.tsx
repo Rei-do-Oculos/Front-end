@@ -11,7 +11,7 @@ const SECTOR_ORDER: { label: string; modules: string[] }[] = [
   // Lentes oculto no front por enquanto
   // { label: 'Lentes', modules: ['lenses'] },
   { label: 'Laboratórios', modules: ['laboratories', 'laboratory-lenses'] },
-  { label: 'Financeiro', modules: ['finance', 'expenses', 'service-orders-overdue', 'invoices'] },
+  { label: 'Financeiro', modules: ['finance', 'expenses', 'expenses-admin', 'service-orders-overdue', 'invoices'] },
   { label: 'Pedidos (OS)', modules: ['service-orders', 'service-orders-lab'] },
   { label: 'PDV', modules: ['pdv'] },
   { label: 'Sistema', modules: ['roles', 'permissions', 'users', 'audits', 'trash'] },

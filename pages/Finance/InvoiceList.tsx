@@ -24,6 +24,7 @@ import { useActiveFilters } from '../../hooks/useActiveFilters';
 import { useNotification } from '../../hooks/useNotification';
 import { invoicesService, type Invoice as ApiInvoice } from '../../services/api/invoices';
 import { invoiceToNFCeData, buildReciboHtml } from '../../utils/nfceCupom';
+import { useStore } from '../../contexts/StoreContext';
 
 const statusToLabel: Record<string, string> = {
   authorized: 'Autorizada',
@@ -86,6 +87,9 @@ export const InvoiceList: React.FC = () => {
   const navigate = useNavigate();
   const { showSuccess, showError } = useNotification();
   const { hasSuperAdminRole } = usePermission();
+  const { selectedStore } = useStore();
+  /** Só não-superadmin: lista/stats vêm da loja do header (X-Store-ID); precisa refetch ao trocar unidade. */
+  const listStoreContextId = hasSuperAdminRole ? null : selectedStore?.id ?? null;
   const [invoices, setInvoices] = useState<ReturnType<typeof mapApiInvoiceToRow>[]>([]);
   const [meta, setMeta] = useState({ current_page: 1, total_pages: 1, total_items: 0, per_page: 15 });
   const [stats, setStats] = useState({
@@ -152,7 +156,7 @@ export const InvoiceList: React.FC = () => {
       })
       .catch(() => setInvoices([]))
       .finally(() => setLoading(false));
-  }, [currentPage, perPage, appliedFilters, sortBy, sortDirection, hasSuperAdminRole]);
+  }, [currentPage, perPage, appliedFilters, sortBy, sortDirection, hasSuperAdminRole, listStoreContextId]);
 
   const fetchStats = useCallback(() => {
     const a = appliedFilters;
@@ -176,7 +180,12 @@ export const InvoiceList: React.FC = () => {
         });
       })
       .catch(() => {});
-  }, [appliedFilters, hasSuperAdminRole]);
+  }, [appliedFilters, hasSuperAdminRole, listStoreContextId]);
+
+  useEffect(() => {
+    if (hasSuperAdminRole) return;
+    setCurrentPage(1);
+  }, [listStoreContextId, hasSuperAdminRole]);
 
   useEffect(() => {
     fetchList();

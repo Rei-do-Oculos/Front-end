@@ -6,6 +6,8 @@ export type PaymentMethod = 'credit_card' | 'debit_card' | 'cash' | 'pix' | 'per
 export interface Expense {
   id: number;
   store_id: number;
+  /** operational = loja; administrative = dona/gestão */
+  scope?: string;
   name: string;
   value: number | string;
   payment_method: string;
@@ -14,7 +16,7 @@ export interface Expense {
   updated_at: string;
   deleted_at: string | null;
   store?: {
-    id: number;
+    id: number; 
     name: string;
     unity?: string | null;
   };
@@ -140,3 +142,9 @@ class ExpensesService {
 }
 
 export const expensesService = new ExpensesService();
+
+class AdminExpensesService extends ExpensesService {
+  protected override endpoint = '/v1/admin-expenses';
+}
+
+export const adminExpensesService = new AdminExpensesService();

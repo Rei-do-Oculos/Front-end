@@ -23,6 +23,7 @@ const resourceTranslations: Record<string, string> = {
   'pdv': 'Ponto de Venda (PDV)',
   'finance': 'Financeiro',
   'expenses': 'Despesas',
+  'expenses-admin': 'Despesas administrativas',
   'frames': 'Armações',
   'frame-types': 'Tipos de Armação',
   'store-frames': 'Transferências',

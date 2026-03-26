@@ -81,9 +81,10 @@ function buildPdfContent(
         </td>
         <td style="width: 2%;"></td>
         <td style="padding: 12px; background: #f0fdf4; border-radius: 8px; border-left: 4px solid #15803d; width: 25%;">
-          <div style="font-size: 9px; color: #6b7280; margin-bottom: 4px;">Lucro</div>
+          <div style="font-size: 9px; color: #6b7280; margin-bottom: 4px;">Lucro operacional</div>
           <div style="font-size: 18px; font-weight: 700; color: #15803d;">${formatCurrency(d?.profit ?? 0)}</div>
           <div style="font-size: 9px; color: #6b7280;">${d?.profit_margin ?? 0}% margem</div>
+          <div style="font-size: 8px; color: #64748b; margin-top: 6px;">Após despesas adm.: ${formatCurrency(d?.profit_after_administrative ?? d?.profit ?? 0)} (${d?.profit_margin_after_administrative ?? 0}%)</div>
         </td>
         <td style="width: 2%;"></td>
         <td style="padding: 12px; background: #f9fafb; border-radius: 8px; border-left: 4px solid ${color}; width: 21%;">
@@ -94,19 +95,24 @@ function buildPdfContent(
     </table>
     <table style="width: 100%; border-collapse: collapse; margin-bottom: 24px;">
       <tr>
-        <td style="padding: 10px; background: #fffbeb; border-radius: 8px; border-left: 4px solid #d97706; width: 33%;">
+        <td style="padding: 10px; background: #fffbeb; border-radius: 8px; border-left: 4px solid #d97706; width: 24%;">
           <div style="font-size: 9px; color: #6b7280;">Aguardando Retirada</div>
           <div style="font-size: 14px; font-weight: 700; color: #b45309;">${formatCurrency(d?.pending?.total ?? 0)} (${d?.pending?.count ?? 0} OS)</div>
         </td>
         <td style="width: 1%;"></td>
-        <td style="padding: 10px; background: #fef2f2; border-radius: 8px; border-left: 4px solid #dc2626; width: 33%;">
+        <td style="padding: 10px; background: #fef2f2; border-radius: 8px; border-left: 4px solid #dc2626; width: 24%;">
           <div style="font-size: 9px; color: #6b7280;">Inadimplências</div>
           <div style="font-size: 14px; font-weight: 700; color: #dc2626;">${formatCurrency(d?.overdue?.total ?? 0)} (${d?.overdue?.count ?? 0} OS)</div>
         </td>
         <td style="width: 1%;"></td>
-        <td style="padding: 10px; background: #fff7ed; border-radius: 8px; border-left: 4px solid #ea580c; width: 33%;">
-          <div style="font-size: 9px; color: #6b7280;">Despesas</div>
+        <td style="padding: 10px; background: #fff7ed; border-radius: 8px; border-left: 4px solid #ea580c; width: 24%;">
+          <div style="font-size: 9px; color: #6b7280;">Despesas da loja</div>
           <div style="font-size: 14px; font-weight: 700; color: #ea580c;">${formatCurrency(d?.expenses ?? 0)}</div>
+        </td>
+        <td style="width: 1%;"></td>
+        <td style="padding: 10px; background: #f5f3ff; border-radius: 8px; border-left: 4px solid #7c3aed; width: 24%;">
+          <div style="font-size: 9px; color: #6b7280;">Despesas administrativas</div>
+          <div style="font-size: 14px; font-weight: 700; color: #6d28d9;">${formatCurrency(d?.administrative_expenses ?? 0)}</div>
         </td>
       </tr>
     </table>
@@ -376,14 +382,17 @@ export const exportCashFlowExcel = async (options: CashFlowExportExcelOptions): 
     ['Faturamento', d?.revenue ?? 0, 'currency'],
     ['Total de vendas', d?.total_orders ?? 0, 'number'],
     ['Custos', d?.costs ?? 0, 'currency'],
-    ['Lucro', d?.profit ?? 0, 'currency'],
-    ['Margem (%)', ((d?.profit_margin ?? 0) / 100) as number, 'percent'],
+    ['Despesas da loja', d?.expenses ?? 0, 'currency'],
+    ['Despesas administrativas', d?.administrative_expenses ?? 0, 'currency'],
+    ['Lucro operacional', d?.profit ?? 0, 'currency'],
+    ['Margem operacional (%)', ((d?.profit_margin ?? 0) / 100) as number, 'percent'],
+    ['Lucro após despesas administrativas', d?.profit_after_administrative ?? d?.profit ?? 0, 'currency'],
+    ['Margem após despesas adm. (%)', ((d?.profit_margin_after_administrative ?? 0) / 100) as number, 'percent'],
     ['Ticket Médio', d?.average_ticket ?? 0, 'currency'],
     ['Aguardando Retirada (total)', d?.pending?.total ?? 0, 'currency'],
     ['Aguardando Retirada (qtd OS)', d?.pending?.count ?? 0, 'number'],
     ['Inadimplências (total)', d?.overdue?.total ?? 0, 'currency'],
     ['Inadimplências (qtd OS)', d?.overdue?.count ?? 0, 'number'],
-    ['Despesas', d?.expenses ?? 0, 'currency'],
   ];
 
   indicators.forEach(([label, val], i) => {

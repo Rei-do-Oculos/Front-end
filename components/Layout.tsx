@@ -89,6 +89,7 @@ const menuItems: MenuItem[] = [
     submenu: [
       { title: 'Fluxo de Caixa', path: '/finance' },
       { title: 'Despesas', path: '/finance/expenses' },
+      { title: 'Despesas administrativas', path: '/finance/admin-expenses' },
       { title: 'Inadimplências', path: '/finance/overdue' },
       { title: 'Notas Fiscais', path: '/invoices' }
     ]
@@ -274,11 +275,14 @@ const UserDropdown: React.FC<{ user: any; onLogout: () => void }> = ({ user, onL
           {/* Informações do Usuário */}
           <div className="p-4 border-b border-slate-100">
             <div className="flex items-center gap-3">
-              <img 
-                src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.name || 'User'}`}
-                className="w-10 h-10 rounded-lg bg-slate-100 p-1 border border-slate-200" 
-                alt="User"
-              />
+              <div
+                className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0 text-white shadow-sm border border-black/5"
+                style={{ backgroundColor: 'var(--store-color, #dc2626)' }}
+                role="img"
+                aria-label={user?.name ? `Usuário ${user.name}` : 'Usuário'}
+              >
+                <User size={20} strokeWidth={2.25} />
+              </div>
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-semibold text-slate-900 truncate">{user?.name || 'Usuário'}</p>
                 <p className="text-xs text-slate-500 truncate">{user?.email || ''}</p>
@@ -368,7 +372,7 @@ export const Layout: React.FC<{ children: React.ReactNode; onLogout: () => void 
       '/laboratories': ['laboratories', 'laboratory-lenses'],
       '/permissions': ['roles', 'permissions', 'users', 'audits', 'trash'], // Sistema
       '/service-orders': ['service-orders', 'service-orders-lab'], // Pedidos (OS)
-      '/finance': ['finance', 'service-orders-overdue', 'expenses', 'invoices'],
+      '/finance': ['finance', 'service-orders-overdue', 'expenses', 'expenses-admin', 'invoices'],
       '/pdv': 'pdv',
       // Módulos ainda sem permissões específicas (públicos por enquanto)
       '/orders': [],

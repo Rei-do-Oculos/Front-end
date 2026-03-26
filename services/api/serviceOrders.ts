@@ -400,6 +400,41 @@ class ServiceOrdersService {
   }
 
   /**
+   * Relatório de inadimplências (todas as linhas filtradas, sem paginação) — para PDF.
+   */
+  async getOverdueReport(
+    params?: ServiceOrdersQueryParams
+  ): Promise<{ orders: ServiceOrder[]; totalSales: number; count: number }> {
+    const response = await apiClient.get<{
+      success: boolean;
+      data?: {
+        service_orders: ServiceOrder[] | Record<string, ServiceOrder>;
+        total_sales?: number;
+        count?: number;
+      };
+    }>(`${this.endpoint}/overdue/report`, { params });
+
+    const responseData = response.data;
+    if (!responseData.success || !responseData.data?.service_orders) {
+      throw new Error('Resposta inválida da API de relatório de inadimplências');
+    }
+
+    const raw = responseData.data.service_orders;
+    let orders: ServiceOrder[] = [];
+    if (Array.isArray(raw)) {
+      orders = raw;
+    } else if (raw && typeof raw === 'object') {
+      orders = Object.values(raw) as ServiceOrder[];
+    }
+
+    return {
+      orders,
+      totalSales: responseData.data.total_sales ?? 0,
+      count: responseData.data.count ?? orders.length,
+    };
+  }
+
+  /**
    * Marcar OS como enviada para o laboratório
    */
   async sendToLab(id: string): Promise<{ success: boolean; message: string; service_order: ServiceOrder }> {

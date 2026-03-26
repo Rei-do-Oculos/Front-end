@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Loader2, AlertTriangle, FileText, Phone, User, Building2, Eye, CheckCircle } from 'lucide-react';
+import { Loader2, AlertTriangle, FileDown, Phone, User, Building2, Eye, CheckCircle } from 'lucide-react';
 import { Card, Button, Input, SingleSelect, FilterSection, Modal, ActiveFiltersBadge, SortableHeader, SortDirection, Pagination, AccessDeniedCard, Badge } from '../../components/Common';
 import { useServiceOrders } from '../../services/hooks/useServiceOrders';
 import { usePlucks } from '../../services/hooks/usePlucks';
@@ -15,12 +15,23 @@ import { ReceiptData } from '../../components/ThermalReceipt';
 import { useAuth } from '../../services/hooks/useAuth';
 import { userHasAccessToStore } from '../../utils/storeAccess';
 import { invoicesService } from '../../services/api/invoices';
+import { serviceOrdersService } from '../../services/api/serviceOrders';
+import { generateInadimplenciasReportPdf } from '../../utils/inadimplenciasReportPdf';
+
+const API_BASE = import.meta.env.DEV ? 'http://localhost:8080' : (import.meta.env.VITE_API_URL || '').replace(/\/api(\/.*)?$/, '') || window.location.origin;
+const buildLogoUrl = (logoPath: string | null | undefined): string | null => {
+  if (!logoPath || typeof logoPath !== 'string') return null;
+  if (logoPath.startsWith('http://') || logoPath.startsWith('https://')) return logoPath;
+  if (logoPath.startsWith('/')) return `${API_BASE}${logoPath}`;
+  const path = logoPath.startsWith('storage/') ? logoPath : `storage/${logoPath}`;
+  return import.meta.env.DEV ? `/${path}` : `${API_BASE}/${path}`;
+};
 
 export const Inadimplencias: React.FC = () => {
   const navigate = useNavigate();
   const { showSuccess, showError } = useNotification();
   const { hasPermission } = usePermission();
-  const { availableStores, selectedStore } = useStore();
+  const { availableStores, selectedStore, storeColor, storeLogo } = useStore();
   const { user } = useAuth();
   const { 
     actionLoading, 
@@ -46,6 +57,7 @@ export const Inadimplencias: React.FC = () => {
   const [sortBy, setSortBy] = useState<string | null>('arrived_at');
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
   const [perPage, setPerPage] = useState<number>(15);
+  const [exportingPdf, setExportingPdf] = useState(false);
   
   // Modal de confirmação de retirada
   const [actionModalOpen, setActionModalOpen] = useState(false);
@@ -140,6 +152,56 @@ export const Inadimplencias: React.FC = () => {
     setFilterDateTo('');
     setAppliedFilters({ searchTerm: '', filterStore: '', filterDateFrom: '', filterDateTo: '' });
     await loadOrders(1, { order_by: sortBy || 'arrived_at', order_dir: sortDirection || 'asc', per_page: perPage });
+  };
+
+  const handleExportPdf = async () => {
+    if (!hasPermission('service-orders-overdue.export')) return;
+    setExportingPdf(true);
+    try {
+      const params: Record<string, unknown> = {
+        order_by: sortBy || 'arrived_at',
+        order_dir: sortDirection || 'asc',
+      };
+      const f = appliedFilters;
+      if (f.searchTerm) params.search = f.searchTerm;
+      if (f.filterStore) params.store_id = f.filterStore;
+      if (f.filterDateFrom) params.date_from = f.filterDateFrom;
+      if (f.filterDateTo) params.date_to = f.filterDateTo;
+      if (availableStores.length > 0 && !params.store_id) {
+        params.store_id = availableStores.map((s) => s.id);
+      }
+
+      const { orders, totalSales } = await serviceOrdersService.getOverdueReport(params as any);
+      const storeFilterLabel = f.filterStore
+        ? (safeStoresPlucks.find((s: { id: number | string }) => String(s.id) === f.filterStore)?.name as string | undefined) ?? null
+        : null;
+
+      await generateInadimplenciasReportPdf({
+        orders,
+        totalSales,
+        dateFrom: f.filterDateFrom || undefined,
+        dateTo: f.filterDateTo || undefined,
+        storeFilterLabel,
+        searchTerm: f.searchTerm || undefined,
+        storeData: selectedStore
+          ? {
+              name: selectedStore.name,
+              fancy_name: selectedStore.fancy_name,
+              color: selectedStore.color,
+              logo: selectedStore.logo,
+            }
+          : null,
+        storeColor,
+        storeLogo,
+        logoUrlBuilder: buildLogoUrl,
+      });
+      showSuccess('PDF gerado com sucesso!');
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Erro ao gerar PDF';
+      showError(message);
+    } finally {
+      setExportingPdf(false);
+    }
   };
 
   const handlePerPageChange = async (newPerPage: number) => {
@@ -325,6 +387,12 @@ export const Inadimplencias: React.FC = () => {
             <p className="text-gray-500 font-medium mt-1">Ordens de serviço aguardando retirada há mais de 5 dias.</p>
           </div>
         </div>
+        {hasPermission('service-orders-overdue.export') && (
+          <Button variant="outline" onClick={handleExportPdf} disabled={exportingPdf}>
+            {exportingPdf ? <Loader2 size={18} className="animate-spin" /> : <FileDown size={18} />}{' '}
+            Exportar PDF
+          </Button>
+        )}
       </div>
 
       <FilterSection onClear={handleClearFilters} onApply={handleApplyFilters}>

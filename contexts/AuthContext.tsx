@@ -60,9 +60,25 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         throw new Error(errorMsg);
       }
     } catch (err: any) {
-      const apiError = err.response?.data?.data?.errors?.email?.[0] ||
-        err.response?.data?.data?.errors?.password?.[0] ||
-        err.response?.data?.message ||
+      const d = err.response?.data;
+      const pick = (errors: unknown): string | null => {
+        if (!errors || typeof errors !== 'object') return null;
+        const o = errors as Record<string, unknown>;
+        for (const key of ['email', 'password', 'message']) {
+          const v = o[key];
+          if (Array.isArray(v) && typeof v[0] === 'string') return v[0];
+          if (typeof v === 'string' && v.trim()) return v;
+        }
+        for (const v of Object.values(o)) {
+          if (Array.isArray(v) && typeof v[0] === 'string') return v[0];
+          if (typeof v === 'string' && v.trim()) return v;
+        }
+        return null;
+      };
+      const apiError =
+        pick(d?.errors) ||
+        (typeof d?.message === 'string' && d.message.trim() ? d.message : null) ||
+        pick(d?.data?.errors) ||
         err.message ||
         'Erro ao fazer login';
       setError(apiError);

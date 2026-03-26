@@ -19,8 +19,13 @@ export interface DashboardStats {
   revenue: number;
   costs: number;
   expenses: number;
+  /** Despesas administrativas (gestão) no período — mesma regra de data efetiva */
+  administrative_expenses?: number;
   profit: number;
   profit_margin: number;
+  /** Lucro após descontar também despesas administrativas */
+  profit_after_administrative?: number;
+  profit_margin_after_administrative?: number;
   total_orders: number;
   average_ticket: number;
   overdue: {
@@ -115,6 +120,9 @@ class FinanceService {
       dashboard: {
         ...dash,
         expenses: dash.expenses ?? 0,
+        administrative_expenses: dash.administrative_expenses ?? 0,
+        profit_after_administrative: dash.profit_after_administrative ?? dash.profit ?? 0,
+        profit_margin_after_administrative: dash.profit_margin_after_administrative ?? dash.profit_margin ?? 0,
         expenses_by_store: this.toArray<StoreExpense>(dash.expenses_by_store),
       },
       revenue_by_store: this.toArray<StoreRevenue>(raw.revenue_by_store),

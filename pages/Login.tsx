@@ -13,8 +13,32 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
   const [error, setError] = useState<string | null>(null);
   const { login, isLoading } = useAuth();
 
+  const normalizeLoginMessage = (msg: string): string => {
+    const t = msg.trim();
+    if (t === 'The provided credentials are incorrect.') return 'E-mail ou senha inválidos.';
+    return t;
+  };
+
+  /** Lê primeiro texto útil de um objeto errors (Laravel ou ResponseHelper). */
+  const pickFromErrorsObject = (errors: unknown): string | null => {
+    if (!errors || typeof errors !== 'object') return null;
+    const o = errors as Record<string, unknown>;
+    const msg = o.message;
+    if (typeof msg === 'string' && msg.trim()) return msg;
+    if (Array.isArray(msg) && typeof msg[0] === 'string') return msg[0];
+    for (const key of ['email', 'password']) {
+      const v = o[key];
+      if (Array.isArray(v) && typeof v[0] === 'string') return v[0];
+      if (typeof v === 'string' && v.trim()) return v;
+    }
+    for (const v of Object.values(o)) {
+      if (Array.isArray(v) && typeof v[0] === 'string') return v[0];
+      if (typeof v === 'string' && v.trim()) return v;
+    }
+    return null;
+  };
+
   const getLoginErrorMessage = (err: any): string => {
-    // Erro de rede/CORS
     if (!err.response) {
       if (err.message?.includes('Network Error') || err.code === 'ERR_NETWORK') {
         return 'Erro de conexão. Verifique se o servidor está rodando.';
@@ -25,25 +49,22 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
       return err.message || 'Erro ao conectar com o servidor.';
     }
 
-    // Erro da API
-    const apiMessage = err?.response?.data?.message;
-    const emailErrors = err?.response?.data?.data?.errors?.email;
-    const passwordErrors = err?.response?.data?.data?.errors?.password;
-
-    if (Array.isArray(emailErrors) && emailErrors.length > 0) {
-      return emailErrors[0];
+    const d = err.response?.data;
+    if (!d || typeof d !== 'object') {
+      return 'E-mail ou senha inválidos.';
     }
 
-    if (Array.isArray(passwordErrors) && passwordErrors.length > 0) {
-      return passwordErrors[0];
+    // 1) Laravel validação (422): { message, errors: { email: [...] } }
+    const fromFlatErrors = pickFromErrorsObject(d.errors);
+    if (fromFlatErrors) return normalizeLoginMessage(fromFlatErrors);
+
+    if (typeof d.message === 'string' && d.message.trim()) {
+      return normalizeLoginMessage(d.message);
     }
 
-    if (apiMessage) {
-      if (apiMessage === 'The provided credentials are incorrect.') {
-        return 'E-mail ou senha inválidos.';
-      }
-      return apiMessage;
-    }
+    // 2) Login falho / API padronizada (401): { success, data: { errors: { email: [...] } } }
+    const fromNested = pickFromErrorsObject(d.data?.errors);
+    if (fromNested) return normalizeLoginMessage(fromNested);
 
     return 'E-mail ou senha inválidos.';
   };

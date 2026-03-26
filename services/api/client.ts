@@ -72,11 +72,12 @@ class ApiClient {
         // Token enviado via cookie HttpOnly (withCredentials: true)
         // Cookie é enviado automaticamente pelo browser
 
-        // Contexto de loja para escopo multi-loja
-        const storeId = localStorage.getItem('selectedStoreId');
-        console.log('[ApiClient] Store ID:', storeId || 'Não selecionado');
-        if (storeId) {
-          config.headers['X-Store-ID'] = storeId;
+        // Contexto de loja: só enviar ID inteiro positivo (evita 400 no backend com "0" ou lixo no storage)
+        const rawStoreId = localStorage.getItem('selectedStoreId');
+        const parsedStoreId = rawStoreId && /^\d+$/.test(rawStoreId) ? parseInt(rawStoreId, 10) : NaN;
+        console.log('[ApiClient] Store ID:', Number.isFinite(parsedStoreId) && parsedStoreId > 0 ? String(parsedStoreId) : 'Não selecionado');
+        if (Number.isFinite(parsedStoreId) && parsedStoreId > 0) {
+          config.headers['X-Store-ID'] = String(parsedStoreId);
         }
 
         config.headers['X-Request-ID'] = generateRequestId();
