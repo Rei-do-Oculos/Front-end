@@ -14,6 +14,8 @@ export interface InadimplenciasReportPdfOptions {
   dateTo?: string | null;
   storeFilterLabel?: string | null;
   searchTerm?: string | null;
+  /** Rótulo do filtro de status (ativas / inativas / todas) */
+  overdueStatusLabel?: string | null;
   storeData?: StoreData | null;
   storeColor?: string;
   storeLogo?: string | null;
@@ -35,17 +37,24 @@ const getDaysOverdue = (arrivedAt: string | null) => {
   return Math.max(0, diffDays);
 };
 
+const statusLabel = (order: ServiceOrder): string => {
+  const inactive = Boolean(order.overdue_inactive);
+  return inactive ? 'Inativa (fora dos totais)' : 'Ativa (nos totais)';
+};
+
 const buildRows = (orders: ServiceOrder[], color: string): string => {
   if (!orders.length) {
     return `
       <tr>
-        <td colspan="6" style="padding: 16px; text-align: center; color: #6b7280; border: 1px solid #e5e7eb;">Nenhuma inadimplência com os filtros aplicados</td>
+        <td colspan="7" style="padding: 16px; text-align: center; color: #6b7280; border: 1px solid #e5e7eb;">Nenhuma inadimplência com os filtros aplicados</td>
       </tr>
     `;
   }
   return orders
     .map((order, i) => {
       const days = getDaysOverdue(order.arrived_at ?? null);
+      const st = statusLabel(order);
+      const stColor = order.overdue_inactive ? '#b91c1c' : '#15803d';
       return `
         <tr style="${i % 2 ? 'background: #f9fafb;' : ''}">
           <td style="padding: 8px; border: 1px solid #e5e7eb; font-size: 10px; font-weight: 700; color: ${color};">${formatOsNumber(order.os_number)}</td>
@@ -53,6 +62,7 @@ const buildRows = (orders: ServiceOrder[], color: string): string => {
           <td style="padding: 8px; border: 1px solid #e5e7eb; font-size: 10px;">${order.store?.name || '-'}</td>
           <td style="padding: 8px; border: 1px solid #e5e7eb; font-size: 10px; text-align: center;">${order.arrived_at ? formatDate(order.arrived_at) : '-'}</td>
           <td style="padding: 8px; border: 1px solid #e5e7eb; font-size: 10px; text-align: center;">${days} ${days === 1 ? 'dia' : 'dias'}</td>
+          <td style="padding: 8px; border: 1px solid #e5e7eb; font-size: 10px; text-align: center; font-weight: 600; color: ${stColor};">${st}</td>
           <td style="padding: 8px; border: 1px solid #e5e7eb; font-size: 10px; text-align: right; font-weight: 600; color: ${color};">${formatCurrency(order.price || 0)}</td>
         </tr>
       `;
@@ -68,6 +78,7 @@ export const generateInadimplenciasReportPdf = async (options: InadimplenciasRep
     dateTo,
     storeFilterLabel,
     searchTerm,
+    overdueStatusLabel,
     storeData,
     storeColor,
     storeLogo,
@@ -89,14 +100,18 @@ export const generateInadimplenciasReportPdf = async (options: InadimplenciasRep
       : 'Chegou: (sem filtro de data)';
   const storeLine = storeFilterLabel ? `Ótica: ${storeFilterLabel}` : 'Ótica: todas (conforme seu acesso)';
   const searchLine = searchTerm ? `Busca: ${searchTerm.replace(/</g, '&lt;')}` : null;
+  const statusLine = overdueStatusLabel ? `Status: ${overdueStatusLabel}` : null;
 
-  const filtersHtml = [dateLine, storeLine, searchLine].filter(Boolean).join(' · ');
+  const filtersHtml = [dateLine, storeLine, statusLine, searchLine].filter(Boolean).join(' · ');
 
   const contentHtml = `
     <div style="font-size: 10px; color: #6b7280; margin-bottom: 12px;">${filtersHtml}</div>
-    <div style="padding: 14px; background: #fef2f2; border-radius: 8px; border-left: 4px solid ${color}; margin-bottom: 16px;">
-      <div style="font-size: 10px; color: #6b7280; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px;">Total filtrado</div>
+    <div style="padding: 14px; background: #fef2f2; border-radius: 8px; border-left: 4px solid ${color}; margin-bottom: 8px;">
+      <div style="font-size: 10px; color: #6b7280; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px;">Total filtrado (soma das linhas abaixo)</div>
       <div style="font-size: 20px; font-weight: 700; color: ${color};">${orders.length} OS · ${formatCurrency(totalSales)}</div>
+    </div>
+    <div style="font-size: 9px; color: #6b7280; margin-bottom: 16px; line-height: 1.4;">
+      OS <strong>inativas</strong> não entram nos totais do financeiro nem no gráfico do dashboard. Cada linha indica se a inadimplência está ativa ou inativa nos indicadores.
     </div>
     <table style="width: 100%; border-collapse: collapse; border: 1px solid #e5e7eb; font-size: 10px;">
       <thead>
@@ -106,6 +121,7 @@ export const generateInadimplenciasReportPdf = async (options: InadimplenciasRep
           <th style="padding: 8px; text-align: left; font-size: 10px; color: #374151; border: 1px solid #e5e7eb;">Ótica</th>
           <th style="padding: 8px; text-align: center; font-size: 10px; color: #374151; border: 1px solid #e5e7eb;">Chegou em</th>
           <th style="padding: 8px; text-align: center; font-size: 10px; color: #374151; border: 1px solid #e5e7eb;">Atraso</th>
+          <th style="padding: 8px; text-align: center; font-size: 10px; color: #374151; border: 1px solid #e5e7eb;">Status nos totais</th>
           <th style="padding: 8px; text-align: right; font-size: 10px; color: #374151; border: 1px solid #e5e7eb;">Valor</th>
         </tr>
       </thead>

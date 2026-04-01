@@ -41,6 +41,15 @@ export const useServiceOrders = (options: UseServiceOrdersOptions = {}) => {
     }
   }, []);
 
+  const setOverdueInactive = useCallback(async (id: string, overdueInactive: boolean) => {
+    setActionLoading(true);
+    try {
+      return await serviceOrdersService.setOverdueInactive(id, overdueInactive);
+    } finally {
+      setActionLoading(false);
+    }
+  }, []);
+
   // Enviar para laboratório
   const sendToLab = useCallback(async (id: string) => {
     setActionLoading(true);
@@ -69,6 +78,19 @@ export const useServiceOrders = (options: UseServiceOrdersOptions = {}) => {
     try {
       const result = await serviceOrdersService.markCompleted(id);
       return result;
+    } finally {
+      setActionLoading(false);
+    }
+  }, []);
+
+  // Atualizar pagamento e finalizar em um único passo (tela change-payment)
+  const completeWithPayment = useCallback(async (
+    id: string,
+    payload: Parameters<typeof serviceOrdersService.completeWithPayment>[1]
+  ) => {
+    setActionLoading(true);
+    try {
+      return await serviceOrdersService.completeWithPayment(id, payload);
     } finally {
       setActionLoading(false);
     }
@@ -115,10 +137,12 @@ export const useServiceOrders = (options: UseServiceOrdersOptions = {}) => {
     sendToLab,
     markArrived,
     markCompleted,
+    completeWithPayment,
     // Revert actions
     revertSendToLab,
     revertArrived,
     // Overdue actions
     fetchOverdueOrders,
+    setOverdueInactive,
   };
 };

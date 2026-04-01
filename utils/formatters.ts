@@ -5,6 +5,33 @@ export const formatCurrency = (value: number): string => {
   }).format(value);
 };
 
+/**
+ * Converte texto digitado em valor numérico (moeda BRL).
+ * Aceita formato BR ("50,00", "1.234,56") e ponto como decimal ("50.00", "1234.56").
+ * Evita que "50.00" vire 5000 ao remover pontos como se fossem milhar.
+ */
+export function parseMoneyBrInput(value: string): number {
+  if (!value) return 0;
+  const s = value.trim();
+  if (s.includes(',')) {
+    return parseFloat(s.replace(/\./g, '').replace(',', '.')) || 0;
+  }
+  const parts = s.split('.');
+  if (parts.length === 1) {
+    return parseFloat(parts[0]) || 0;
+  }
+  if (parts.length === 2) {
+    const dec = parts[1];
+    if (dec.length <= 2) {
+      return parseFloat(`${parts[0]}.${dec}`) || 0;
+    }
+    if (dec.length === 3 && /^\d+$/.test(parts[0]) && /^\d{3}$/.test(dec)) {
+      return parseFloat(parts[0] + dec) || 0;
+    }
+  }
+  return parseFloat(s.replace(/\./g, '')) || 0;
+}
+
 export const formatDate = (date: Date | string): string => {
   const d = typeof date === 'string' ? new Date(date) : date;
   return new Intl.DateTimeFormat('pt-BR', {

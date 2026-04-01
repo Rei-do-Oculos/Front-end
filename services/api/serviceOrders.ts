@@ -57,6 +57,8 @@ export interface ServiceOrder {
   arrived_at: string | null;
   completed_at: string | null;
   overdue_days: number;
+  /** true = fora dos totais do financeiro/gráficos (status continua inadimplente) */
+  overdue_inactive?: boolean;
   created_at: string;
   updated_at: string;
   deleted_at: string | null;
@@ -192,10 +194,16 @@ export interface ServiceOrdersQueryParams {
   user_id?: number;
   laboratory_id?: number;
   verified?: boolean;
+  /** Filtro pela coluna garantia (true = com garantia, false = sem) */
+  warranty?: boolean;
   status?: ServiceOrderStatus | ServiceOrderStatus[];
   has_laboratory?: boolean;
   date_from?: string;
   date_to?: string;
+  /** @deprecated use overdue_metrics_status */
+  include_inactive_overdue?: boolean;
+  /** Lista de inadimplências: active = nos totais; inactive = fora dos totais; all = todas */
+  overdue_metrics_status?: 'active' | 'inactive' | 'all';
 }
 
 export interface LaravelPaginatedResponse<T> {
@@ -435,6 +443,29 @@ class ServiceOrdersService {
   }
 
   /**
+   * Inativar ou reativar inadimplência nos indicadores (status permanece overdue).
+   */
+  async setOverdueInactive(
+    id: string,
+    overdueInactive: boolean
+  ): Promise<{ success: boolean; message: string; service_order: ServiceOrder }> {
+    const { data } = await apiClient.post<{
+      success: boolean;
+      action: string;
+      data: {
+        message: string;
+        service_order: ServiceOrder;
+      };
+    }>(`${this.endpoint}/${id}/overdue-inactive`, { overdue_inactive: overdueInactive });
+
+    return {
+      success: data.success,
+      message: data.data?.message || '',
+      service_order: data.data?.service_order as ServiceOrder,
+    };
+  }
+
+  /**
    * Marcar OS como enviada para o laboratório
    */
   async sendToLab(id: string): Promise<{ success: boolean; message: string; service_order: ServiceOrder }> {
@@ -467,6 +498,32 @@ class ServiceOrdersService {
       };
     }>(`${this.endpoint}/${id}/arrived`);
     
+    return {
+      success: data.success,
+      message: data.data?.message || '',
+      service_order: data.data?.service_order,
+    };
+  }
+
+  /**
+   * Atualiza a forma de pagamento e finaliza a OS em um único request.
+   * Usado quando o pagamento era "na retirada" e o cliente está retirando agora.
+   */
+  async completeWithPayment(
+    id: string,
+    payload: {
+      price?: number;
+      payment_method?: string | null;
+      installments?: number | null;
+      payments?: Array<{ payment_method: string; amount: number; installments?: number | null }>;
+    }
+  ): Promise<{ success: boolean; message: string; service_order: ServiceOrder }> {
+    const { data } = await apiClient.post<{
+      success: boolean;
+      action: string;
+      data: { message: string; service_order: ServiceOrder };
+    }>(`${this.endpoint}/${id}/complete-with-payment`, payload);
+
     return {
       success: data.success,
       message: data.data?.message || '',

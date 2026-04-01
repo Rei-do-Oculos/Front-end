@@ -16,14 +16,7 @@ export const serviceOrderSchema = z.object({
     .string()
     .optional()
     .nullable()
-    .transform((val) => val || '0')
-    .refine(
-      (val) => {
-        const num = parseFloat(String(val).replace(',', '.').replace(/[^\d.]/g, ''));
-        return !isNaN(num) && num > 0;
-      },
-      'Preço é obrigatório e deve ser maior que zero'
-    ),
+    .transform((val) => val || '0'),
 
   // Laboratório (opcional)
   laboratory_id: z
@@ -160,6 +153,18 @@ export const serviceOrderSchema = z.object({
 
   // Toggle de laboratório (não vai para o backend)
   send_to_lab: z.boolean().default(false),
+}).superRefine((data, ctx) => {
+  const isWarranty = !!data.warranty;
+  if (!isWarranty) {
+    const num = parseFloat(String(data.price || '0').replace(',', '.').replace(/[^\d.]/g, ''));
+    if (isNaN(num) || num <= 0) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['price'],
+        message: 'Preço é obrigatório e deve ser maior que zero',
+      });
+    }
+  }
 });
 
 export type ServiceOrderFormData = z.infer<typeof serviceOrderSchema>;

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Loader2, AlertTriangle, FileDown, Phone, User, Building2, Eye, CheckCircle } from 'lucide-react';
+import { Loader2, AlertTriangle, FileDown, Phone, User, Building2, Eye, CheckCircle, X, Check } from 'lucide-react';
 import { Card, Button, Input, SingleSelect, FilterSection, Modal, ActiveFiltersBadge, SortableHeader, SortDirection, Pagination, AccessDeniedCard, Badge } from '../../components/Common';
 import { useServiceOrders } from '../../services/hooks/useServiceOrders';
 import { usePlucks } from '../../services/hooks/usePlucks';
@@ -37,7 +37,8 @@ export const Inadimplencias: React.FC = () => {
     actionLoading, 
     error, 
     fetchOverdueOrders,
-    markCompleted 
+    markCompleted,
+    setOverdueInactive,
   } = useServiceOrders({ autoFetch: false });
   
   // Usar usePlucks para trazer todas as lojas que o usuário tem acesso
@@ -58,7 +59,11 @@ export const Inadimplencias: React.FC = () => {
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
   const [perPage, setPerPage] = useState<number>(15);
   const [exportingPdf, setExportingPdf] = useState(false);
-  
+  const [filterOverdueStatus, setFilterOverdueStatus] = useState<'active' | 'inactive' | 'all'>('active');
+  const [togglingInactiveId, setTogglingInactiveId] = useState<number | null>(null);
+  const [inactiveModalOpen, setInactiveModalOpen] = useState(false);
+  const [orderForInactive, setOrderForInactive] = useState<ServiceOrder | null>(null);
+
   // Modal de confirmação de retirada
   const [actionModalOpen, setActionModalOpen] = useState(false);
   const [orderToAction, setOrderToAction] = useState<ServiceOrder | null>(null);
@@ -68,13 +73,20 @@ export const Inadimplencias: React.FC = () => {
   const [showReceiptModal, setShowReceiptModal] = useState(false);
   const [completedOrder, setCompletedOrder] = useState<ServiceOrder | null>(null);
 
-  const [appliedFilters, setAppliedFilters] = useState({ searchTerm: '', filterStore: '', filterDateFrom: '', filterDateTo: '' });
+  const [appliedFilters, setAppliedFilters] = useState<{
+    searchTerm: string;
+    filterStore: string;
+    filterDateFrom: string;
+    filterDateTo: string;
+    overdueStatus: 'active' | 'inactive' | 'all';
+  }>({ searchTerm: '', filterStore: '', filterDateFrom: '', filterDateTo: '', overdueStatus: 'active' });
 
   const activeFilters = useActiveFilters({
     searchTerm: appliedFilters.searchTerm,
     filterStore: appliedFilters.filterStore,
     filterDateFrom: appliedFilters.filterDateFrom,
     filterDateTo: appliedFilters.filterDateTo,
+    overdueStatusNonDefault: appliedFilters.overdueStatus !== 'active',
   });
 
   // Garantir que storesPlucks seja sempre um array
@@ -95,7 +107,10 @@ export const Inadimplencias: React.FC = () => {
       if (availableStores.length > 0 && !params.store_id) {
         finalParams.store_id = availableStores.map(s => s.id);
       }
-      
+      if (finalParams.overdue_metrics_status == null) {
+        finalParams.overdue_metrics_status = appliedFilters.overdueStatus;
+      }
+
       const result = await fetchOverdueOrders({ page, ...finalParams });
       setServiceOrders(result.data);
       setPagination(result.meta);
@@ -104,7 +119,7 @@ export const Inadimplencias: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [fetchOverdueOrders, availableStores, selectedStore?.id, sortBy, sortDirection, perPage]);
+  }, [fetchOverdueOrders, availableStores, selectedStore?.id, sortBy, sortDirection, perPage, appliedFilters]);
 
   const buildFilterParams = (f: typeof appliedFilters) => {
     const params: any = {};
@@ -112,6 +127,7 @@ export const Inadimplencias: React.FC = () => {
     if (f.filterStore) params.store_id = f.filterStore;
     if (f.filterDateFrom) params.date_from = f.filterDateFrom;
     if (f.filterDateTo) params.date_to = f.filterDateTo;
+    params.overdue_metrics_status = f.overdueStatus ?? 'active';
     return params;
   };
 
@@ -136,7 +152,7 @@ export const Inadimplencias: React.FC = () => {
   };
 
   const handleApplyFilters = async () => {
-    const next = { searchTerm, filterStore, filterDateFrom, filterDateTo };
+    const next = { searchTerm, filterStore, filterDateFrom, filterDateTo, overdueStatus: filterOverdueStatus };
     setAppliedFilters(next);
     const params = buildFilterParams(next);
     params.order_by = sortBy || 'arrived_at';
@@ -150,8 +166,14 @@ export const Inadimplencias: React.FC = () => {
     setFilterStore('');
     setFilterDateFrom('');
     setFilterDateTo('');
-    setAppliedFilters({ searchTerm: '', filterStore: '', filterDateFrom: '', filterDateTo: '' });
-    await loadOrders(1, { order_by: sortBy || 'arrived_at', order_dir: sortDirection || 'asc', per_page: perPage });
+    setFilterOverdueStatus('active');
+    setAppliedFilters({ searchTerm: '', filterStore: '', filterDateFrom: '', filterDateTo: '', overdueStatus: 'active' });
+    await loadOrders(1, {
+      order_by: sortBy || 'arrived_at',
+      order_dir: sortDirection || 'asc',
+      per_page: perPage,
+      overdue_metrics_status: 'active',
+    });
   };
 
   const handleExportPdf = async () => {
@@ -170,11 +192,18 @@ export const Inadimplencias: React.FC = () => {
       if (availableStores.length > 0 && !params.store_id) {
         params.store_id = availableStores.map((s) => s.id);
       }
+      params.overdue_metrics_status = f.overdueStatus ?? 'active';
 
       const { orders, totalSales } = await serviceOrdersService.getOverdueReport(params as any);
       const storeFilterLabel = f.filterStore
         ? (safeStoresPlucks.find((s: { id: number | string }) => String(s.id) === f.filterStore)?.name as string | undefined) ?? null
         : null;
+
+      const overdueStatusLabels: Record<string, string> = {
+        active: 'Ativas nos totais',
+        inactive: 'Inativas (fora dos totais)',
+        all: 'Todas',
+      };
 
       await generateInadimplenciasReportPdf({
         orders,
@@ -183,6 +212,7 @@ export const Inadimplencias: React.FC = () => {
         dateTo: f.filterDateTo || undefined,
         storeFilterLabel,
         searchTerm: f.searchTerm || undefined,
+        overdueStatusLabel: overdueStatusLabels[f.overdueStatus] ?? overdueStatusLabels.active,
         storeData: selectedStore
           ? {
               name: selectedStore.name,
@@ -216,6 +246,38 @@ export const Inadimplencias: React.FC = () => {
   const handleActionClick = (order: ServiceOrder) => {
     setOrderToAction(order);
     setActionModalOpen(true);
+  };
+
+  const handleOpenInactiveModal = (order: ServiceOrder) => {
+    setOrderForInactive(order);
+    setInactiveModalOpen(true);
+  };
+
+  const handleConfirmInactiveToggle = async () => {
+    if (!orderForInactive) return;
+    const order = orderForInactive;
+    const next = !order.overdue_inactive;
+    setTogglingInactiveId(order.id);
+    try {
+      const result = await setOverdueInactive(String(order.id), next);
+      if (result?.success) {
+        showSuccess(result.message);
+        setInactiveModalOpen(false);
+        setOrderForInactive(null);
+        const params = buildFilterParams(appliedFilters);
+        params.order_by = sortBy || 'arrived_at';
+        params.order_dir = sortDirection || 'asc';
+        params.per_page = perPage;
+        await loadOrders(pagination?.currentPage || 1, params);
+      } else {
+        showError(result?.message || 'Não foi possível atualizar');
+      }
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Erro ao atualizar';
+      showError(message);
+    } finally {
+      setTogglingInactiveId(null);
+    }
   };
 
   const handleConfirmAction = async () => {
@@ -384,7 +446,9 @@ export const Inadimplencias: React.FC = () => {
           </div>
           <div>
             <h1 className="text-3xl font-black text-slate-950 tracking-tight">Inadimplências</h1>
-            <p className="text-gray-500 font-medium mt-1">Ordens de serviço aguardando retirada há mais de 5 dias.</p>
+            <p className="text-gray-500 font-medium mt-1">
+              Ordens de serviço aguardando retirada há mais de 5 dias. Inativas não entram nos totais do financeiro nem no gráfico do dashboard.
+            </p>
           </div>
         </div>
         {hasPermission('service-orders-overdue.export') && (
@@ -420,6 +484,17 @@ export const Inadimplencias: React.FC = () => {
           type="date"
           value={filterDateTo}
           onChange={(e) => setFilterDateTo(e.target.value)}
+        />
+        <SingleSelect
+          label="Status (nos totais)"
+          value={filterOverdueStatus}
+          onChange={(val) => setFilterOverdueStatus((val as 'active' | 'inactive' | 'all') || 'active')}
+          options={[
+            { value: 'active', label: 'Ativas (nos totais do sistema)' },
+            { value: 'inactive', label: 'Inativas (fora dos totais)' },
+            { value: 'all', label: 'Todas' },
+          ]}
+          placeholder="Ativas"
         />
       </FilterSection>
 
@@ -480,13 +555,14 @@ export const Inadimplencias: React.FC = () => {
                 />
                 <th className="px-6 py-4 text-center text-[10px] font-black uppercase text-slate-400 tracking-widest">Dias em Atraso</th>
                 <th className="px-6 py-4 text-right text-[10px] font-black uppercase text-slate-400 tracking-widest">Valor</th>
+                <th className="px-6 py-4 text-center text-[10px] font-black uppercase text-slate-400 tracking-widest">Nos totais</th>
                 <th className="px-6 py-4 text-center text-[10px] font-black uppercase text-slate-400 tracking-widest">Ações</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-50">
               {isLoading ? (
                 <tr>
-                  <td colSpan={7} className="px-6 py-12 text-center">
+                  <td colSpan={8} className="px-6 py-12 text-center">
                     <div className="flex items-center justify-center gap-3">
                       <Loader2 size={20} className="animate-spin text-red-600" />
                       <span className="text-sm text-slate-500">Carregando inadimplências...</span>
@@ -495,7 +571,7 @@ export const Inadimplencias: React.FC = () => {
                 </tr>
               ) : error ? (
                 <tr>
-                  <td colSpan={7} className="px-6 py-12 text-center">
+                  <td colSpan={8} className="px-6 py-12 text-center">
                     <div className="border rounded-lg p-4 bg-red-50 border-red-200">
                       <p className="text-sm font-bold mb-1 text-red-700">Erro ao carregar inadimplências</p>
                       <p className="text-xs text-red-600">{error.message || 'Erro desconhecido'}</p>
@@ -504,7 +580,7 @@ export const Inadimplencias: React.FC = () => {
                 </tr>
               ) : ordersList.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="px-6 py-12 text-center">
+                  <td colSpan={8} className="px-6 py-12 text-center">
                     <div className="flex flex-col items-center gap-2">
                       <CheckCircle size={40} className="text-emerald-500" />
                       <span className="text-sm text-slate-500">Nenhuma inadimplência encontrada</span>
@@ -517,7 +593,10 @@ export const Inadimplencias: React.FC = () => {
                   const daysOverdue = getDaysOverdue(order.arrived_at);
                   
                   return (
-                    <tr key={order.id} className="group hover:bg-red-50/30 transition-colors">
+                    <tr
+                      key={order.id}
+                      className={`group transition-colors hover:bg-red-50/30 ${order.overdue_inactive ? 'bg-slate-50/90' : ''}`}
+                    >
                       <td className="px-6 py-4">
                         <span className="text-sm font-bold text-red-600">
                           {formatOsNumber(order.os_number)}
@@ -565,6 +644,13 @@ export const Inadimplencias: React.FC = () => {
                         </span>
                       </td>
                       <td className="px-6 py-4">
+                        <div className="flex justify-center">
+                          <Badge variant={order.overdue_inactive ? 'danger' : 'success'}>
+                            {order.overdue_inactive ? 'Inativa' : 'Ativa'}
+                          </Badge>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4">
                         <div className="flex items-center justify-center gap-2">
                           {hasPermission('service-orders-overdue.list') && (
                             <button 
@@ -573,6 +659,25 @@ export const Inadimplencias: React.FC = () => {
                               className="p-2 text-slate-400 hover:text-red-600 hover:bg-white rounded-xl shadow-sm border border-transparent hover:border-slate-100 transition-all"
                             >
                               <Eye size={16} />
+                            </button>
+                          )}
+                          {hasPermission('service-orders-overdue.update') && (
+                            <button
+                              type="button"
+                              title={order.overdue_inactive ? 'Reativar nos indicadores' : 'Inativar nos indicadores'}
+                              onClick={() => handleOpenInactiveModal(order)}
+                              disabled={actionLoading}
+                              className={`p-2 rounded-xl shadow-sm border transition-all disabled:opacity-50 ${
+                                order.overdue_inactive
+                                  ? 'bg-emerald-600 text-white border-emerald-700 hover:bg-emerald-700'
+                                  : 'bg-red-600 text-white border-red-700 hover:bg-red-700'
+                              }`}
+                            >
+                              {order.overdue_inactive ? (
+                                <Check size={16} strokeWidth={2.5} />
+                              ) : (
+                                <X size={16} strokeWidth={2.5} />
+                              )}
                             </button>
                           )}
                           {order.client && (
@@ -683,6 +788,105 @@ export const Inadimplencias: React.FC = () => {
             </Button>
           </div>
         </div>
+      </Modal>
+
+      {/* Confirmação inativar / reativar nos indicadores */}
+      <Modal
+        isOpen={inactiveModalOpen}
+        onClose={() => {
+          if (togglingInactiveId === null) {
+            setInactiveModalOpen(false);
+            setOrderForInactive(null);
+          }
+        }}
+        title={
+          orderForInactive?.overdue_inactive
+            ? 'Reativar nos indicadores?'
+            : 'Inativar nos indicadores?'
+        }
+      >
+        {orderForInactive && (
+          <div className="space-y-4">
+            <p className="text-sm text-slate-600">
+              OS <span className="font-bold text-slate-900">#{formatOsNumber(orderForInactive.os_number)}</span>
+              {orderForInactive.client?.name ? (
+                <>
+                  {' '}
+                  — <span className="font-medium text-slate-800">{orderForInactive.client.name}</span>
+                </>
+              ) : null}
+            </p>
+
+            {orderForInactive.overdue_inactive ? (
+              <div className="rounded-xl border border-emerald-200 bg-emerald-50/80 p-4 text-sm text-slate-700 space-y-2">
+                <p className="font-semibold text-emerald-900">Ao reativar:</p>
+                <ul className="list-disc pl-5 space-y-1.5 text-slate-700">
+                  <li>Esta OS <strong>volta a entrar</strong> nos totais de inadimplência do sistema.</li>
+                  <li>O valor <strong>passa a contar de novo</strong> no fluxo de caixa, resumos, gráficos do dashboard e alertas de cliente (conforme permissões).</li>
+                  <li>O status da OS continua <strong>Inadimplente</strong>; apenas o flag “fora dos totais” é desligado.</li>
+                </ul>
+              </div>
+            ) : (
+              <div className="rounded-xl border border-red-200 bg-red-50/80 p-4 text-sm text-slate-700 space-y-2">
+                <p className="font-semibold text-red-900">Ao inativar:</p>
+                <ul className="list-disc pl-5 space-y-1.5 text-slate-700">
+                  <li>A OS <strong>continua</strong> com status <strong>Inadimplente</strong> no cadastro (histórico preservado).</li>
+                  <li>Ela <strong>deixa de entrar</strong> nos totais de inadimplência: fluxo de caixa, dashboard, gráficos e alertas de cliente.</li>
+                  <li>Use para casos <strong>antigos, caducados ou acordos</strong> em que o valor não deve mais “pesar” nos números do sistema.</li>
+                </ul>
+              </div>
+            )}
+
+            <div className="flex items-center justify-end gap-3 pt-2 border-t border-slate-100">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  if (togglingInactiveId === null) {
+                    setInactiveModalOpen(false);
+                    setOrderForInactive(null);
+                  }
+                }}
+                disabled={togglingInactiveId !== null}
+              >
+                Cancelar
+              </Button>
+              {orderForInactive.overdue_inactive ? (
+                <Button
+                  variant="success"
+                  onClick={handleConfirmInactiveToggle}
+                  disabled={togglingInactiveId !== null}
+                >
+                  {togglingInactiveId !== null ? (
+                    <>
+                      <Loader2 size={16} className="animate-spin" /> Processando...
+                    </>
+                  ) : (
+                    <>
+                      <Check size={16} /> Sim, reativar
+                    </>
+                  )}
+                </Button>
+              ) : (
+                <Button
+                  variant="success"
+                  className="!bg-red-600 hover:!bg-red-700 shadow-lg shadow-red-200/40"
+                  onClick={handleConfirmInactiveToggle}
+                  disabled={togglingInactiveId !== null}
+                >
+                  {togglingInactiveId !== null ? (
+                    <>
+                      <Loader2 size={16} className="animate-spin" /> Processando...
+                    </>
+                  ) : (
+                    <>
+                      <X size={16} /> Sim, inativar
+                    </>
+                  )}
+                </Button>
+              )}
+            </div>
+          </div>
+        )}
       </Modal>
 
       {/* Modal de Recibo (após retirada) */}

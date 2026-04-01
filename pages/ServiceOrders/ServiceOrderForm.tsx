@@ -781,13 +781,15 @@ export const ServiceOrderForm: React.FC = () => {
       ? Math.abs(formData.partial_payments.reduce((s, p) => s + (p.amount ? parseFloat(parseCurrency(p.amount)) : 0), 0) - priceNum) < 0.01
       : false;
 
+    const isWarranty = !!formData.warranty;
+
     const customErrors: Record<string, string> = {};
     if (hasLab && !hasLabProducts) {
       customErrors.laboratory_lenses = 'Se laboratório selecionado, informe ao menos um produto de laboratório.';
     } else if (!hasFrames && !(hasLab && hasLabProducts)) {
       customErrors.frames = 'Selecione ao menos uma armação OU um laboratório com produto de laboratório.';
     }
-    if (priceNum <= 0) {
+    if (!isWarranty && priceNum <= 0) {
       customErrors.price = 'Preço é obrigatório.';
     }
     if (formData.expected_pickup_date) {
@@ -802,7 +804,7 @@ export const ServiceOrderForm: React.FC = () => {
     if (!hasFrames && hasLab && hasLabProducts && !formData.rim_use) {
       customErrors.rim_use = 'Quando não há armação mas há laboratório e lente, o aro de uso é obrigatório.';
     }
-    if (!hasPaymentSingle && !(formData.use_partial_payments && hasPaymentPartial && partialSumValid)) {
+    if (!isWarranty && !hasPaymentSingle && !(formData.use_partial_payments && hasPaymentPartial && partialSumValid)) {
       customErrors.payment_method = 'Forma de pagamento é obrigatória.';
     }
     if (Object.keys(customErrors).length > 0) {
@@ -1552,7 +1554,7 @@ export const ServiceOrderForm: React.FC = () => {
               <div className="flex flex-wrap items-end gap-6">
                 <div className="w-48">
                   <label className="block text-[10px] font-semibold text-slate-500 uppercase tracking-widest mb-2">
-                    Preço <span className="text-red-500">*</span>
+                    Preço {!!formData.warranty ? <span className="text-slate-400 normal-case font-normal text-[9px]">(opcional na garantia)</span> : <span className="text-red-500">*</span>}
                   </label>
                   <div className="relative">
                     <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm font-bold text-slate-400">
@@ -1626,7 +1628,7 @@ export const ServiceOrderForm: React.FC = () => {
                 <div className="flex flex-wrap items-end gap-6">
                   <div className="w-48">
                     <SingleSelect
-                      label="Forma de Pagamento *"
+                      label={!!formData.warranty ? 'Forma de Pagamento' : 'Forma de Pagamento *'}
                       value={formData.payment_method}
                       onChange={(val) => {
                         setFormData(prev => ({

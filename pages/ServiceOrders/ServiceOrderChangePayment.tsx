@@ -6,13 +6,14 @@ import { useServiceOrders } from '../../services/hooks/useServiceOrders';
 import { useNotification } from '../../hooks/useNotification';
 import { usePermission } from '../../services/hooks/usePermission';
 import { ServiceOrder } from '../../services/api/serviceOrders';
+import { parseMoneyBrInput } from '../../utils/formatters';
 
 export const ServiceOrderChangePayment: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { showSuccess, showError } = useNotification();
   const { hasSuperAdminRole } = usePermission();
-  const { getServiceOrder, updateServiceOrder, markCompleted } = useServiceOrders({ autoFetch: false });
+  const { getServiceOrder, completeWithPayment } = useServiceOrders({ autoFetch: false });
   
   const [order, setOrder] = useState<ServiceOrder | null>(null);
   const [loading, setLoading] = useState(true);
@@ -79,12 +80,6 @@ export const ServiceOrderChangePayment: React.FC = () => {
     });
   };
 
-  const parseCurrency = (value: string): number => {
-    if (!value) return 0;
-    const cleaned = value.replace(/\./g, '').replace(',', '.');
-    return parseFloat(cleaned) || 0;
-  };
-
   const formatFromNumber = (value: number): string => {
     if (!value && value !== 0) return '';
     return value.toLocaleString('pt-BR', {
@@ -108,7 +103,7 @@ export const ServiceOrderChangePayment: React.FC = () => {
         showError('Adicione pelo menos uma forma de pagamento');
         return;
       }
-      const totalPaid = partialPayments.reduce((sum, p) => sum + parseCurrency(p.amount), 0);
+      const totalPaid = partialPayments.reduce((sum, p) => sum + parseMoneyBrInput(p.amount), 0);
       const totalPrice = order.price || 0;
       if (Math.abs(totalPaid - totalPrice) > 0.01) {
         showError(`A soma dos pagamentos (${formatFromNumber(totalPaid)}) deve ser igual ao valor total (${formatFromNumber(totalPrice)})`);
@@ -123,30 +118,26 @@ export const ServiceOrderChangePayment: React.FC = () => {
 
     setProcessing(true);
     try {
-      const updatePayload: any = usePartialPayments
+      const payload = usePartialPayments
         ? {
+            price: order.price ?? 0,
             payment_method: null,
             installments: null,
             payments: partialPayments.map(p => ({
               payment_method: p.payment_method as any,
-              amount: parseCurrency(p.amount),
+              amount: parseMoneyBrInput(p.amount),
               installments: p.payment_method === 'credit_card' && p.installments ? parseInt(p.installments) : null,
             })),
           }
         : {
+            price: order.price ?? 0,
             payment_method: newPaymentMethod as any,
             installments: newPaymentMethod === 'credit_card' ? parseInt(newInstallments) : null,
             payments: [],
           };
 
-      // Atualizar forma de pagamento da OS
-      const updatedOrder = await updateServiceOrder(String(order.id), updatePayload);
-      
-      showSuccess('Forma de pagamento atualizada com sucesso!');
-      
-      // Finalizar a OS
-      const result = await markCompleted(String(order.id));
-      
+      const result = await completeWithPayment(String(order.id), payload);
+
       if (result?.success) {
         showSuccess('OS finalizada com sucesso!');
         navigate('/service-orders/lab');
@@ -154,8 +145,8 @@ export const ServiceOrderChangePayment: React.FC = () => {
         showError(result?.message || 'Erro ao finalizar OS');
       }
     } catch (err: any) {
-      console.error('Erro ao alterar pagamento:', err);
-      showError(err.message || 'Erro ao alterar forma de pagamento');
+      console.error('Erro ao finalizar OS com pagamento:', err);
+      showError(err.message || 'Erro ao finalizar OS');
     } finally {
       setProcessing(false);
     }
@@ -175,7 +166,7 @@ export const ServiceOrderChangePayment: React.FC = () => {
 
   const totalPrice = order.price || 0;
   const totalPaid = usePartialPayments
-    ? partialPayments.reduce((sum, p) => sum + parseCurrency(p.amount), 0)
+    ? partialPayments.reduce((sum, p) => sum + parseMoneyBrInput(p.amount), 0)
     : 0;
   const remaining = totalPrice - totalPaid;
   const isValid = !usePartialPayments || Math.abs(remaining) < 0.01;
@@ -372,8 +363,8 @@ export const ServiceOrderChangePayment: React.FC = () => {
                   </p>
                 </div>
                 {partialPayments.map((payment, index) => {
-                  const currentTotalPaid = partialPayments.reduce((sum, p) => sum + parseCurrency(p.amount), 0);
-                  const currentRemaining = totalPrice - currentTotalPaid + parseCurrency(payment.amount);
+                  const currentTotalPaid = partialPayments.reduce((sum, p) => sum + parseMoneyBrInput(p.amount), 0);
+                  const currentRemaining = totalPrice - currentTotalPaid + parseMoneyBrInput(payment.amount);
                   
                   return (
                     <div key={index} className="p-4 border border-slate-200 rounded-xl bg-slate-50">

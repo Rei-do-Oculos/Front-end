@@ -19,6 +19,7 @@ import { ReceiptData } from '../../components/ThermalReceipt';
 import { invoicesService } from '../../services/api/invoices';
 import { EntryReceiptModal } from '../../components/EntryReceiptModal';
 import { EntryReceiptData } from '../../components/EntryReceipt';
+import { parseMoneyBrInput } from '../../utils/formatters';
 
 // Status labels e cores
 const STATUS_CONFIG: Record<ServiceOrderStatus, { label: string; color: 'warning' | 'info' | 'primary' | 'success' | 'danger' }> = {
@@ -257,12 +258,6 @@ export const ServiceOrderLabList: React.FC = () => {
     });
   };
 
-  const parseCurrency = (value: string): number => {
-    if (!value) return 0;
-    const cleaned = value.replace(/\./g, '').replace(',', '.');
-    return parseFloat(cleaned) || 0;
-  };
-
   const formatFromNumber = (value: number): string => {
     if (!value && value !== 0) return '';
     return value.toLocaleString('pt-BR', {
@@ -282,7 +277,7 @@ export const ServiceOrderLabList: React.FC = () => {
         showError('Adicione pelo menos uma forma de pagamento');
         return;
       }
-      const totalPaid = partialPayments.reduce((sum, p) => sum + parseCurrency(p.amount), 0);
+      const totalPaid = partialPayments.reduce((sum, p) => sum + parseMoneyBrInput(p.amount), 0);
       const totalPrice = orderToAction.price || 0;
       if (Math.abs(totalPaid - totalPrice) > 0.01) {
         showError(`A soma dos pagamentos (${formatFromNumber(totalPaid)}) deve ser igual ao valor total (${formatFromNumber(totalPrice)})`);
@@ -303,7 +298,7 @@ export const ServiceOrderLabList: React.FC = () => {
             installments: null,
             payments: partialPayments.map(p => ({
               payment_method: p.payment_method as any,
-              amount: parseCurrency(p.amount),
+              amount: parseMoneyBrInput(p.amount),
               installments: p.payment_method === 'credit_card' && p.installments ? parseInt(p.installments) : null,
             })),
           }
@@ -1217,9 +1212,9 @@ export const ServiceOrderLabList: React.FC = () => {
                   </p>
                 </div>
                 {partialPayments.map((payment, index) => {
-                  const totalPaid = partialPayments.reduce((sum, p) => sum + parseCurrency(p.amount), 0);
+                  const totalPaid = partialPayments.reduce((sum, p) => sum + parseMoneyBrInput(p.amount), 0);
                   const totalPrice = orderToAction?.price || 0;
-                  const remaining = totalPrice - totalPaid + parseCurrency(payment.amount);
+                  const remaining = totalPrice - totalPaid + parseMoneyBrInput(payment.amount);
                   
                   return (
                     <div key={index} className="p-4 border border-slate-200 rounded-xl bg-slate-50">
@@ -1319,7 +1314,7 @@ export const ServiceOrderLabList: React.FC = () => {
                 })}
                 
                 {(() => {
-                  const totalPaid = partialPayments.reduce((sum, p) => sum + parseCurrency(p.amount), 0);
+                  const totalPaid = partialPayments.reduce((sum, p) => sum + parseMoneyBrInput(p.amount), 0);
                   const totalPrice = orderToAction?.price || 0;
                   const remaining = totalPrice - totalPaid;
                   const isValid = Math.abs(remaining) < 0.01;

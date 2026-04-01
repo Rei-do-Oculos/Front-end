@@ -38,7 +38,7 @@ export const ServiceOrderList: React.FC = () => {
   const [orderToPrint, setOrderToPrint] = useState<ServiceOrder | null>(null);
   const [filterStore, setFilterStore] = useState('');
   const [filterUser, setFilterUser] = useState('');
-  const [filterVerified, setFilterVerified] = useState('');
+  const [filterWarranty, setFilterWarranty] = useState('');
   const [filterDateFrom, setFilterDateFrom] = useState('');
   const [filterDateTo, setFilterDateTo] = useState('');
   // Filtros aplicados - só atualizados ao clicar em "Aplicar Filtros"
@@ -46,14 +46,14 @@ export const ServiceOrderList: React.FC = () => {
     searchTerm: string;
     filterStore: string;
     filterUser: string;
-    filterVerified: string;
+    filterWarranty: string;
     filterDateFrom: string;
     filterDateTo: string;
   }>({
     searchTerm: '',
     filterStore: '',
     filterUser: '',
-    filterVerified: '',
+    filterWarranty: '',
     filterDateFrom: '',
     filterDateTo: '',
   });
@@ -67,7 +67,7 @@ export const ServiceOrderList: React.FC = () => {
     searchTerm: appliedFilters.searchTerm,
     filterStore: appliedFilters.filterStore,
     filterUser: appliedFilters.filterUser,
-    filterVerified: appliedFilters.filterVerified,
+    filterWarranty: appliedFilters.filterWarranty,
     filterDateFrom: appliedFilters.filterDateFrom,
     filterDateTo: appliedFilters.filterDateTo,
   });
@@ -80,7 +80,7 @@ export const ServiceOrderList: React.FC = () => {
     if (f.filterStore) params.store_id = f.filterStore;
     else if (availableStores.length > 0) params.store_id = availableStores.map(s => s.id);
     if (f.filterUser) params.user_id = f.filterUser;
-    if (f.filterVerified) params.verified = f.filterVerified === 'true';
+    if (f.filterWarranty) params.warranty = f.filterWarranty === 'true';
     if (f.filterDateFrom || f.filterDateTo) {
       params.date_from = f.filterDateFrom || undefined;
       params.date_to = f.filterDateTo || undefined;
@@ -132,7 +132,7 @@ export const ServiceOrderList: React.FC = () => {
         searchTerm,
         filterStore,
         filterUser,
-        filterVerified,
+        filterWarranty,
         filterDateFrom,
         filterDateTo,
       };
@@ -151,14 +151,14 @@ export const ServiceOrderList: React.FC = () => {
     setSearchTerm('');
     setFilterStore('');
     setFilterUser('');
-    setFilterVerified('');
+    setFilterWarranty('');
     setFilterDateFrom('');
     setFilterDateTo('');
     const empty = {
       searchTerm: '',
       filterStore: '',
       filterUser: '',
-      filterVerified: '',
+      filterWarranty: '',
       filterDateFrom: '',
       filterDateTo: '',
     };
@@ -402,8 +402,8 @@ export const ServiceOrderList: React.FC = () => {
           />
           <SingleSelect
             label="Garantia"
-          value={filterVerified}
-          onChange={(val) => setFilterVerified(val)}
+          value={filterWarranty}
+          onChange={(val) => setFilterWarranty(val)}
           options={[
             { value: 'true', label: 'Sim' },
             { value: 'false', label: 'Não' },
@@ -560,8 +560,8 @@ export const ServiceOrderList: React.FC = () => {
                       {order.user?.name || '-'}
                     </td>
                     <td className="px-6 py-4 text-center">
-                      <Badge variant={order.verified ? 'success' : 'danger'}>
-                        {order.verified ? 'Sim' : 'Não'}
+                      <Badge variant={order.warranty ? 'success' : 'danger'}>
+                        {order.warranty ? 'Sim' : 'Não'}
                       </Badge>
                     </td>
                     <td className="px-6 py-4 text-[10px] font-medium text-slate-400">
