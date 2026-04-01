@@ -49,7 +49,8 @@ export type LaboratoryFormData = z.infer<typeof laboratorySchema>;
 // Função helper para formatar erros do Zod
 export function formatZodErrors(error: z.ZodError): Record<string, string> {
   const errors: Record<string, string> = {};
-  error.errors.forEach((err) => {
+  const issues = (error as any).issues ?? (error as any).errors ?? [];
+  issues.forEach((err: any) => {
     const path = err.path.join('.');
     if (!errors[path]) {
       errors[path] = err.message;

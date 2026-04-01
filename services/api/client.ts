@@ -4,23 +4,12 @@ import { sanitizeObject, validateId, generateRequestId, detectXssAttempt } from 
 // Sempre usa /api (proxy): dev=Vite, prod=Vercel rewrites. API nunca exposta no frontend.
 const API_BASE_URL = '/api';
 
-console.log('[ApiClient] 🚀 Inicializando ApiClient', {
-  isDev: import.meta.env.DEV,
-  API_BASE_URL,
-  windowLocation: typeof window !== 'undefined' ? window.location.href : 'N/A',
-});
-
 class ApiClient {
   private client: AxiosInstance;
   private readonly maxRetries = 3;
   private readonly retryDelay = 1000;
 
   constructor() {
-    console.log('[ApiClient] 📦 Criando instância do cliente Axios', {
-      baseURL: API_BASE_URL,
-      timeout: 15000,
-    });
-    
     this.client = axios.create({
       baseURL: API_BASE_URL,
       timeout: 15000,
@@ -61,31 +50,17 @@ class ApiClient {
   private setupInterceptors() {
     this.client.interceptors.request.use(
       (config: InternalAxiosRequestConfig) => {
-        console.log('[ApiClient] 🔧 Interceptor REQUEST:', {
-          url: config.url,
-          method: config.method,
-          baseURL: config.baseURL,
-          fullURL: `${config.baseURL}${config.url}`,
-          params: config.params,
-        });
-        
         // Token enviado via cookie HttpOnly (withCredentials: true)
         // Cookie é enviado automaticamente pelo browser
 
         // Contexto de loja: só enviar ID inteiro positivo (evita 400 no backend com "0" ou lixo no storage)
         const rawStoreId = localStorage.getItem('selectedStoreId');
         const parsedStoreId = rawStoreId && /^\d+$/.test(rawStoreId) ? parseInt(rawStoreId, 10) : NaN;
-        console.log('[ApiClient] Store ID:', Number.isFinite(parsedStoreId) && parsedStoreId > 0 ? String(parsedStoreId) : 'Não selecionado');
         if (Number.isFinite(parsedStoreId) && parsedStoreId > 0) {
           config.headers['X-Store-ID'] = String(parsedStoreId);
         }
 
         config.headers['X-Request-ID'] = generateRequestId();
-        console.log('[ApiClient] Headers configurados:', {
-          'X-Store-ID': config.headers['X-Store-ID'],
-          'X-Request-ID': config.headers['X-Request-ID'],
-          'Authorization': config.headers.Authorization ? 'Presente' : 'Ausente',
-        });
 
         // Não sanitiza FormData (usado para upload de arquivos)
         if (config.data && !(config.data instanceof FormData)) {
@@ -112,11 +87,9 @@ class ApiClient {
           config.url = this.sanitizeUrl(config.url);
         }
 
-        console.log('[ApiClient] ✅ Request configurado, enviando...');
         return config;
       },
       (error) => {
-        console.error('[ApiClient] ❌ Erro no interceptor REQUEST:', error);
         this.logSecurityEvent('request_error', { error: error.message });
         return Promise.reject(error);
       }
@@ -124,11 +97,6 @@ class ApiClient {
 
     this.client.interceptors.response.use(
       (response) => {
-        console.log('[ApiClient] ✅ Interceptor RESPONSE:', {
-          status: response.status,
-          url: response.config.url,
-          hasData: !!response.data,
-        });
         // Não sanitizar respostas binárias (Blob) — ex.: download PDF/XML (DANFE)
         if (response.data && response.config.responseType !== 'blob' && !(response.data instanceof Blob)) {
           response.data = this.sanitizeResponseData(response.data);
@@ -136,20 +104,11 @@ class ApiClient {
         return response;
       },
       async (error: AxiosError) => {
-        console.error('[ApiClient] ❌ Interceptor RESPONSE ERROR:', {
-          status: error.response?.status,
-          url: error.config?.url,
-          message: error.message,
-          response: error.response,
-          error,
-        });
-        
         const status = error.response?.status;
         const config = error.config as InternalAxiosRequestConfig & { __retryCount?: number };
 
         // Não trata 401 em rotas de auth (login retorna 401 para credenciais inválidas; me/logout são tratadas pelo AuthContext)
         if (status === 401 && !config?.url?.includes('/auth/')) {
-          console.log('[ApiClient] ⚠️ 401 não autorizado, limpando sessão');
           this.handleUnauthorized();
           return Promise.reject(error);
         }
@@ -290,7 +249,7 @@ class ApiClient {
         window.location.href = '/login';
       }, 100);
     } catch (error) {
-      console.error('Erro ao limpar sessão:', error);
+      // noop
     }
   }
 
@@ -305,14 +264,6 @@ class ApiClient {
   }
 
   get<T>(url: string, config?: any) {
-    console.log('[ApiClient] 🔍 GET chamado', {
-      url,
-      baseURL: this.client.defaults.baseURL,
-      fullURL: `${this.client.defaults.baseURL}${url}`,
-      params: config?.params,
-      config,
-    });
-    
     // Não valida ID para listagens (quando há query params) ou rotas especiais
     const lastSegment = url.split('/').filter(s => s).pop() || '';
     const hasQueryParams = config?.params && Object.keys(config.params).length > 0;
@@ -330,54 +281,19 @@ class ApiClient {
         lastSegment === 'users' ||
         url.endsWith('/') ||
         segments.length <= 2) {
-      console.log('[ApiClient] ✅ Fazendo requisição GET (sem validação de ID)');
       return this.client.get<T>(url, config)
-        .then(response => {
-          console.log('[ApiClient] ✅ Resposta GET recebida:', {
-            status: response.status,
-            url,
-            hasData: !!response.data,
-          });
-          return response;
-        })
-        .catch(error => {
-          console.error('[ApiClient] ❌ Erro na requisição GET:', {
-            url,
-            message: error.message,
-            response: error.response,
-            error,
-          });
-          throw error;
-        });
+        .then(response => response);
     }
     
     // Valida ID apenas se o último segmento for um número
     if (lastSegment && !isNaN(Number(lastSegment))) {
       if (!validateId(lastSegment)) {
-        console.error('[ApiClient] ❌ ID inválido:', lastSegment);
         return Promise.reject(new Error('ID inválido'));
       }
     }
     
-    console.log('[ApiClient] ✅ Fazendo requisição GET (com validação)');
     return this.client.get<T>(url, config)
-      .then(response => {
-        console.log('[ApiClient] ✅ Resposta GET recebida:', {
-          status: response.status,
-          url,
-          hasData: !!response.data,
-        });
-        return response;
-      })
-      .catch(error => {
-        console.error('[ApiClient] ❌ Erro na requisição GET:', {
-          url,
-          message: error.message,
-          response: error.response,
-          error,
-        });
-        throw error;
-      });
+      .then(response => response);
   }
 
   post<T>(url: string, data?: any, config?: any) {

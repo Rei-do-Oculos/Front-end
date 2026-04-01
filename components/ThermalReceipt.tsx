@@ -89,9 +89,9 @@ const formatCurrency = (value: number): string => {
 
 const hasText = (value: string | null | undefined): boolean => Boolean(value && String(value).trim());
 
-// Formatar número da OS com zeros à esquerda
+// Exibir número da OS exatamente como salvo
 const formatOsNumber = (num: number): string => {
-  return String(num).padStart(4, '0');
+  return String(num);
 };
 
 export const ThermalReceipt = forwardRef<HTMLDivElement, ThermalReceiptProps>(

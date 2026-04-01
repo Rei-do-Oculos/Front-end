@@ -86,70 +86,28 @@ class LaboratoriesService {
   }
 
   async getAll(params?: LaboratoriesQueryParams & { page?: number }): Promise<PaginatedResponse<Laboratory>> {
-    console.log('[LaboratoriesService] 🔍 getAll chamado', {
-      endpoint: this.endpoint,
-      params,
-    });
-    
     try {
-      console.log('[LaboratoriesService] Fazendo requisição para:', this.endpoint);
       const response = await apiClient.get<LaboratoriesListResponse>(this.endpoint, {
         params,
-      });
-      
-      console.log('[LaboratoriesService] ✅ Resposta recebida:', {
-        status: response.status,
-        hasData: !!response.data,
-        responseData: response.data,
-        fullResponse: JSON.stringify(response.data, null, 2),
       });
       
       const responseData = response.data;
       
       if (!responseData.success || !responseData.data?.laboratories) {
-        console.error('[LaboratoriesService] ❌ Resposta inválida da API:', {
-          success: responseData.success,
-          hasData: !!responseData.data,
-          hasLaboratories: !!responseData.data?.laboratories,
-          responseData,
-        });
         throw new Error('Resposta inválida da API');
       }
       
       const laravelPagination = responseData.data.laboratories;
-      console.log('[LaboratoriesService] Paginação Laravel:', {
-        current_page: laravelPagination.current_page,
-        last_page: laravelPagination.last_page,
-        total: laravelPagination.total,
-        dataType: typeof laravelPagination.data,
-        isArray: Array.isArray(laravelPagination.data),
-        dataLength: Array.isArray(laravelPagination.data) ? laravelPagination.data.length : 'N/A',
-        dataKeys: typeof laravelPagination.data === 'object' && laravelPagination.data ? Object.keys(laravelPagination.data) : [],
-        dataValue: laravelPagination.data,
-      });
       
       // Converter data para array se for objeto
       let laboratoriesData: Laboratory[] = [];
       if (Array.isArray(laravelPagination.data)) {
         laboratoriesData = laravelPagination.data;
-        console.log('[LaboratoriesService] data é array, usando diretamente');
       } else if (laravelPagination.data && typeof laravelPagination.data === 'object') {
-        const values = Object.values(laravelPagination.data);
-        console.log('[LaboratoriesService] data é objeto, convertendo com Object.values:', {
-          keys: Object.keys(laravelPagination.data),
-          valuesLength: values.length,
-          values,
-        });
-        laboratoriesData = values as Laboratory[];
+        laboratoriesData = Object.values(laravelPagination.data) as Laboratory[];
       } else {
-        console.log('[LaboratoriesService] data é null/undefined ou tipo inválido, retornando array vazio');
         laboratoriesData = [];
       }
-      
-      console.log('[LaboratoriesService] ✅ Laboratórios processados:', {
-        count: laboratoriesData.length,
-        laboratories: laboratoriesData,
-      });
       
       return {
         data: laboratoriesData,
@@ -160,12 +118,6 @@ class LaboratoriesService {
         },
       };
     } catch (error) {
-      console.error('[LaboratoriesService] ❌ Erro no getAll:', error);
-      console.error('[LaboratoriesService] Detalhes:', {
-        message: error instanceof Error ? error.message : String(error),
-        stack: error instanceof Error ? error.stack : undefined,
-        error,
-      });
       throw error;
     }
   }

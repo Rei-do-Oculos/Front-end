@@ -49,7 +49,9 @@ export const LaboratoryForm: React.FC = () => {
               address: laboratory.address || '',
               contact_name: laboratory.contact_name || '',
               notes: laboratory.notes || '',
-              active: laboratory.active ?? true,
+              active: laboratory.active === undefined || laboratory.active === null
+                ? true
+                : Boolean(Number(laboratory.active)),
             });
           } else {
             setErrors({ form: 'Laboratório não encontrado' });
@@ -68,8 +70,7 @@ export const LaboratoryForm: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, isEditMode]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const submitForm = async () => {
     setErrors({});
 
     // Validar com Zod
@@ -113,6 +114,11 @@ export const LaboratoryForm: React.FC = () => {
     }
   };
 
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    await submitForm();
+  };
+
   // Limpar erro do campo quando usuário digita
   const handleFieldChange = (field: string, value: any) => {
     setFormData({ ...formData, [field]: value });
@@ -150,7 +156,7 @@ export const LaboratoryForm: React.FC = () => {
         </div>
       </div>
 
-      <form onSubmit={handleSubmit}>
+      <form onSubmit={handleSubmit} noValidate>
         <Card className="p-8">
           {errors.form && (
             <div className="mb-6 border rounded-xl p-4" style={{ backgroundColor: 'var(--store-color-light)', borderColor: 'var(--store-color-opacity-20)' }}>
@@ -319,7 +325,13 @@ export const LaboratoryForm: React.FC = () => {
             >
               <ArrowLeft size={18} /> Cancelar
             </Button>
-            <Button type="submit" disabled={saving}>
+            <Button
+              type="button"
+              disabled={saving}
+              onClick={() => {
+                void submitForm();
+              }}
+            >
               {saving ? (
                 <>
                   <Loader2 size={18} className="animate-spin" /> Salvando...

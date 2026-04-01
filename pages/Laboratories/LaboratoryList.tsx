@@ -38,9 +38,7 @@ export const LaboratoryList: React.FC = () => {
         const params: any = { order_by: sortBy || 'id', order_dir: sortDirection || 'desc', per_page: perPage };
         if (appliedSearchName) params.search = appliedSearchName;
         await fetchLaboratories(1, params);
-      } catch (err) {
-        console.error('[LaboratoryList] Erro ao carregar laboratórios:', err);
-      }
+    } catch (_err) {}
     };
     loadLaboratories();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -60,9 +58,7 @@ export const LaboratoryList: React.FC = () => {
       const params: any = { order_by: sortBy || 'id', order_dir: sortDirection || 'desc', per_page: perPage };
       if (searchName) params.search = searchName;
       await fetchLaboratories(1, params);
-    } catch (err) {
-      console.error('Erro ao aplicar filtros:', err);
-    }
+    } catch (_err) {}
   };
 
   const handleClearFilters = async () => {
@@ -70,9 +66,7 @@ export const LaboratoryList: React.FC = () => {
     setAppliedSearchName('');
     try {
       await fetchLaboratories(1, { order_by: sortBy || 'id', order_dir: sortDirection || 'desc', per_page: perPage });
-    } catch (err) {
-      console.error('Erro ao limpar filtros:', err);
-    }
+    } catch (_err) {}
   };
 
   const handlePerPageChange = async (newPerPage: number) => {
@@ -81,9 +75,7 @@ export const LaboratoryList: React.FC = () => {
       const params: any = { order_by: sortBy || 'id', order_dir: sortDirection || 'desc', per_page: newPerPage };
       if (appliedSearchName) params.search = appliedSearchName;
       await fetchLaboratories(1, params);
-    } catch (err) {
-      console.error('Erro ao alterar itens por página:', err);
-    }
+    } catch (_err) {}
   };
 
   const handleDeleteClick = (laboratory: Laboratory) => {
@@ -122,7 +114,6 @@ export const LaboratoryList: React.FC = () => {
       
       await fetchLaboratories(pagination.currentPage, {});
     } catch (err: any) {
-      console.error('Erro ao excluir laboratório:', err);
       showError(err.message || 'Erro ao excluir laboratório');
     } finally {
       setDeleting(false);
@@ -148,7 +139,6 @@ export const LaboratoryList: React.FC = () => {
       
       await fetchLaboratories(pagination.currentPage, {});
     } catch (err: any) {
-      console.error('Erro ao excluir laboratório:', err);
       showError(err.message || 'Erro ao excluir laboratório');
     } finally {
       setDeleting(false);
@@ -180,18 +170,6 @@ export const LaboratoryList: React.FC = () => {
   };
 
   const laboratoriesList = Array.isArray(laboratories) ? laboratories : [];
-
-  console.log('[LaboratoryList] 📊 Estado atual:', {
-    loading,
-    error: error ? {
-      message: error.message,
-      status: (error as any).status,
-      error,
-    } : null,
-    laboratoriesCount: laboratoriesList.length,
-    laboratories,
-    pagination,
-  });
 
   if (error && (error as any).status === 403) return <AccessDeniedCard />;
 

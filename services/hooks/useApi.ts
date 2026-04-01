@@ -65,37 +65,20 @@ export const useApi = <
 
   const fetch = useCallback(
     async (page = 1, params?: QueryParams) => {
-      console.log('[useApi] 🔍 fetch chamado', { page, params, serviceName: service.constructor.name });
       setLoading(true);
       setError(null);
       try {
-        console.log('[useApi] Chamando service.getAll com:', { page, ...params });
         const response = await service.getAll({ page, ...params } as any);
-        console.log('[useApi] ✅ Resposta recebida:', {
-          hasData: !!response.data,
-          dataLength: Array.isArray(response.data) ? response.data.length : 'não é array',
-          dataType: typeof response.data,
-          meta: response.meta,
-          response,
-        });
         setData(Array.isArray(response.data) ? response.data : []);
         setPagination(response.meta || { currentPage: 1, totalPages: 1, totalItems: 0 });
         setTotalSales(response.totalSales ?? 0);
         onSuccess?.(response.data);
-        console.log('[useApi] ✅ Estado atualizado com sucesso');
       } catch (err) {
-        console.error('[useApi] ❌ Erro no fetch:', err);
-        console.error('[useApi] Detalhes do erro:', {
-          message: err instanceof Error ? err.message : String(err),
-          stack: err instanceof Error ? err.stack : undefined,
-          error: err,
-        });
         const error = err instanceof Error ? err : new Error('Erro ao carregar dados');
         setError(error);
         onError?.(error);
       } finally {
         setLoading(false);
-        console.log('[useApi] Loading finalizado');
       }
     },
     [service, onSuccess, onError]
