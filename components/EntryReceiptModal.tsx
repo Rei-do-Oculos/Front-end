@@ -19,6 +19,7 @@ export const EntryReceiptModal: React.FC<EntryReceiptModalProps> = ({
   loading = false,
 }) => {
   const receiptRef = useRef<HTMLDivElement>(null);
+  const FIXED_COPIES = 2;
 
   if (!isOpen) return null;
 
@@ -26,6 +27,16 @@ export const EntryReceiptModal: React.FC<EntryReceiptModalProps> = ({
     if (receiptRef.current) {
       const printWindow = window.open('', '_blank');
       if (printWindow) {
+        const receiptHtml = receiptRef.current.innerHTML;
+        const copiesHtml = Array.from({ length: FIXED_COPIES })
+          .map((_, idx) => `
+            <section class="receipt-copy">
+              ${receiptHtml}
+              ${idx < FIXED_COPIES - 1 ? '<div class="copy-separator"></div>' : ''}
+            </section>
+          `)
+          .join('');
+
         printWindow.document.write(`
           <!DOCTYPE html>
           <html>
@@ -60,6 +71,14 @@ export const EntryReceiptModal: React.FC<EntryReceiptModalProps> = ({
                   -webkit-print-color-adjust: exact;
                   print-color-adjust: exact;
                 }
+                .receipt-copy {
+                  break-inside: avoid;
+                  page-break-inside: avoid;
+                }
+                .copy-separator {
+                  border-top: 1px dashed #000;
+                  margin: 6mm 0;
+                }
               }
               @media screen {
                 body {
@@ -67,11 +86,15 @@ export const EntryReceiptModal: React.FC<EntryReceiptModalProps> = ({
                   margin: 0 auto;
                   border: 1px dashed #ccc;
                 }
+                .copy-separator {
+                  border-top: 1px dashed #666;
+                  margin: 6mm 0;
+                }
               }
             </style>
           </head>
           <body>
-            ${receiptRef.current.innerHTML}
+            ${copiesHtml}
           </body>
           </html>
         `);
@@ -113,7 +136,7 @@ export const EntryReceiptModal: React.FC<EntryReceiptModalProps> = ({
             Deseja imprimir o comprovante de entrada para o cliente?
           </p>
           <p className="text-xs text-slate-400 mb-4">
-            Dica: Na janela de impressão, selecione sua impressora térmica e configure o tamanho do papel para 80mm.
+            Serão impressas 2 vias automaticamente. Na janela de impressão, selecione sua impressora térmica e configure o papel para 80mm.
           </p>
           
           {/* Preview */}
@@ -145,7 +168,7 @@ export const EntryReceiptModal: React.FC<EntryReceiptModalProps> = ({
             style={{ backgroundColor: 'var(--store-color)' }}
           >
             <Printer size={18} />
-            Imprimir Comprovante
+            Imprimir 2 Vias
           </button>
         </div>
       </div>
