@@ -59,7 +59,7 @@ export const Inadimplencias: React.FC = () => {
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
   const [perPage, setPerPage] = useState<number>(15);
   const [exportingPdf, setExportingPdf] = useState(false);
-  const [filterOverdueStatus, setFilterOverdueStatus] = useState<'active' | 'inactive' | 'all'>('active');
+  const [filterOverdueStatus, setFilterOverdueStatus] = useState<'active' | 'inactive' | 'all'>('all');
   const [togglingInactiveId, setTogglingInactiveId] = useState<number | null>(null);
   const [inactiveModalOpen, setInactiveModalOpen] = useState(false);
   const [orderForInactive, setOrderForInactive] = useState<ServiceOrder | null>(null);
@@ -79,14 +79,14 @@ export const Inadimplencias: React.FC = () => {
     filterDateFrom: string;
     filterDateTo: string;
     overdueStatus: 'active' | 'inactive' | 'all';
-  }>({ searchTerm: '', filterStore: '', filterDateFrom: '', filterDateTo: '', overdueStatus: 'active' });
+  }>({ searchTerm: '', filterStore: '', filterDateFrom: '', filterDateTo: '', overdueStatus: 'all' });
 
   const activeFilters = useActiveFilters({
     searchTerm: appliedFilters.searchTerm,
     filterStore: appliedFilters.filterStore,
     filterDateFrom: appliedFilters.filterDateFrom,
     filterDateTo: appliedFilters.filterDateTo,
-    overdueStatusNonDefault: appliedFilters.overdueStatus !== 'active',
+    overdueStatusNonDefault: appliedFilters.overdueStatus !== 'all',
   });
 
   // Garantir que storesPlucks seja sempre um array
@@ -127,7 +127,7 @@ export const Inadimplencias: React.FC = () => {
     if (f.filterStore) params.store_id = f.filterStore;
     if (f.filterDateFrom) params.date_from = f.filterDateFrom;
     if (f.filterDateTo) params.date_to = f.filterDateTo;
-    params.overdue_metrics_status = f.overdueStatus ?? 'active';
+    params.overdue_metrics_status = f.overdueStatus ?? 'all';
     return params;
   };
 
@@ -166,13 +166,13 @@ export const Inadimplencias: React.FC = () => {
     setFilterStore('');
     setFilterDateFrom('');
     setFilterDateTo('');
-    setFilterOverdueStatus('active');
-    setAppliedFilters({ searchTerm: '', filterStore: '', filterDateFrom: '', filterDateTo: '', overdueStatus: 'active' });
+    setFilterOverdueStatus('all');
+    setAppliedFilters({ searchTerm: '', filterStore: '', filterDateFrom: '', filterDateTo: '', overdueStatus: 'all' });
     await loadOrders(1, {
       order_by: sortBy || 'arrived_at',
       order_dir: sortDirection || 'asc',
       per_page: perPage,
-      overdue_metrics_status: 'active',
+      overdue_metrics_status: 'all',
     });
   };
 
@@ -192,7 +192,7 @@ export const Inadimplencias: React.FC = () => {
       if (availableStores.length > 0 && !params.store_id) {
         params.store_id = availableStores.map((s) => s.id);
       }
-      params.overdue_metrics_status = f.overdueStatus ?? 'active';
+      params.overdue_metrics_status = f.overdueStatus ?? 'all';
 
       const { orders, totalSales } = await serviceOrdersService.getOverdueReport(params as any);
       const storeFilterLabel = f.filterStore
@@ -200,9 +200,9 @@ export const Inadimplencias: React.FC = () => {
         : null;
 
       const overdueStatusLabels: Record<string, string> = {
-        active: 'Ativas nos totais',
-        inactive: 'Inativas (fora dos totais)',
-        all: 'Todas',
+        all: 'Todas (ativas e inativas)',
+        active: 'Só ativas (nos totais do sistema)',
+        inactive: 'Só inativas (fora dos totais)',
       };
 
       await generateInadimplenciasReportPdf({
@@ -212,7 +212,7 @@ export const Inadimplencias: React.FC = () => {
         dateTo: f.filterDateTo || undefined,
         storeFilterLabel,
         searchTerm: f.searchTerm || undefined,
-        overdueStatusLabel: overdueStatusLabels[f.overdueStatus] ?? overdueStatusLabels.active,
+        overdueStatusLabel: overdueStatusLabels[f.overdueStatus] ?? overdueStatusLabels.all,
         storeData: selectedStore
           ? {
               name: selectedStore.name,
@@ -298,6 +298,7 @@ export const Inadimplencias: React.FC = () => {
         setOrderToAction(null);
         // Recarregar lista
         await loadOrders(pagination?.currentPage || 1, {
+          ...buildFilterParams(appliedFilters),
           per_page: perPage,
           order_by: sortBy || 'arrived_at',
           order_dir: sortDirection || 'asc',
@@ -488,13 +489,13 @@ export const Inadimplencias: React.FC = () => {
         <SingleSelect
           label="Status (nos totais)"
           value={filterOverdueStatus}
-          onChange={(val) => setFilterOverdueStatus((val as 'active' | 'inactive' | 'all') || 'active')}
+          onChange={(val) => setFilterOverdueStatus((val as 'active' | 'inactive' | 'all') || 'all')}
           options={[
-            { value: 'active', label: 'Ativas (nos totais do sistema)' },
-            { value: 'inactive', label: 'Inativas (fora dos totais)' },
-            { value: 'all', label: 'Todas' },
+            { value: 'all', label: 'Todas (ativas e inativas)' },
+            { value: 'active', label: 'Só ativas (nos totais do sistema)' },
+            { value: 'inactive', label: 'Só inativas (fora dos totais)' },
           ]}
-          placeholder="Ativas"
+          placeholder="Todas"
         />
       </FilterSection>
 

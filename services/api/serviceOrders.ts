@@ -202,7 +202,7 @@ export interface ServiceOrdersQueryParams {
   date_to?: string;
   /** @deprecated use overdue_metrics_status */
   include_inactive_overdue?: boolean;
-  /** Lista de inadimplências: active = nos totais; inactive = fora dos totais; all = todas */
+  /** Lista de inadimplências: all = padrão (ativas+inativas); active | inactive = filtrar */
   overdue_metrics_status?: 'active' | 'inactive' | 'all';
 }
 
