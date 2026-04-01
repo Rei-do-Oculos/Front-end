@@ -33,6 +33,8 @@ export interface Store {
   tokens?: StoreTokens;
   nfe_series?: string | null;
   nfe_next_number?: number | null;
+  /** Próximo número de OS que será atribuído ao salvar (sequência por loja). */
+  os_next_number?: number | null;
   created_at: string;
   updated_at: string;
   deleted_at: string | null;

@@ -22,6 +22,8 @@ export interface Store {
   logo?: string | null;
   cnpj?: string | null;
   active: boolean;
+  /** Próximo número de OS (quando retornado pelo backend). */
+  os_next_number?: number | null;
 }
 
 export interface User {

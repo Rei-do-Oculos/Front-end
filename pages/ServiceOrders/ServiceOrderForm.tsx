@@ -10,6 +10,8 @@ import { useLaboratoryLenses } from '../../services/hooks/useLaboratoryLenses';
 import { useFrames } from '../../services/hooks/useFrames';
 import { useLenses } from '../../services/hooks/useLenses';
 import { useStores } from '../../services/hooks/useStores';
+import { storesService } from '../../services/api/stores';
+import type { Store as StoreFromApi } from '../../services/api/stores';
 import { useNotification } from '../../hooks/useNotification';
 import { useStore } from '../../contexts/StoreContext';
 import { useAuth } from '../../services/hooks/useAuth';
@@ -22,6 +24,7 @@ import { EntryReceiptModal } from '../../components/EntryReceiptModal';
 import { EntryReceiptData } from '../../components/EntryReceipt';
 import { NFeSection } from '../../components/NFeSection';
 import { invoicesService } from '../../services/api/invoices';
+import { serviceOrdersService } from '../../services/api/serviceOrders';
 import type { ServiceOrder } from '../../services/api/serviceOrders';
 
 // Função para formatar valor como moeda brasileira
@@ -237,7 +240,10 @@ export const ServiceOrderForm: React.FC = () => {
   const [showLabProductValues, setShowLabProductValues] = useState(false);
   const [pendingPayload, setPendingPayload] = useState<any>(null);
   const [createdOsNumber, setCreatedOsNumber] = useState<number | null>(null);
-  
+  /** Próximo número de OS da loja selecionada (somente criação). */
+  const [nextOsPreview, setNextOsPreview] = useState<number | null>(null);
+  const [nextOsPreviewLoading, setNextOsPreviewLoading] = useState(false);
+
   // Loading geral inclui dados auxiliares
   const auxiliaryDataLoading = loadingLaboratories || loadingLabLenses || loadingFrames || loadingLenses;
 
@@ -318,6 +324,90 @@ export const ServiceOrderForm: React.FC = () => {
       installments: string;
     }>,
   });
+
+  // Próximo número da OS na loja escolhida (nova OS): mescla lista /auth + GET loja se faltar
+  useEffect(() => {
+    if (!isCreateMode || !formData.store_id) {
+      setNextOsPreview(null);
+      setNextOsPreviewLoading(false);
+      return;
+    }
+
+    const sid = formData.store_id;
+    const fromFetched = Array.isArray(stores)
+      ? (stores as StoreFromApi[]).find((s) => String(s.id) === sid)
+      : undefined;
+    const fromCtx = availableStores.find((s) => String(s.id) === sid);
+    const merged: Partial<StoreFromApi> = { ...(fromCtx as object), ...(fromFetched as object) };
+    const n = merged.os_next_number;
+
+    if (n != null && n > 0) {
+      setNextOsPreview(n);
+      setNextOsPreviewLoading(false);
+      return;
+    }
+
+    setNextOsPreview(null);
+    setNextOsPreviewLoading(true);
+    let cancelled = false;
+
+    storesService
+      .getById(sid)
+      .then((s) => {
+        if (cancelled) return;
+        const v = s.os_next_number;
+        if (v != null && v > 0) {
+          setNextOsPreview(v);
+          return;
+        }
+
+        // Fallback: quando a API de loja não expõe os_next_number, calcula pelo maior os_number da loja + 1.
+        serviceOrdersService
+          .getAll({
+            page: 1,
+            per_page: 1,
+            store_id: Number(sid),
+            order_by: 'os_number',
+            order_dir: 'desc',
+          })
+          .then((resp) => {
+            if (cancelled) return;
+            const latest = resp.data?.[0]?.os_number;
+            const next = typeof latest === 'number' && latest > 0 ? latest + 1 : 1;
+            setNextOsPreview(next);
+          })
+          .catch(() => {
+            if (!cancelled) setNextOsPreview(1);
+          });
+      })
+      .catch(() => {
+        if (cancelled) return;
+        serviceOrdersService
+          .getAll({
+            page: 1,
+            per_page: 1,
+            store_id: Number(sid),
+            order_by: 'os_number',
+            order_dir: 'desc',
+          })
+          .then((resp) => {
+            if (cancelled) return;
+            const latest = resp.data?.[0]?.os_number;
+            const next = typeof latest === 'number' && latest > 0 ? latest + 1 : 1;
+            setNextOsPreview(next);
+          })
+          .catch(() => {
+            if (!cancelled) setNextOsPreview(1);
+          });
+      })
+      .finally(() => {
+        if (!cancelled) setNextOsPreviewLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isCreateMode, formData.store_id, stores, availableStores]);
 
   // Atualizar store_id e user_id quando disponíveis (apenas no modo de criação)
   useEffect(() => {
@@ -1004,6 +1094,24 @@ export const ServiceOrderForm: React.FC = () => {
             <p className="text-gray-500 font-medium mt-1">
               {isViewMode ? 'Visualize os dados da OS' : isEditMode ? 'Atualize os dados da OS' : 'Cadastre uma nova ordem de serviço'}
             </p>
+            {isCreateMode && formData.store_id && (
+              <p className="text-sm text-slate-600 mt-2 max-w-xl">
+                {nextOsPreviewLoading ? (
+                  <span className="text-slate-500">Consultando próximo número da OS nesta loja…</span>
+                ) : nextOsPreview != null ? (
+                  <>
+                    Esta OS será criada como{' '}
+                    <span className="font-black text-slate-900 tabular-nums">
+                      #{String(nextOsPreview).padStart(4, '0')}
+                    </span>
+                    <span className="text-slate-500 font-normal">
+                      {' '}
+                      (próximo da sequência da loja; se outra OS for salva antes, o número pode ser o seguinte).
+                    </span>
+                  </>
+                ) : null}
+              </p>
+            )}
           </div>
         </div>
         {/* Botões no cabeçalho */}
@@ -1060,7 +1168,9 @@ export const ServiceOrderForm: React.FC = () => {
               <FileText size={28} style={{ color: 'var(--store-color)' }} />
             </div>
             <div>
-              <h2 className="text-xl font-bold text-slate-900">Dados do Pedido (OS)</h2>
+              <h2 className="text-xl font-bold text-slate-900">
+                Dados do Pedido (OS{isCreateMode && nextOsPreview != null ? ` #${String(nextOsPreview).padStart(4, '0')}` : ''})
+              </h2>
               <p className="text-sm text-slate-500">Utilize esta tela para cadastrar/atualizar os dados</p>
             </div>
           </div>
