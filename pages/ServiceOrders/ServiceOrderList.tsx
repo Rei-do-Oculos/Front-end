@@ -58,7 +58,7 @@ export const ServiceOrderList: React.FC = () => {
     filterDateTo: '',
   });
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
-  const [sortBy, setSortBy] = useState<string | null>('completed_at');
+  const [sortBy, setSortBy] = useState<string | null>('created_at');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
   const [perPage, setPerPage] = useState<number>(15);
   
@@ -75,7 +75,7 @@ export const ServiceOrderList: React.FC = () => {
   const [deleting, setDeleting] = useState(false);
 
   const buildParamsFromFilters = (f: typeof appliedFilters): Record<string, any> => {
-    const params: Record<string, any> = { status: 'completed' };
+    const params: Record<string, any> = {};
     if (f.searchTerm) params.search = f.searchTerm;
     if (f.filterStore) params.store_id = f.filterStore;
     else if (availableStores.length > 0) params.store_id = availableStores.map(s => s.id);
@@ -99,10 +99,9 @@ export const ServiceOrderList: React.FC = () => {
     const loadOrders = async () => {
       try {
         const params = buildParamsFromFilters(appliedFilters);
-        params.order_by = sortBy || 'completed_at';
+        params.order_by = sortBy || 'created_at';
         params.order_dir = sortDirection || 'desc';
         params.per_page = perPage;
-        params.status = 'completed';
         if (availableStores.length > 0 && !appliedFilters.filterStore) {
           params.store_id = availableStores.map(s => s.id);
         }
@@ -138,7 +137,7 @@ export const ServiceOrderList: React.FC = () => {
       };
       setAppliedFilters(next);
       const params = buildParamsFromFilters(next);
-      params.order_by = sortBy || 'completed_at';
+      params.order_by = sortBy || 'created_at';
       params.order_dir = sortDirection || 'desc';
       params.per_page = perPage;
       await fetchServiceOrders(1, params);
@@ -165,7 +164,7 @@ export const ServiceOrderList: React.FC = () => {
     setAppliedFilters(empty);
     try {
       const params = buildParamsFromFilters(empty);
-      params.order_by = sortBy || 'completed_at';
+      params.order_by = sortBy || 'created_at';
       params.order_dir = sortDirection || 'desc';
       params.per_page = perPage;
       await fetchServiceOrders(1, params);
@@ -179,7 +178,7 @@ export const ServiceOrderList: React.FC = () => {
     try {
       const params = buildParamsFromFilters(appliedFilters);
       params.per_page = newPerPage;
-      params.order_by = sortBy || 'completed_at';
+      params.order_by = sortBy || 'created_at';
       params.order_dir = sortDirection || 'desc';
       await fetchServiceOrders(1, params);
     } catch (err) {
@@ -194,7 +193,7 @@ export const ServiceOrderList: React.FC = () => {
 
   const buildFetchParams = () => {
     const params = buildParamsFromFilters(appliedFilters);
-    params.order_by = sortBy || 'completed_at';
+    params.order_by = sortBy || 'created_at';
     params.order_dir = sortDirection || 'desc';
     params.per_page = perPage;
     return params;
@@ -654,7 +653,7 @@ export const ServiceOrderList: React.FC = () => {
             onPerPageChange={handlePerPageChange}
             onPageChange={(page) => {
               const params = buildParamsFromFilters(appliedFilters);
-              params.order_by = sortBy || 'completed_at';
+              params.order_by = sortBy || 'created_at';
               params.order_dir = sortDirection || 'desc';
               params.per_page = perPage;
               fetchServiceOrders(page, params);
