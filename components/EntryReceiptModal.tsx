@@ -56,9 +56,12 @@ export const EntryReceiptModal: React.FC<EntryReceiptModalProps> = ({
                 width: 80mm;
                 margin: 0;
                 padding: 0;
-                font-family: 'Courier New', Courier, monospace;
-                font-size: 12px;
+                font-family: 'Arial Black', Arial, 'Helvetica Neue', sans-serif;
+                font-size: 13px;
                 line-height: 1.4;
+                color: #000;
+                font-weight: 800;
+                letter-spacing: 0.15px;
               }
               body {
                 padding: 2mm;
@@ -70,6 +73,7 @@ export const EntryReceiptModal: React.FC<EntryReceiptModalProps> = ({
                 body { 
                   -webkit-print-color-adjust: exact;
                   print-color-adjust: exact;
+                  text-rendering: geometricPrecision;
                 }
                 .receipt-copy {
                   break-inside: avoid;

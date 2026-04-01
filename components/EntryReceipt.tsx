@@ -65,33 +65,34 @@ export const EntryReceipt = forwardRef<HTMLDivElement, EntryReceiptProps>(
         style={{
           width: '80mm',
           maxWidth: '80mm',
-          fontFamily: "'Courier New', Courier, monospace",
-          fontSize: '12px',
+          fontFamily: "'Arial Black', Arial, 'Helvetica Neue', sans-serif",
+          fontSize: '13px',
           lineHeight: '1.4',
           backgroundColor: 'white',
-          color: '#111',
-          fontWeight: 600,
+          color: '#000',
+          fontWeight: 800,
           padding: '8px',
           boxSizing: 'border-box',
+          letterSpacing: '0.15px',
         }}
       >
         {/* Header - Dados da Empresa */}
         <div style={{ textAlign: 'center', marginBottom: '8px' }}>
-          <div style={{ fontSize: '14px', fontWeight: 'bold', marginBottom: '4px' }}>
+          <div style={{ fontSize: '15px', fontWeight: 900, marginBottom: '4px' }}>
             {'>> '}{store.fancy_name || store.name}{' <<'}
           </div>
-          <div style={{ fontSize: '10px' }}>
+          <div style={{ fontSize: '11px', fontWeight: 800 }}>
             {store.logradouro}, {store.numero}
           </div>
           {store.telefone && (
-            <div style={{ fontSize: '10px' }}>
+            <div style={{ fontSize: '11px', fontWeight: 800 }}>
               WhatsApp: {store.telefone}
             </div>
           )}
         </div>
 
         {/* Data e Hora */}
-        <div style={{ textAlign: 'center', marginBottom: '12px', fontSize: '11px', fontWeight: 700 }}>
+        <div style={{ textAlign: 'center', marginBottom: '12px', fontSize: '12px', fontWeight: 900 }}>
           Data: {date}
         </div>
 
@@ -109,7 +110,7 @@ export const EntryReceipt = forwardRef<HTMLDivElement, EntryReceiptProps>(
         <div style={{ borderTop: '1px dashed #000', margin: '8px 0' }} />
 
         {/* Dados do Cliente */}
-        <div style={{ marginBottom: '8px' }}>
+        <div style={{ marginBottom: '8px', fontWeight: 800 }}>
           <div><strong>Cliente:</strong> {client.name}</div>
           {client.telefone && (
             <div><strong>Telefone:</strong> {client.telefone}</div>
@@ -118,7 +119,7 @@ export const EntryReceipt = forwardRef<HTMLDivElement, EntryReceiptProps>(
 
         {/* Itens/Serviços */}
         {items.length > 0 && (
-          <div style={{ marginBottom: '8px' }}>
+          <div style={{ marginBottom: '8px', fontWeight: 800 }}>
             <div style={{ marginBottom: '4px', fontWeight: 700 }}>Produtos:</div>
             {items.map((item, index) => (
               <div key={`${item.description}-${index}`} style={{ fontWeight: 700 }}>
