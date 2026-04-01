@@ -11,6 +11,7 @@ import { StatCard, Card, Button } from '../components/Common';
 import { usePermission } from '../services/hooks/usePermission';
 import { useAuth } from '../services/hooks/useAuth';
 import { getDashboardCards, getDashboardCharts, DashboardCards, DashboardCharts } from '../services/api/dashboard';
+import { useStore } from '../contexts/StoreContext';
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -88,6 +89,7 @@ const chartOptions = {
 export const Dashboard: React.FC = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { selectedStore } = useStore();
   const { hasPermission } = usePermission();
   const [cards, setCards] = useState<DashboardCards | null>(null);
   const [charts, setCharts] = useState<DashboardCharts | null>(null);
@@ -96,7 +98,7 @@ export const Dashboard: React.FC = () => {
     getDashboardCards()
       .then(setCards)
       .catch(() => setCards(null));
-  }, []);
+  }, [selectedStore?.id]);
 
   useEffect(() => {
     getDashboardCharts()
@@ -148,12 +150,12 @@ export const Dashboard: React.FC = () => {
         )}
       </div>
 
-      {/* 4 Cards: Vendas hoje (usuário), Clientes do dia, OS do dia, OS laboratório */}
+      {/* 4 Cards: Vendas hoje (loja no contexto), Clientes do dia, OS do dia, OS laboratório */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-8">
         {canSee.cardVendasHoje && (
           <StatCard
-            title="Vendas Hoje (você)"
-            value={cards ? formatCurrency(cards.sales_today_user) : '–'}
+            title="Vendas da loja (hoje)"
+            value={cards ? formatCurrency(cards.sales_today_store) : '–'}
             icon={DollarSign}
             color="red"
           />

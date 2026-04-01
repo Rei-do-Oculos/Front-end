@@ -1,7 +1,7 @@
 import { apiClient } from './client';
 
 export interface DashboardCards {
-  sales_today_user: number;
+  sales_today_store: number;
   clients_today: number;
   os_today: number;
   os_lab: number;
