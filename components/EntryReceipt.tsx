@@ -69,7 +69,8 @@ export const EntryReceipt = forwardRef<HTMLDivElement, EntryReceiptProps>(
           fontSize: '12px',
           lineHeight: '1.4',
           backgroundColor: 'white',
-          color: 'black',
+          color: '#111',
+          fontWeight: 600,
           padding: '8px',
           boxSizing: 'border-box',
         }}
@@ -90,7 +91,7 @@ export const EntryReceipt = forwardRef<HTMLDivElement, EntryReceiptProps>(
         </div>
 
         {/* Data e Hora */}
-        <div style={{ textAlign: 'center', marginBottom: '12px', fontSize: '11px' }}>
+        <div style={{ textAlign: 'center', marginBottom: '12px', fontSize: '11px', fontWeight: 700 }}>
           Data: {date}
         </div>
 
@@ -109,18 +110,18 @@ export const EntryReceipt = forwardRef<HTMLDivElement, EntryReceiptProps>(
 
         {/* Dados do Cliente */}
         <div style={{ marginBottom: '8px' }}>
-          <div>Cliente: {client.name}</div>
+          <div><strong>Cliente:</strong> {client.name}</div>
           {client.telefone && (
-            <div>Telefone: {client.telefone}</div>
+            <div><strong>Telefone:</strong> {client.telefone}</div>
           )}
         </div>
 
         {/* Itens/Serviços */}
         {items.length > 0 && (
           <div style={{ marginBottom: '8px' }}>
-            <div style={{ marginBottom: '4px' }}>Produtos:</div>
+            <div style={{ marginBottom: '4px', fontWeight: 700 }}>Produtos:</div>
             {items.map((item, index) => (
-              <div key={`${item.description}-${index}`}>
+              <div key={`${item.description}-${index}`} style={{ fontWeight: 700 }}>
                 {item.description}
                 {item.description === 'Aro de uso' ? '' : ` x${item.quantity}`}
               </div>
@@ -133,7 +134,7 @@ export const EntryReceipt = forwardRef<HTMLDivElement, EntryReceiptProps>(
 
         {/* Valor */}
         <div style={{ marginBottom: '8px' }}>
-          <div>Valor em produtos: R$ {formatCurrency(total)}</div>
+          <div><strong>Valor em produtos:</strong> R$ {formatCurrency(total)}</div>
           <div style={{ fontWeight: 'bold', marginTop: '4px' }}>
             Total: R$ {formatCurrency(total)}
           </div>
@@ -142,7 +143,7 @@ export const EntryReceipt = forwardRef<HTMLDivElement, EntryReceiptProps>(
         {/* Forma de Pagamento */}
         {paymentMethod && (
           <div style={{ marginBottom: '8px' }}>
-            <div>Pagamento: {PAYMENT_METHOD_LABELS[paymentMethod] || paymentMethod}</div>
+            <div><strong>Pagamento:</strong> {PAYMENT_METHOD_LABELS[paymentMethod] || paymentMethod}</div>
           </div>
         )}
 

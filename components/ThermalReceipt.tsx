@@ -118,7 +118,8 @@ export const ThermalReceipt = forwardRef<HTMLDivElement, ThermalReceiptProps>(
           fontSize: '12px',
           lineHeight: '1.4',
           backgroundColor: 'white',
-          color: 'black',
+          color: '#111',
+          fontWeight: 600,
           padding: '8px',
           boxSizing: 'border-box',
         }}
@@ -161,8 +162,8 @@ export const ThermalReceipt = forwardRef<HTMLDivElement, ThermalReceiptProps>(
 
         {/* Dados da OS */}
         <div style={{ marginBottom: '8px' }}>
-          <div>OS Nº: {formatOsNumber(osNumber)}</div>
-          <div>Data: {date}</div>
+          <div><strong>OS Nº:</strong> {formatOsNumber(osNumber)}</div>
+          <div><strong>Data:</strong> {date}</div>
           {expectedPickupDate && (
             <div style={{ fontWeight: 'bold' }}>Retirada prevista: {new Date(expectedPickupDate).toLocaleDateString('pt-BR')}</div>
           )}
@@ -214,7 +215,7 @@ export const ThermalReceipt = forwardRef<HTMLDivElement, ThermalReceiptProps>(
         {/* Totais */}
         <div style={{ marginBottom: '8px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-            <span>Qtde. Itens:</span>
+            <span><strong>Qtde. Itens:</strong></span>
             <span>{items.length}</span>
           </div>
           <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 'bold', fontSize: '14px' }}>
