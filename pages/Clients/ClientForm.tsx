@@ -26,6 +26,7 @@ export const ClientForm: React.FC = () => {
     email: '',
     phone: '',
     document: '',
+    observations: '',
   });
 
   const [loadingClient, setLoadingClient] = useState(false);
@@ -45,6 +46,7 @@ export const ClientForm: React.FC = () => {
               email: client.email || '',
               phone: client.phone || '',
               document: client.document || '',
+              observations: client.observations || '',
             });
           }
         } catch (err: any) {
@@ -267,6 +269,22 @@ export const ClientForm: React.FC = () => {
                 if (normalized !== e.target.value) setFormData({ ...formData, email: normalized || null });
               }}
             />
+          </div>
+          <div>
+            <label className="block text-[10px] lg:text-[11px] font-bold text-slate-500 uppercase tracking-[0.15em] ml-1 mb-2">
+              Observações
+            </label>
+            <textarea
+              placeholder="Ex: telefone de recado, preferências, observações importantes..."
+              value={formData.observations || ''}
+              onChange={(e) => setFormData({ ...formData, observations: e.target.value })}
+              maxLength={3000}
+              rows={4}
+              className="w-full px-4 py-3 lg:px-5 lg:py-3.5 rounded-lg border-2 border-slate-200 bg-gray-50 text-sm font-medium text-slate-700 outline-none transition-all focus:bg-white focus:border-[var(--store-color)] focus:ring-2 focus:ring-[var(--store-color-opacity-20)]"
+            />
+            <p className="mt-1 text-xs text-slate-400 text-right">
+              {(formData.observations || '').length}/3000
+            </p>
           </div>
 
           <div className="flex items-center justify-end gap-3 pt-6 border-t border-gray-100">

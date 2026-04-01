@@ -227,6 +227,8 @@ export const ServiceOrderForm: React.FC = () => {
   const [orderLaboratoryLensesSnapshot, setOrderLaboratoryLensesSnapshot] = useState<Array<{
     id: number;
     name: string;
+    laboratory_id?: number | null;
+    laboratory?: { id: number; name: string } | null;
     cost_price: number;
     sale_price: number;
     cost_price_at_sale?: number | null;
@@ -493,9 +495,29 @@ export const ServiceOrderForm: React.FC = () => {
           const order = await getServiceOrder(id);
           if (order) {
             setLoadedOrder(order);
-            setOrderLaboratoryLensesSnapshot(toArray(order.laboratory_lenses).map((l: any) => ({
+            const lensesFromOrder = toArray(order.laboratory_lenses);
+            /** Laboratórios distintos vindos dos produtos (vários labs na mesma OS). */
+            const laboratoryIdsFromProducts: string[] = [];
+            const seenLab = new Set<string>();
+            for (const l of lensesFromOrder) {
+              const raw = (l as any)?.laboratory_id;
+              if (raw == null || raw === '') continue;
+              const sid = String(raw);
+              if (!seenLab.has(sid)) {
+                seenLab.add(sid);
+                laboratoryIdsFromProducts.push(sid);
+              }
+            }
+            const laboratory_ids =
+              laboratoryIdsFromProducts.length > 0
+                ? laboratoryIdsFromProducts
+                : (order.laboratory_id ? [String(order.laboratory_id)] : []);
+
+            setOrderLaboratoryLensesSnapshot(lensesFromOrder.map((l: any) => ({
               id: l.id,
               name: l.name || '',
+              laboratory_id: l.laboratory_id ?? null,
+              laboratory: l.laboratory ?? null,
               cost_price: l.cost_price ?? 0,
               sale_price: l.sale_price ?? 0,
               cost_price_at_sale: l.cost_price_at_sale ?? null,
@@ -520,8 +542,11 @@ export const ServiceOrderForm: React.FC = () => {
               client_id: String(order.client_id) || '',
               store_id: String(order.store_id) || '',
               user_id: String(order.user_id) || '',
-              laboratory_ids: order.laboratory_id ? [String(order.laboratory_id)] : [],
-              laboratory_id: order.laboratory_id ? String(order.laboratory_id) : '',
+              laboratory_ids,
+              laboratory_id:
+                laboratory_ids.length > 0
+                  ? laboratory_ids[0]
+                  : (order.laboratory_id ? String(order.laboratory_id) : ''),
               expected_pickup_date: order.expected_pickup_date ? order.expected_pickup_date.slice(0, 10) : '',
               // Longe - OD
               far_od_spherical: order.far_od_spherical || '',
@@ -562,11 +587,11 @@ export const ServiceOrderForm: React.FC = () => {
               notes: order.notes || '',
               verified: order.verified || false,
               // Many-to-many - converter objetos para arrays e extrair IDs
-              laboratory_lenses: toArray(order.laboratory_lenses).map(l => String(l.id)),
+              laboratory_lenses: lensesFromOrder.map((l: { id: number }) => String(l.id)),
               frames: toArray(order.frames).map(f => String(f.id)),
               lenses: toArray(order.lenses).map(l => String(l.id)),
               // Toggle de laboratório
-              send_to_lab: !!order.laboratory_id,
+              send_to_lab: laboratory_ids.length > 0 || !!order.laboratory_id,
               // Pagamentos parciais
               use_partial_payments: order.payments && order.payments.length > 0,
               partial_payments: order.payments && order.payments.length > 0
@@ -1050,6 +1075,48 @@ export const ServiceOrderForm: React.FC = () => {
   }, [clientsList, formData.client_id, loadedOrder?.client, preselectedClientData]);
   const laboratoriesList = Array.isArray(laboratories) ? laboratories : [];
   const laboratoryLensesList = Array.isArray(laboratoryLenses) ? laboratoryLenses : [];
+
+  /** Opções do multiselect de laboratórios: inclui labs selecionados mesmo se não estiverem na lista (ex.: catálogo antigo). */
+  const laboratorySelectOptions = useMemo(() => {
+    const base = laboratoriesList.map((lab) => ({ value: String(lab.id), label: lab.name }));
+    const byVal = new Map(base.map((o) => [o.value, o]));
+    for (const labId of formData.laboratory_ids) {
+      if (!byVal.has(labId)) {
+        const fromLens = toArray(loadedOrder?.laboratory_lenses).find(
+          (l: any) => String(l.laboratory_id) === labId
+        );
+        const name =
+          fromLens?.laboratory?.name ||
+          (loadedOrder?.laboratory?.id === Number(labId) ? loadedOrder.laboratory?.name : null) ||
+          `Laboratório #${labId}`;
+        byVal.set(labId, { value: labId, label: name });
+      }
+    }
+    return Array.from(byVal.values());
+  }, [laboratoriesList, formData.laboratory_ids, loadedOrder?.laboratory_lenses, loadedOrder?.laboratory]);
+
+  /** API antiga sem laboratory_id nos produtos: enriquecer laboratórios a partir do catálogo carregado. */
+  useEffect(() => {
+    if (!loadedOrder?.id || laboratoryLensesList.length === 0) return;
+    const fromApi = toArray(loadedOrder.laboratory_lenses);
+    if (fromApi.some((l: any) => l.laboratory_id != null && l.laboratory_id !== '')) return;
+    const extra = new Set<string>();
+    for (const row of fromApi) {
+      const ll = laboratoryLensesList.find((x) => String(x.id) === String((row as any).id));
+      if (ll?.laboratory_id != null) extra.add(String(ll.laboratory_id));
+    }
+    if (extra.size === 0) return;
+    setFormData((prev) => {
+      const merged = [...new Set([...prev.laboratory_ids, ...extra])];
+      if (merged.length === prev.laboratory_ids.length) return prev;
+      return {
+        ...prev,
+        laboratory_ids: merged,
+        laboratory_id: merged[0] || prev.laboratory_id,
+        send_to_lab: merged.length > 0,
+      };
+    });
+  }, [loadedOrder?.id, laboratoryLensesList, loadedOrder?.laboratory_lenses]);
   // Incluir armações da OS carregada (ex.: vindas do PDV) - a API de frames exclui as já vinculadas a OS
   const framesList = React.useMemo(() => {
     const fromApi = Array.isArray(frames) ? frames : [];
@@ -1495,10 +1562,7 @@ export const ServiceOrderForm: React.FC = () => {
                       send_to_lab: vals.length > 0,
                     }));
                   }}
-                  options={laboratoriesList.map((lab) => ({ 
-                    value: String(lab.id), 
-                    label: lab.name 
-                  }))}
+                  options={laboratorySelectOptions}
                   placeholder="Selecione os laboratórios..."
                   searchable
                   disabled={isViewMode}
@@ -1604,7 +1668,9 @@ export const ServiceOrderForm: React.FC = () => {
                         const lensWithLab = laboratoryLensesList.find(l => String(l.id) === String(lens.id));
                         const labName = lensWithLab
                           ? (laboratoryNamesById[String(lensWithLab.laboratory_id)] || lensWithLab.laboratory?.name || 'Laboratório')
-                          : 'Laboratório';
+                          : (lens.laboratory?.name
+                            || (lens.laboratory_id != null ? laboratoryNamesById[String(lens.laboratory_id)] : undefined)
+                            || 'Laboratório');
                         const costAtSale = lens.cost_price_at_sale ?? lens.cost_price;
                         const showLabInDropdown = formData.laboratory_ids.length > 1;
                         const fullSelected = `${lens.name} (R$ ${formatFromNumber(costAtSale)}) - ${labName}`;
@@ -1619,7 +1685,9 @@ export const ServiceOrderForm: React.FC = () => {
                         const lensWithLab = laboratoryLensesList.find(l => String(l.id) === String(lens.id));
                         const labName = lensWithLab
                           ? (laboratoryNamesById[String(lensWithLab.laboratory_id)] || (lensWithLab as any).laboratory?.name || 'Laboratório')
-                          : 'Laboratório';
+                          : (lens.laboratory?.name
+                            || (lens.laboratory_id != null ? laboratoryNamesById[String(lens.laboratory_id)] : undefined)
+                            || 'Laboratório');
                         const showLabInDropdown = formData.laboratory_ids.length > 1;
                         const fullSelected = `${lens.name} (R$ ${formatFromNumber(lens.cost_price_at_sale ?? lens.cost_price)})${showLabInDropdown ? ` - ${labName}` : ''}`;
                         return {

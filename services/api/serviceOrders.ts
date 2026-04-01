@@ -84,6 +84,8 @@ export interface ServiceOrder {
   laboratory_lenses?: Array<{
     id: number;
     name: string;
+    laboratory_id?: number | null;
+    laboratory?: { id: number; name: string } | null;
     delivery_days?: number | null;
     cost_price: number;
     sale_price: number;

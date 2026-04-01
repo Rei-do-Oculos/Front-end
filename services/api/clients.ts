@@ -13,6 +13,7 @@ export interface Client {
   email: string | null;
   phone: string;
   document: string;
+  observations?: string | null;
   address?: string | null;
   created_at: string;
   updated_at: string;
@@ -29,6 +30,7 @@ export interface CreateClientDto {
   email?: string | null;
   phone: string;
   document: string;
+  observations?: string | null;
   stores?: number[];
 }
 

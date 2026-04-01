@@ -894,6 +894,14 @@ export const ClientHistory: React.FC = () => {
                     {client.address}
                   </div>
                 )}
+                {client.observations && (
+                  <div className="mt-3 p-3 rounded-lg bg-amber-50 border border-amber-100">
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-amber-700 mb-1">
+                      Observações
+                    </p>
+                    <p className="text-sm text-amber-900 whitespace-pre-wrap">{client.observations}</p>
+                  </div>
+                )}
               </div>
             </div>
           </div>
