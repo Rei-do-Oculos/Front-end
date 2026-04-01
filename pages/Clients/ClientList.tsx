@@ -184,28 +184,27 @@ export const ClientList: React.FC = () => {
   const formatDate = (dateString: string) => {
     if (!dateString) return '-';
     try {
-      // O backend retorna no formato "d/m/Y H:i:s" (ex: "23/01/2026 14:30:00")
-      // Precisamos converter para um formato que o JavaScript entenda
-      let date: Date;
-      
+      // Se vier já formatado como d/m/Y H:i:s, manter horário "como veio"
+      // para não aplicar timezone do navegador.
       if (dateString.includes('/')) {
         const parts = dateString.split(' ');
         const datePart = parts[0];
         const timePart = parts[1] || '00:00:00';
-        
+
         const [day, month, year] = datePart.split('/');
         const [hours, minutes] = timePart.split(':');
-        
-        date = new Date(`${year}-${month}-${day}T${hours}:${minutes}:00`);
-      } else {
-        date = new Date(dateString);
+        if (!day || !month || !year) return dateString;
+        return `${day.padStart(2, '0')}/${month.padStart(2, '0')}/${year} ${String(hours || '00').padStart(2, '0')}:${String(minutes || '00').padStart(2, '0')}`;
       }
-      
+
+      // Para ISO/UTC, exibir sempre em Brasília.
+      const date = new Date(dateString);
       if (isNaN(date.getTime())) {
         return dateString;
       }
-      
+
       return date.toLocaleDateString('pt-BR', {
+        timeZone: 'America/Sao_Paulo',
         day: '2-digit',
         month: '2-digit',
         year: 'numeric',
