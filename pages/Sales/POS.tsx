@@ -29,7 +29,8 @@ import {
   Store,
   SplitSquareVertical,
   Printer,
-  RefreshCw
+  RefreshCw,
+  Wallet,
 } from 'lucide-react';
 import { Card, Button, Input, Badge } from '../../components/Common';
 import { useNotification } from '../../hooks/useNotification';
@@ -54,9 +55,24 @@ type PaymentMethod = 'credit_card' | 'debit_card' | 'cash' | 'pix' | 'permuta' |
 
 type PartialPaymentRow = {
   id: number;
-  method: 'credit_card' | 'pix' | 'cash';
+  method: 'credit_card' | 'debit_card' | 'pix' | 'cash' | 'permuta';
   amountRaw: string;
   installments: number;
+};
+
+const paymentMethodLabel = (m: PartialPaymentRow['method']): string => {
+  switch (m) {
+    case 'credit_card':
+      return 'Cartão crédito';
+    case 'debit_card':
+      return 'Cartão débito';
+    case 'pix':
+      return 'PIX';
+    case 'permuta':
+      return 'Permuta';
+    default:
+      return 'Dinheiro';
+  }
 };
 
 const CONSUMIDOR_FINAL_DOCUMENT = '00000000000';
@@ -353,15 +369,15 @@ export const POS: React.FC = () => {
       items,
       total: totalPrice,
       paymentMethod: isPartial ? null : (paymentMethod ?? null),
-      installments: isPartial ? null : (paymentMethod === 'credit_card' ? installments : null),
+      installments: isPartial ? null : paymentMethod === 'credit_card' ? installments : null,
       payments: isPartial && partialPayments.length > 0
         ? partialPayments
             .filter(p => (parseCurrencyFormatted(formatCurrencyInput(p.amountRaw)) || 0) > 0)
-            .map(p => ({
-              payment_method: p.method,
-              amount: parseCurrencyFormatted(formatCurrencyInput(p.amountRaw)) || 0,
-              installments: p.method === 'credit_card' ? p.installments : null,
-            }))
+              .map(p => ({
+                payment_method: p.method,
+                amount: parseCurrencyFormatted(formatCurrencyInput(p.amountRaw)) || 0,
+                ...(p.method === 'credit_card' ? { installments: p.installments } : {}),
+              }))
         : undefined,
     };
   };
@@ -806,14 +822,14 @@ export const POS: React.FC = () => {
         <div className="w-full lg:w-[400px] xl:w-[420px] flex flex-col gap-3 md:gap-4 shrink-0 order-first lg:order-last">
           <Card className="flex flex-col p-0 border-2 border-slate-100 w-full">
             <div
-              className="p-4 md:p-6 border-b border-slate-50 flex items-center justify-between shrink-0"
+              className="p-3 md:p-4 border-b border-slate-50 flex items-center justify-between shrink-0"
               style={{ backgroundColor: `${storeColorCss}08` }}
             >
-              <div className="flex items-center gap-3">
-                <div className="p-2.5 rounded-xl text-white" style={{ backgroundColor: storeColorCss }}>
-                  <ShoppingCart size={18} />
+              <div className="flex items-center gap-2">
+                <div className="p-1.5 rounded-lg text-white" style={{ backgroundColor: storeColorCss }}>
+                  <ShoppingCart size={16} />
                 </div>
-                <h2 className="text-lg font-black tracking-tight">Compras</h2>
+                <h2 className="text-base font-black tracking-tight">Compras</h2>
               </div>
               <span
                 className="px-3 py-1 rounded-full text-[10px] font-black text-white"
@@ -823,12 +839,12 @@ export const POS: React.FC = () => {
               </span>
             </div>
             <div className="flex flex-col">
-              <div className="p-4 md:p-6 space-y-2 md:space-y-3">
+              <div className="p-3 md:p-4 space-y-2 md:space-y-3">
                 {cart.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center text-center opacity-30 py-12">
-                    <ShoppingCart size={48} className="mb-4" />
-                    <p className="text-sm font-bold uppercase tracking-widest">Compras Vazio</p>
-                    <p className="text-xs mt-1">Clique nas armações para adicionar</p>
+                  <div className="flex flex-col items-center justify-center text-center opacity-30 py-6">
+                    <ShoppingCart size={36} className="mb-2" />
+                    <p className="text-xs font-bold uppercase tracking-widest">Compras Vazio</p>
+                    <p className="text-[10px] mt-0.5">Clique nas armações para adicionar</p>
                   </div>
                 ) : (
                   cart.map(item => (
@@ -857,9 +873,9 @@ export const POS: React.FC = () => {
                   ))
                 )}
               </div>
-              <div className="p-4 md:p-6 bg-slate-50 border-t border-slate-100 space-y-3 md:space-y-4 shrink-0">
-              <div className="space-y-2">
-                <div className="flex items-center justify-between text-xs font-bold text-slate-500">
+              <div className="p-3 md:p-4 bg-slate-50 border-t border-slate-100 space-y-2.5 md:space-y-3 shrink-0">
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between text-[10px] font-bold text-slate-500">
                   <span>Cliente</span>
                   {!selectedClient && (
                     <button onClick={() => setClientModalOpen(true)} className="flex items-center gap-1 hover:underline" style={{ color: storeColorCss }}>
@@ -883,28 +899,33 @@ export const POS: React.FC = () => {
                   </div>
                 )}
               </div>
-              <div className="space-y-2">
-                <label className="text-xs font-bold text-slate-500">Valor Total (R$)</label>
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold text-slate-500">Valor Total (R$)</label>
                 <Input
                   type="text"
                   inputMode="decimal"
                   placeholder="0,00"
                   value={totalValueRaw === '' ? '' : formatCurrencyInput(totalValueRaw)}
                   onChange={e => setTotalValueRaw(e.target.value.replace(/\D/g, ''))}
+                  className="!px-3 !py-2 !text-sm lg:!px-3 lg:!py-2"
                 />
               </div>
-              <div className="space-y-1.5 pt-2 border-t border-slate-200">
-                <p className="text-xs font-bold text-slate-500">Forma de Pagamento</p>
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
-                  {[
-                    { key: 'credit_card' as const, icon: CreditCard, label: 'Cartão' },
-                    { key: 'pix' as const, icon: QrCode, label: 'PIX' },
-                    { key: 'cash' as const, icon: Banknote, label: 'Dinheiro' },
-                    { key: 'permuta' as const, icon: RefreshCw, label: 'Permuta' },
-                    { key: 'parcial' as const, icon: SplitSquareVertical, label: 'Parcial' },
-                  ].map(({ key, icon: Icon, label }) => (
+              <div className="space-y-1 pt-2 border-t border-slate-200">
+                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wide">Forma de pagamento</p>
+                <div className="grid grid-cols-2 gap-1.5">
+                  {(
+                    [
+                      { key: 'credit_card' as const, icon: CreditCard, lines: ['Crédito'] as const },
+                      { key: 'debit_card' as const, icon: Wallet, lines: ['Débito'] as const },
+                      { key: 'pix' as const, icon: QrCode, lines: ['PIX'] as const },
+                      { key: 'cash' as const, icon: Banknote, lines: ['Dinheiro'] as const },
+                      { key: 'permuta' as const, icon: RefreshCw, lines: ['Permuta'] as const },
+                      { key: 'parcial' as const, icon: SplitSquareVertical, lines: ['Pagamento', 'parcial'] as const },
+                    ] as const
+                  ).map(({ key, icon: Icon, lines }) => (
                     <button
                       key={key}
+                      type="button"
                       onClick={() => {
                         setPaymentMethod(key);
                         if (key === 'parcial' && partialPayments.length === 0) {
@@ -912,24 +933,37 @@ export const POS: React.FC = () => {
                           setPartialPaymentsId(p => p + 1);
                         }
                       }}
-                      title={key === 'parcial' ? 'Parcial (múltiplas formas)' : label}
-                      className={`flex flex-col items-center justify-center gap-1 py-2.5 px-2 rounded-lg border transition-all min-w-0 ${
+                      title={
+                        key === 'parcial'
+                          ? 'Múltiplas formas (parcelas só no crédito)'
+                          : lines.join(' ')
+                      }
+                      className={`flex flex-row items-center justify-start gap-2 py-1.5 px-2 rounded-lg border transition-all text-left min-h-0 shadow-sm ${
                         paymentMethod === key ? 'text-white border-transparent' : 'bg-white border-slate-200 hover:border-[var(--store-color)]'
                       }`}
                       style={paymentMethod === key ? { backgroundColor: storeColorCss } : {}}
                     >
-                      <Icon size={18} />
-                      <span className="text-[10px] font-bold uppercase leading-tight truncate w-full text-center">{label}</span>
+                      <Icon size={15} className="shrink-0" strokeWidth={2} />
+                      <span className="text-[9px] font-bold leading-tight min-w-0 flex-1">
+                        {lines.map((line, i) => (
+                          <span
+                            key={line}
+                            className={i === 0 ? 'block' : 'block text-[8px] font-semibold opacity-90 leading-tight'}
+                          >
+                            {line}
+                          </span>
+                        ))}
+                      </span>
                     </button>
                   ))}
                 </div>
                 {paymentMethod === 'credit_card' && (
-                  <div className="space-y-1">
-                    <label className="text-xs font-bold text-slate-500">Parcelas</label>
+                  <div className="space-y-0.5">
+                    <label className="text-[10px] font-bold text-slate-500">Parcelas</label>
                     <select
                       value={installments}
                       onChange={e => setInstallments(Number(e.target.value))}
-                      className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm font-medium focus:ring-2 focus:ring-[var(--store-color)] focus:border-[var(--store-color)] outline-none transition-all"
+                      className="w-full px-2 py-1.5 bg-white border border-slate-200 rounded-md text-xs font-medium focus:ring-2 focus:ring-[var(--store-color)] focus:border-[var(--store-color)] outline-none transition-all"
                     >
                       {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map(n => (
                         <option key={n} value={n}>{n}x</option>
@@ -938,9 +972,9 @@ export const POS: React.FC = () => {
                   </div>
                 )}
                 {paymentMethod === 'parcial' && (
-                  <div className="space-y-2">
+                  <div className="space-y-1.5">
                     <div className="flex items-center justify-between">
-                      <label className="text-xs font-bold text-slate-500">Pagamentos parciais</label>
+                      <label className="text-[10px] font-bold text-slate-500">Pagamentos parciais</label>
                       <button
                         type="button"
                         onClick={() => {
@@ -959,11 +993,24 @@ export const POS: React.FC = () => {
                         <div key={row.id} className="flex gap-2 items-center p-2 bg-white rounded-lg border border-slate-200">
                           <select
                             value={row.method}
-                            onChange={e => setPartialPayments(prev => prev.map(r => r.id === row.id ? { ...r, method: e.target.value as 'credit_card'|'pix'|'cash'|'permuta' } : r))}
+                            onChange={e =>
+                              setPartialPayments(prev =>
+                                prev.map(r =>
+                                  r.id === row.id
+                                    ? {
+                                        ...r,
+                                        method: e.target.value as PartialPaymentRow['method'],
+                                        installments: e.target.value === 'credit_card' ? r.installments : 1,
+                                      }
+                                    : r
+                                )
+                              )
+                            }
                             className="flex-1 min-w-0 px-2 py-1.5 text-xs font-medium border-0 rounded bg-slate-50 focus:ring-2 focus:ring-[var(--store-color)]"
-                            title={row.method === 'credit_card' ? 'Cartão' : row.method === 'pix' ? 'PIX' : row.method === 'permuta' ? 'Permuta' : 'Dinheiro'}
+                            title={paymentMethodLabel(row.method)}
                           >
-                            <option value="credit_card">Cartão</option>
+                            <option value="credit_card">Cartão crédito</option>
+                            <option value="debit_card">Cartão débito</option>
                             <option value="pix">PIX</option>
                             <option value="cash">Dinheiro</option>
                             <option value="permuta">Permuta</option>
@@ -1011,14 +1058,14 @@ export const POS: React.FC = () => {
               </div>
               <Button
                 onClick={handleFinishSale}
-                className="w-full py-4 text-base"
+                className="w-full py-2.5 text-sm font-bold"
                 style={{ backgroundColor: storeColorCss }}
                 disabled={
                   cart.length === 0 || !paymentMethod ||
                   (paymentMethod === 'parcial' && (partialPayments.length === 0 || partialPayments.some(r => (parseCurrencyFormatted(formatCurrencyInput(r.amountRaw)) || 0) <= 0) || Math.abs((parseCurrencyFormatted(formatCurrencyInput(totalValueRaw)) || 0) - partialPayments.reduce((s, r) => s + (parseCurrencyFormatted(formatCurrencyInput(r.amountRaw)) || 0), 0)) > 0.01))
                 }
               >
-                <CheckCircle2 size={20} /> Gerar OS
+                <CheckCircle2 size={16} /> Gerar OS
               </Button>
               </div>
             </div>
@@ -1146,23 +1193,28 @@ export const POS: React.FC = () => {
               <div className="space-y-3 pt-4 border-t border-slate-200">
                 <div className="flex justify-between text-sm">
                   <span className="text-slate-600">Forma de Pagamento:</span>
-                  <span className="font-bold text-slate-900">
+                  <span className="font-bold text-slate-900 text-right">
                     {paymentMethod === 'parcial'
                       ? 'Parcial (múltiplas)'
                       : paymentMethod === 'credit_card'
-                        ? `Cartão${installments > 1 ? ` (${installments}x)` : ''}`
-                        : paymentMethod === 'pix'
-                          ? 'PIX'
-                          : paymentMethod === 'permuta'
-                            ? 'Permuta'
-                            : 'Dinheiro'}
+                        ? `Cartão crédito${installments > 1 ? ` (${installments}x)` : ''}`
+                        : paymentMethod === 'debit_card'
+                          ? 'Cartão débito'
+                          : paymentMethod === 'pix'
+                            ? 'PIX'
+                            : paymentMethod === 'permuta'
+                              ? 'Permuta'
+                              : 'Dinheiro'}
                   </span>
                 </div>
                 {paymentMethod === 'parcial' && partialPayments.filter(p => (parseCurrencyFormatted(formatCurrencyInput(p.amountRaw)) || 0) > 0).length > 0 && (
                   <div className="text-xs space-y-1">
                     {partialPayments.filter(p => (parseCurrencyFormatted(formatCurrencyInput(p.amountRaw)) || 0) > 0).map(p => (
                       <div key={p.id} className="flex justify-between text-slate-600">
-                        <span>{p.method === 'credit_card' ? 'Cartão' : p.method === 'pix' ? 'PIX' : p.method === 'permuta' ? 'Permuta' : 'Dinheiro'}{p.method === 'credit_card' && p.installments > 1 ? ` (${p.installments}x)` : ''}</span>
+                        <span>
+                          {paymentMethodLabel(p.method)}
+                          {p.method === 'credit_card' && p.installments > 1 ? ` (${p.installments}x)` : ''}
+                        </span>
                         <span className="font-bold text-slate-900">R$ {(parseCurrencyFormatted(formatCurrencyInput(p.amountRaw)) || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
                       </div>
                     ))}
