@@ -496,10 +496,25 @@ export const MultiSelect: React.FC<{
   onChange: (values: string[]) => void;
   placeholder?: string;
   searchable?: boolean;
+  /** Se true, a lista vem filtrada da API; não filtra pelo label localmente (use com onSearchQueryChange). */
+  serverSideSearch?: boolean;
+  onSearchQueryChange?: (query: string) => void;
   disabled?: boolean;
   disabledMessage?: string;
   error?: string;
-}> = ({ label, options, value = [], onChange, placeholder = "Selecione...", searchable = true, disabled = false, disabledMessage, error }) => {
+}> = ({
+  label,
+  options,
+  value = [],
+  onChange,
+  placeholder = 'Selecione...',
+  searchable = true,
+  serverSideSearch = false,
+  onSearchQueryChange,
+  disabled = false,
+  disabledMessage,
+  error,
+}) => {
   const [isOpen, setIsOpen] = useState(false);
   const [search, setSearch] = useState('');
   const [position, setPosition] = useState({ top: 0, left: 0, width: 0 });
@@ -546,9 +561,18 @@ export const MultiSelect: React.FC<{
     }
   }, [isOpen]);
 
-  const filteredOptions = searchable && search
-    ? options.filter(opt => opt.label.toLowerCase().includes(search.toLowerCase()))
-    : options;
+  const filteredOptions =
+    searchable && search && !serverSideSearch
+      ? options.filter((opt) => opt.label.toLowerCase().includes(search.toLowerCase()))
+      : options;
+
+  useEffect(() => {
+    if (!isOpen || !serverSideSearch || !onSearchQueryChange) return;
+    const trimmed = search.trim();
+    const delay = trimmed ? 300 : 0;
+    const t = setTimeout(() => onSearchQueryChange(search), delay);
+    return () => clearTimeout(t);
+  }, [search, isOpen, serverSideSearch, onSearchQueryChange]);
 
   const dropdownContent = isOpen ? (
     <>

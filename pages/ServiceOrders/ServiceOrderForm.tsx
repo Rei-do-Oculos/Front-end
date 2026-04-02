@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { Save, ArrowLeft, FileText, Loader2, Search, Edit, Plus, Trash2, Eye, EyeOff } from 'lucide-react';
 import { Card, Button, Input, NumberInput, SingleSelect, MultiSelect } from '../../components/Common';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
@@ -8,6 +8,7 @@ import type { Client } from '../../services/api/clients';
 import { useLaboratories } from '../../services/hooks/useLaboratories';
 import { useLaboratoryLenses } from '../../services/hooks/useLaboratoryLenses';
 import { useFrames } from '../../services/hooks/useFrames';
+import type { Frame } from '../../services/api/frames';
 import { useLenses } from '../../services/hooks/useLenses';
 import { useStores } from '../../services/hooks/useStores';
 import { storesService } from '../../services/api/stores';
@@ -208,6 +209,9 @@ export const ServiceOrderForm: React.FC = () => {
   const errorBannerRef = useRef<HTMLDivElement>(null);
 
   const [clientSearch, setClientSearch] = useState('');
+  /** Busca de armações na API (código ou descrição) — evita depender só das primeiras 100 linhas */
+  const [frameSearchQuery, setFrameSearchQuery] = useState('');
+  const framesByIdRef = useRef<Map<number, Frame>>(new Map());
   /** Cliente carregado quando vem da URL (?client_id=) para exibir no select */
   const [preselectedClientData, setPreselectedClientData] = useState<Client | null>(null);
   
@@ -327,6 +331,16 @@ export const ServiceOrderForm: React.FC = () => {
     }>,
   });
 
+  const frameStoreId = useMemo(() => {
+    const raw = formData.store_id || defaultStoreId;
+    const n = Number(raw);
+    return Number.isFinite(n) && n > 0 ? n : 0;
+  }, [formData.store_id, defaultStoreId]);
+
+  const onFrameSearchQueryChange = useCallback((query: string) => {
+    setFrameSearchQuery(query);
+  }, []);
+
   // Próximo número da OS na loja escolhida (nova OS): mescla lista /auth + GET loja se faltar
   useEffect(() => {
     if (!isCreateMode || !formData.store_id) {
@@ -422,16 +436,33 @@ export const ServiceOrderForm: React.FC = () => {
     }
   }, [defaultStoreId, user, isCreateMode]);
 
-  // Carregar dados auxiliares
+  // Carregar dados auxiliares (armações: efeito separado com loja + busca na API)
   useEffect(() => {
     fetchClients(1, { per_page: 100 });
     fetchLaboratories(1, { per_page: 100 });
     fetchLaboratoryLenses(1, { per_page: 100 });
-    fetchFrames(1, { per_page: 100 });
     fetchLenses(1, { per_page: 100 });
     fetchStores(1, { per_page: 100 });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    (Array.isArray(frames) ? frames : []).forEach((f) => framesByIdRef.current.set(f.id, f));
+  }, [frames]);
+
+  useEffect(() => {
+    if (!frameStoreId) return;
+    const trimmed = frameSearchQuery.trim();
+    const delay = trimmed ? 300 : 0;
+    const t = setTimeout(() => {
+      fetchFrames(1, {
+        per_page: 100,
+        store_id: frameStoreId,
+        ...(trimmed ? { search: trimmed } : {}),
+      });
+    }, delay);
+    return () => clearTimeout(t);
+  }, [frameStoreId, frameSearchQuery, fetchFrames]);
 
   // Buscar clientes ao digitar nome, CPF ou telefone (debounce 300ms)
   useEffect(() => {
@@ -1117,14 +1148,24 @@ export const ServiceOrderForm: React.FC = () => {
       };
     });
   }, [loadedOrder?.id, laboratoryLensesList, loadedOrder?.laboratory_lenses]);
-  // Incluir armações da OS carregada (ex.: vindas do PDV) - a API de frames exclui as já vinculadas a OS
+  // Incluir armações da OS carregada (ex.: vindas do PDV) e seleções fora da página atual da busca
   const framesList = React.useMemo(() => {
     const fromApi = Array.isArray(frames) ? frames : [];
     const fromOrder = toArray(loadedOrder?.frames) || [];
     const ids = new Set(fromApi.map((f: { id: number }) => f.id));
-    const extra = fromOrder.filter((f: { id?: number }) => f?.id && !ids.has(f.id));
-    return [...fromApi, ...extra];
-  }, [frames, loadedOrder?.frames]);
+    const extraFromOrder = fromOrder.filter((f: { id?: number }) => f?.id && !ids.has(f.id));
+    const merged = [...fromApi, ...extraFromOrder];
+    const mergedIds = new Set(merged.map((f: { id: number }) => f.id));
+    const selectedIds = (formData.frames || []).map(Number).filter(Boolean);
+    const extrasSelected: Frame[] = [];
+    selectedIds.forEach((fid) => {
+      if (!mergedIds.has(fid)) {
+        const cached = framesByIdRef.current.get(fid);
+        if (cached) extrasSelected.push(cached);
+      }
+    });
+    return [...merged, ...extrasSelected];
+  }, [frames, loadedOrder?.frames, formData.frames]);
   const lensesList = Array.isArray(lenses) ? lenses : [];
 
   // Filtrar laboratoryLenses pelo laboratório selecionado
@@ -1509,12 +1550,14 @@ export const ServiceOrderForm: React.FC = () => {
               label="Armações"
               value={formData.frames}
               onChange={(vals) => handleFieldChange('frames', vals)}
-              options={framesList.map((frame) => ({ 
-                value: String(frame.id), 
-                label: `${frame.code} - ${frame.description}` 
+              options={framesList.map((frame) => ({
+                value: String(frame.id),
+                label: `${frame.code ?? ''} - ${frame.description ?? ''}`,
               }))}
-              placeholder="Buscar armações..."
+              placeholder="Buscar por código ou nome..."
               searchable
+              serverSideSearch
+              onSearchQueryChange={onFrameSearchQueryChange}
               disabled={isViewMode}
               error={errors.frames}
             />

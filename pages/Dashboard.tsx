@@ -107,7 +107,9 @@ export const Dashboard: React.FC = () => {
   }, []);
 
   const formatCurrency = (value: number) =>
-    new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
+    new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(
+      Number.isFinite(value) ? value : 0
+    );
 
   const chartLabels = useMemo(() => {
     if (!charts?.labels) return [];
@@ -155,7 +157,13 @@ export const Dashboard: React.FC = () => {
         {canSee.cardVendasHoje && (
           <StatCard
             title="Vendas da loja (hoje)"
-            value={cards ? formatCurrency(cards.sales_today_store) : '–'}
+            value={
+              cards
+                ? formatCurrency(
+                    Number.isFinite(cards.sales_today_store) ? cards.sales_today_store : 0
+                  )
+                : '–'
+            }
             icon={DollarSign}
             color="red"
           />

@@ -131,31 +131,45 @@ export const POS: React.FC = () => {
   const [quickEmail, setQuickEmail] = useState('');
   const [creatingClient, setCreatingClient] = useState(false);
 
-  // Buscar armações da loja (sem preços na exibição)
-  const fetchFrames = useCallback(async () => {
-    if (!selectedStore?.id) return;
-    setFramesLoading(true);
-    try {
-      const { data } = await framesService.getAll({
-        page: 1,
-        per_page: 100,
-        store_id: selectedStore.id,
-        order_by: 'description',
-        order_dir: 'asc',
-      });
-      setFrames(data);
-    } catch (err) {
-      console.error('[POS] Erro ao carregar armações:', err);
-      showError('Erro', 'Não foi possível carregar as armações.');
-      setFrames([]);
-    } finally {
-      setFramesLoading(false);
-    }
-  }, [selectedStore?.id, showError]);
+  // Buscar armações da loja — `search` na API cobre código e descrição (evita só 100 itens em memória)
+  const fetchFrames = useCallback(
+    async (searchTerm?: string) => {
+      if (!selectedStore?.id) return;
+      setFramesLoading(true);
+      try {
+        const { data } = await framesService.getAll({
+          page: 1,
+          per_page: 100,
+          store_id: selectedStore.id,
+          order_by: 'description',
+          order_dir: 'asc',
+          ...(searchTerm?.trim() ? { search: searchTerm.trim() } : {}),
+        });
+        setFrames(data);
+      } catch (err) {
+        console.error('[POS] Erro ao carregar armações:', err);
+        showError('Erro', 'Não foi possível carregar as armações.');
+        setFrames([]);
+      } finally {
+        setFramesLoading(false);
+      }
+    },
+    [selectedStore?.id, showError]
+  );
 
   useEffect(() => {
-    fetchFrames();
-  }, [fetchFrames]);
+    if (!selectedStore?.id) return;
+    const trimmed = search.trim();
+    const delay = trimmed ? 300 : 0;
+    const t = setTimeout(() => {
+      fetchFrames(trimmed || undefined);
+    }, delay);
+    return () => clearTimeout(t);
+  }, [selectedStore?.id, search, fetchFrames]);
+
+  useEffect(() => {
+    setVisibleProducts(20);
+  }, [search, selectedStore?.id]);
 
   // Buscar dados completos da loja para recibo (endereço, CNPJ, IE, telefone etc.)
   useEffect(() => {
@@ -217,12 +231,7 @@ export const POS: React.FC = () => {
     return () => clearInterval(interval);
   }, []);
 
-  const filteredFrames = frames.filter(
-    f =>
-      f.description?.toLowerCase().includes(search.toLowerCase()) ||
-      f.code?.toLowerCase().includes(search.toLowerCase())
-  );
-  const displayFrames = filteredFrames.slice(0, visibleProducts);
+  const displayFrames = frames.slice(0, visibleProducts);
 
   const addToCart = (frame: Frame) => {
     const existing = cart.find(item => item.id === frame.id);
@@ -780,10 +789,10 @@ export const POS: React.FC = () => {
                 </div>
               </div>
             )}
-            {!framesLoading && filteredFrames.length > visibleProducts && (
+            {!framesLoading && frames.length > visibleProducts && (
               <div className="pt-4 pb-4 border-t border-slate-100 mt-4 shrink-0">
                 <button
-                  onClick={() => setVisibleProducts(p => Math.min(p + 20, filteredFrames.length))}
+                  onClick={() => setVisibleProducts(p => Math.min(p + 20, frames.length))}
                   className="w-full py-3 text-white font-bold rounded-lg transition-all flex items-center justify-center gap-2"
                   style={{ backgroundColor: storeColorCss }}
                 >
