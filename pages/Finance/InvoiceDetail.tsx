@@ -7,7 +7,6 @@ import {
   FileText,
   CheckCircle2,
   Building2,
-  User,
   DollarSign,
   CreditCard,
   FileCode,
@@ -29,6 +28,7 @@ import { usePermission } from '../../services/hooks/usePermission';
 import { userHasAccessToStore } from '../../utils/storeAccess';
 import { invoicesService, type Invoice } from '../../services/api/invoices';
 import { invoiceToNFCeData, buildReciboHtml } from '../../utils/nfceCupom';
+import { ClientWhatsAppAvatar } from '../../components/ClientWhatsAppAvatar';
 
 /** Obtém tipo da nota pela chave (pos 20-21: 55=NF-e, 65=NFC-e). */
 function getInvoiceType(accessKey: string | null | undefined): 'NFC-e' | 'NF-e' {
@@ -541,9 +541,11 @@ export const InvoiceDetail: React.FC = () => {
           <Card title="Dados do Cliente">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="flex items-start gap-3">
-                <div className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center text-slate-400">
-                  <User size={20} />
-                </div>
+                <ClientWhatsAppAvatar
+                  phone={d.clientPhone}
+                  clientName={d.client}
+                  iconSize={20}
+                />
                 <div className="flex-1">
                   <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Cliente</p>
                   <p className="text-sm font-bold text-slate-900 mt-1">{d.client}</p>

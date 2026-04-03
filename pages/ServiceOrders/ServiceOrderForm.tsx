@@ -18,15 +18,19 @@ import { useStore } from '../../contexts/StoreContext';
 import { useAuth } from '../../services/hooks/useAuth';
 import { usePermission } from '../../services/hooks/usePermission';
 import { userHasAccessToStore } from '../../utils/storeAccess';
+import { canShowNfeOptionInReceiptModal } from '../../utils/serviceOrderNfeEligibility';
 import { serviceOrderSchema, formatZodErrors } from '../../schemas/serviceOrder.schema';
 import { ReceiptModal } from '../../components/ReceiptModal';
 import { ReceiptData } from '../../components/ThermalReceipt';
+import { persistedPaymentsFromServiceOrder } from '../../utils/receiptPaymentsFromOrder';
 import { EntryReceiptModal } from '../../components/EntryReceiptModal';
-import { EntryReceiptData } from '../../components/EntryReceipt';
+import { EntryReceiptData, EntryReceiptPaymentLine } from '../../components/EntryReceipt';
 import { NFeSection } from '../../components/NFeSection';
 import { invoicesService } from '../../services/api/invoices';
 import { serviceOrdersService } from '../../services/api/serviceOrders';
 import type { ServiceOrder } from '../../services/api/serviceOrders';
+import { formatIsoDatePtBr } from '../../utils/dateDisplay';
+import { buildPrescriptionLinesForEntryReceipt } from '../../utils/entryReceiptPrescription';
 
 // Função para formatar valor como moeda brasileira
 const formatCurrency = (value: string): string => {
@@ -193,7 +197,7 @@ export const ServiceOrderForm: React.FC = () => {
   const [searchParams] = useSearchParams();
   const { showSuccess, showError } = useNotification();
   const { availableStores, selectedStore } = useStore();
-  const { user } = useAuth();
+  const { user, isLoading: authLoading } = useAuth();
   const { hasSuperAdminRole } = usePermission();
   
   // Determinar modo: criar, visualizar ou editar
@@ -556,19 +560,6 @@ export const ServiceOrderForm: React.FC = () => {
               promotion_applied: !!l.promotion_applied,
             })));
             
-            // Verificar se OS é de outra loja (superadmin pode editar qualquer OS)
-            const orderStoreId = order.store_id;
-            const apiSaysOtherStore = (order as any).is_other_store ?? (selectedStore?.id !== undefined && orderStoreId !== selectedStore.id);
-            const isOtherStore = hasSuperAdminRole ? false : apiSaysOtherStore;
-            setIsOtherStoreOrder(isOtherStore);
-            
-            // Se for OS de outra loja e estiver em modo de edição, redirecionar para visualização (superadmin não)
-            if (isOtherStore && isEditMode) {
-              showError('Não é possível editar OS de outra loja.');
-              navigate(`/service-orders/${id}`);
-              return;
-            }
-            
             setFormData({
               client_id: String(order.client_id) || '',
               store_id: String(order.store_id) || '',
@@ -623,15 +614,18 @@ export const ServiceOrderForm: React.FC = () => {
               lenses: toArray(order.lenses).map(l => String(l.id)),
               // Toggle de laboratório
               send_to_lab: laboratory_ids.length > 0 || !!order.laboratory_id,
-              // Pagamentos parciais
-              use_partial_payments: order.payments && order.payments.length > 0,
-              partial_payments: order.payments && order.payments.length > 0
-                ? order.payments.map((p: any) => ({
-                    payment_method: p.payment_method || '',
-                    amount: formatFromNumber(p.amount),
-                    installments: p.installments ? String(p.installments) : '1',
-                  }))
-                : [],
+              // Pagamentos parciais (API pode enviar payments como array ou objeto indexado)
+              use_partial_payments: persistedPaymentsFromServiceOrder(order).length > 0,
+              partial_payments: (() => {
+                const rows = persistedPaymentsFromServiceOrder(order);
+                return rows.length > 0
+                  ? rows.map((p) => ({
+                      payment_method: p.payment_method || '',
+                      amount: formatFromNumber(p.amount),
+                      installments: p.installments ? String(p.installments) : '1',
+                    }))
+                  : [];
+              })(),
             });
           } else {
             setErrors({ form: 'Ordem de serviço não encontrada' });
@@ -651,6 +645,18 @@ export const ServiceOrderForm: React.FC = () => {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
+
+  // Edição permitida só para superadmin ou usuário vinculado à loja da OS (não depende da loja selecionada no header)
+  useEffect(() => {
+    if (!loadedOrder || authLoading || !id) return;
+    const cannotEditOrderStore =
+      !hasSuperAdminRole && !userHasAccessToStore(loadedOrder.store_id, user);
+    setIsOtherStoreOrder(cannotEditOrderStore);
+    if (cannotEditOrderStore && isEditMode) {
+      showError('Você não pode editar OS de uma loja à qual não está vinculado.');
+      navigate(`/service-orders/${id}`);
+    }
+  }, [loadedOrder, authLoading, id, user, hasSuperAdminRole, isEditMode, navigate, showError]);
 
   // Função auxiliar para converter valor com vírgula brasileira para número
   const parseNumericField = (value: string | null | undefined): number | null => {
@@ -712,6 +718,7 @@ export const ServiceOrderForm: React.FC = () => {
       store: {
         name: storeData?.name || 'Loja',
         fancy_name: storeData?.fancy_name || storeData?.name || 'Loja',
+        receipt_header: storeData?.receipt_header ?? null,
         cnpj: storeData?.cnpj || '00.000.000/0000-00',
         ie: storeData?.ie || null,
         logradouro: storeData?.logradouro || '',
@@ -804,14 +811,74 @@ export const ServiceOrderForm: React.FC = () => {
     const items = combinedItems.length > 0
       ? combinedItems
       : [{ description: 'Serviço Óptico', quantity: 1 }];
-    
+
+    let payments: EntryReceiptPaymentLine[] | undefined;
+    let paymentMethod: string | null = formData.payment_method || null;
+    let installments: number | null = null;
+
+    if (formData.use_partial_payments && formData.partial_payments.length > 0) {
+      const rows = formData.partial_payments
+        .filter((p) => p.payment_method && p.amount)
+        .map((p) => ({
+          payment_method: p.payment_method,
+          amount: parseFloat(parseCurrency(p.amount)),
+          installments:
+            p.payment_method === 'credit_card' && p.installments ? parseInt(p.installments, 10) : null,
+        }));
+      if (rows.length > 0) {
+        payments = rows;
+        paymentMethod = null;
+        installments = null;
+      }
+    } else if (formData.payment_method === 'credit_card' && formData.installments) {
+      installments = parseInt(formData.installments, 10) || null;
+    }
+
+    const lensesListForRx = Array.isArray(lenses) ? lenses : [];
+    const stockLensMeta = formData.lenses
+      .map((id) => lensesListForRx.find((ln) => String(ln.id) === String(id)))
+      .filter((ln): ln is NonNullable<typeof ln> => Boolean(ln))
+      .map((ln) => ({ name: ln.name }));
+
+    const prescriptionLines = buildPrescriptionLinesForEntryReceipt({
+      far_od_spherical: formData.far_od_spherical,
+      far_od_cylindrical: formData.far_od_cylindrical,
+      far_od_axis: formData.far_od_axis,
+      far_oe_spherical: formData.far_oe_spherical,
+      far_oe_cylindrical: formData.far_oe_cylindrical,
+      far_oe_axis: formData.far_oe_axis,
+      near_od_spherical: formData.near_od_spherical,
+      near_od_cylindrical: formData.near_od_cylindrical,
+      near_od_axis: formData.near_od_axis,
+      near_oe_spherical: formData.near_oe_spherical,
+      near_oe_cylindrical: formData.near_oe_cylindrical,
+      near_oe_axis: formData.near_oe_axis,
+      addition: formData.addition,
+      far_dnp: formData.far_dnp,
+      near_dnp: formData.near_dnp,
+      frame_code: formData.frame_code,
+      rim_use: formData.rim_use,
+      warranty: formData.warranty,
+      single_vision: formData.single_vision,
+      bifocal: formData.bifocal,
+      multifocal: formData.multifocal,
+      anti_reflective: formData.anti_reflective,
+      transitions: formData.transitions,
+      frame_included: formData.frame_included,
+      tinting: formData.tinting,
+      notes: formData.notes,
+      lenses: stockLensMeta,
+    });
+
     return {
       osNumber,
       date: new Date().toLocaleString('pt-BR'),
       expectedPickupDate: formData.expected_pickup_date || null,
+      prescriptionLines,
       store: {
         name: storeData?.name || 'Loja',
         fancy_name: storeData?.fancy_name || storeData?.name || 'Loja',
+        receipt_header: storeData?.receipt_header ?? null,
         logradouro: storeData?.logradouro || '',
         numero: storeData?.numero || '',
         telefone: storeData?.telefone || null,
@@ -822,7 +889,9 @@ export const ServiceOrderForm: React.FC = () => {
       },
       items,
       total: totalPrice,
-      paymentMethod: formData.payment_method || null,
+      paymentMethod,
+      installments,
+      payments,
     };
   };
 
@@ -935,6 +1004,9 @@ export const ServiceOrderForm: React.FC = () => {
     } else if (!hasFrames && !(hasLab && hasLabProducts)) {
       customErrors.frames = 'Selecione ao menos uma armação OU um laboratório com produto de laboratório.';
     }
+    if (hasLab && hasLabProducts && !String(formData.expected_pickup_date || '').trim()) {
+      customErrors.expected_pickup_date = 'Informe a data de retirada (previsão no recibo para o cliente).';
+    }
     if (!isWarranty && priceNum <= 0) {
       customErrors.price = 'Preço é obrigatório.';
     }
@@ -1012,8 +1084,9 @@ export const ServiceOrderForm: React.FC = () => {
       laboratory_lenses: formData.send_to_lab ? formData.laboratory_lenses.map(id => parseInt(id)) : [],
       frames: formData.frames.map(id => parseInt(id)),
       lenses: formData.lenses.map(id => parseInt(id)),
-      // Pagamentos parciais/mistos
-      payments: formData.use_partial_payments && formData.partial_payments.length > 0
+      // Pagamentos parciais/mistos. Com pagamento único enviar [] para o backend apagar linhas em service_order_payments
+      // (omitir `payments` deixava as parcelas antigas no banco e a OS continuava “parcial”).
+      payments: formData.use_partial_payments
         ? formData.partial_payments
             .filter(p => p.payment_method && p.amount)
             .map(p => ({
@@ -1021,14 +1094,14 @@ export const ServiceOrderForm: React.FC = () => {
               amount: parseFloat(parseCurrency(p.amount)),
               installments: p.payment_method === 'credit_card' && p.installments ? parseInt(p.installments) : null,
             }))
-        : undefined,
+        : [],
     };
 
-    // OS finalizada + não superadmin: não enviar alterações de pagamento
     if (isEditMode && loadedOrder?.status === 'completed' && !hasSuperAdminRole) {
       delete payload.payment_method;
       delete payload.installments;
       delete payload.payments;
+      delete payload.price;
     }
 
     // No modo de criação (sem laboratório), mostrar modal de recibo antes de salvar
@@ -1175,6 +1248,8 @@ export const ServiceOrderForm: React.FC = () => {
 
   // Aro de uso é obrigatório quando: sem armação + tem laboratório + tem produto de laboratório
   const rimUseRequired = !formData.frames?.length && formData.laboratory_ids.length > 0 && formData.laboratory_lenses?.length > 0;
+  const paymentAndPriceLocked =
+    isEditMode && loadedOrder?.status === 'completed' && !hasSuperAdminRole;
 
   // Mostrar loading enquanto carrega OS ou dados auxiliares (no modo view/edit)
   if (loading || (id && auxiliaryDataLoading)) {
@@ -1231,7 +1306,7 @@ export const ServiceOrderForm: React.FC = () => {
           >
             <ArrowLeft size={18} /> Voltar
           </Button>
-          {isViewMode && !isOtherStoreOrder && (loadedOrder?.status !== 'completed' || hasSuperAdminRole) && (
+          {isViewMode && !isOtherStoreOrder && (
             <Button 
               type="button" 
               onClick={() => navigate(`/service-orders/${id}/edit`)}
@@ -1243,25 +1318,7 @@ export const ServiceOrderForm: React.FC = () => {
       </div>
 
       <form onSubmit={handleSubmit} noValidate>
-        {isEditMode && loadedOrder?.status === 'completed' && !hasSuperAdminRole && (
-          <div className="mb-6 p-6 rounded-xl border-2 border-amber-400 bg-amber-50">
-            <div className="flex items-start gap-4">
-              <div className="flex-shrink-0 w-12 h-12 rounded-full bg-amber-200 flex items-center justify-center">
-                <svg className="w-6 h-6 text-amber-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                </svg>
-              </div>
-              <div className="flex-1">
-                <h3 className="text-lg font-bold text-amber-900">Sem permissão para editar</h3>
-                <p className="mt-1 text-amber-800">
-                  Esta OS está finalizada. Você não tem permissão para alterar ordens de serviço concluídas. 
-                  Os dados podem ser visualizados, mas não modificados.
-                </p>
-              </div>
-            </div>
-          </div>
-        )}
-        <fieldset disabled={isViewMode || isOtherStoreOrder || (isEditMode && loadedOrder?.status === 'completed' && !hasSuperAdminRole)} className={isViewMode ? '' : 'disabled:opacity-70'}>
+        <fieldset disabled={isViewMode || isOtherStoreOrder} className={isViewMode ? '' : 'disabled:opacity-70'}>
         <Card className="p-8">
           {errors.form && (
             <div ref={errorBannerRef} className="mb-6 border-2 border-red-300 rounded-xl p-4 bg-red-50 shadow-sm" role="alert">
@@ -1309,7 +1366,7 @@ export const ServiceOrderForm: React.FC = () => {
                 }))}
                 placeholder="Selecione a ótica"
                 error={errors.store_id}
-                disabled={isViewMode}
+                disabled={isViewMode || (isEditMode && !hasSuperAdminRole)}
               />
             </div>
             <div>
@@ -1614,13 +1671,16 @@ export const ServiceOrderForm: React.FC = () => {
                   const selectedLenses = formData.laboratory_lenses
                     .map(lid => filteredLaboratoryLenses.find(l => String(l.id) === lid))
                     .filter(Boolean) as { delivery_days?: number | string | null }[];
-                  const maxDays = selectedLenses.reduce((max, l) => {
+                  const maxDaysFromProducts = selectedLenses.reduce((max, l) => {
                     const rawDays = l?.delivery_days;
                     const parsedDays = typeof rawDays === 'string' ? parseInt(rawDays, 10) : rawDays;
                     const days = Number.isFinite(parsedDays) ? Number(parsedDays) : null;
                     if (days == null || days < 0) return max;
                     return days > (max ?? -1) ? days : max;
                   }, null as number | null);
+                  // Sem prazo no cadastro do produto: mantém a linha de previsão (ex.: 3 dias úteis), campo pode ficar vazio até o vendedor preencher ou clicar em sugerida
+                  const businessDaysForPreview =
+                    maxDaysFromProducts != null && maxDaysFromProducts > 0 ? maxDaysFromProducts : 3;
                   
                   // Função para adicionar dias úteis
                   const addBusinessDays = (date: Date, days: number): Date => {
@@ -1634,9 +1694,7 @@ export const ServiceOrderForm: React.FC = () => {
                     return result;
                   };
                   
-                  const suggestedDate = maxDays != null && maxDays > 0
-                    ? addBusinessDays(new Date(), maxDays)
-                    : null;
+                  const suggestedDate = addBusinessDays(new Date(), businessDaysForPreview);
                   
                   const formatDateForInput = (date: Date): string => {
                     const year = date.getFullYear();
@@ -1645,6 +1703,7 @@ export const ServiceOrderForm: React.FC = () => {
                     return `${year}-${month}-${day}`;
                   };
                   const todayStr = formatDateForInput(new Date());
+                  const suggestedDateStr = formatDateForInput(suggestedDate);
                   
                   return (
                     <div className="mt-4">
@@ -1658,23 +1717,22 @@ export const ServiceOrderForm: React.FC = () => {
                         error={errors.expected_pickup_date}
                       />
                       <p className="mt-1 text-xs text-slate-500">Data que o vendedor informa ao cliente para retirar a OS. Esta data será exibida como "Previsão de entrega" no recibo.</p>
-                      {maxDays != null && maxDays > 0 && suggestedDate && (
-                        <div className="mt-3">
-                          <p className="text-sm font-medium" style={{ color: 'var(--store-color)' }}>
-                            Previsão: {maxDays} {maxDays === 1 ? 'dia útil' : 'dias úteis'} – {suggestedDate.toLocaleDateString('pt-BR')}
-                          </p>
-                          {!formData.expected_pickup_date && (
-                            <button
-                              type="button"
-                              onClick={() => handleFieldChange('expected_pickup_date', formatDateForInput(suggestedDate))}
-                              className="mt-2 text-xs text-[var(--store-color)] hover:underline font-medium"
-                              disabled={isViewMode}
-                            >
-                              Usar esta data sugerida
-                            </button>
-                          )}
-                        </div>
-                      )}
+                      <div className="mt-3">
+                        <p className="text-sm font-medium" style={{ color: 'var(--store-color)' }}>
+                          Previsão: {businessDaysForPreview}{' '}
+                          {businessDaysForPreview === 1 ? 'dia útil' : 'dias úteis'} – {formatIsoDatePtBr(suggestedDateStr)}
+                        </p>
+                        {!formData.expected_pickup_date && (
+                          <button
+                            type="button"
+                            onClick={() => handleFieldChange('expected_pickup_date', suggestedDateStr)}
+                            className="mt-2 text-xs text-[var(--store-color)] hover:underline font-medium"
+                            disabled={isViewMode}
+                          >
+                            Usar esta data sugerida
+                          </button>
+                        )}
+                      </div>
                     </div>
                   );
                 })()}
@@ -1766,9 +1824,11 @@ export const ServiceOrderForm: React.FC = () => {
           {/* Preço e Pagamento */}
           <div className="mb-8">
             <h3 className="text-lg font-bold text-slate-900 mb-4">Preço e Pagamento</h3>
-            {loadedOrder?.status === 'completed' && !hasSuperAdminRole && (
-              <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-800">
-                OS finalizada. Preço e forma de pagamento bloqueados.
+            {paymentAndPriceLocked && (
+              <div className="mb-4 p-4 rounded-xl border border-amber-200 bg-amber-50">
+                <p className="text-sm text-amber-900 font-medium">
+                  Esta OS está finalizada. Preço e formas de pagamento não podem ser alterados. Apenas superadmin pode editar esses campos.
+                </p>
               </div>
             )}
             <div className="space-y-6">
@@ -1787,25 +1847,25 @@ export const ServiceOrderForm: React.FC = () => {
                       placeholder="0,00"
                       value={formData.price}
                       onChange={(e) => {
-                        if (isOtherStoreOrder) return;
+                        if (isOtherStoreOrder || paymentAndPriceLocked) return;
                         const formatted = formatCurrency(e.target.value);
                         handleFieldChange('price', formatted);
                       }}
-                      disabled={isOtherStoreOrder || (loadedOrder?.status === 'completed' && !hasSuperAdminRole)}
-                      readOnly={isOtherStoreOrder || (loadedOrder?.status === 'completed' && !hasSuperAdminRole)}
-                      className={`w-full pl-12 pr-4 py-3 text-sm border rounded-xl focus:outline-none focus:ring-2 transition-all ${(isOtherStoreOrder || (loadedOrder?.status === 'completed' && !hasSuperAdminRole)) ? 'bg-slate-100 cursor-not-allowed border-slate-200' : ''} ${errors.price ? 'border-red-500 focus:border-red-500 focus:ring-red-500/10' : 'border-slate-200 focus:border-[var(--store-color)] focus:ring-[var(--store-color-opacity-5)]'}`}
+                      disabled={isOtherStoreOrder || paymentAndPriceLocked}
+                      readOnly={isOtherStoreOrder || paymentAndPriceLocked}
+                      className={`w-full pl-12 pr-4 py-3 text-sm border rounded-xl focus:outline-none focus:ring-2 transition-all ${(isOtherStoreOrder || paymentAndPriceLocked) ? 'bg-slate-100 cursor-not-allowed border-slate-200' : ''} ${errors.price ? 'border-red-500 focus:border-red-500 focus:ring-red-500/10' : 'border-slate-200 focus:border-[var(--store-color)] focus:ring-[var(--store-color-opacity-5)]'}`}
                     />
                   </div>
                   {errors.price && <p className="text-xs text-red-500 font-medium mt-1">{errors.price}</p>}
                 </div>
-                <label className={`inline-flex items-center gap-2 select-none pb-3 ${(isOtherStoreOrder || (loadedOrder?.status === 'completed' && !hasSuperAdminRole)) ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'}`}>
+                <label className={`inline-flex items-center gap-2 select-none pb-3 ${(isOtherStoreOrder || paymentAndPriceLocked) ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'}`}>
                   <div className="relative">
                     <input
                       type="checkbox"
                       checked={formData.use_partial_payments}
-                      disabled={isOtherStoreOrder || (loadedOrder?.status === 'completed' && !hasSuperAdminRole)}
+                      disabled={isOtherStoreOrder || paymentAndPriceLocked}
                       onChange={(e) => {
-                        if (isOtherStoreOrder) return;
+                        if (isOtherStoreOrder || paymentAndPriceLocked) return;
                         const totalPrice = formData.price ? parseFloat(parseCurrency(formData.price)) : 0;
                         setFormData(prev => ({
                           ...prev,
@@ -1864,7 +1924,7 @@ export const ServiceOrderForm: React.FC = () => {
                       options={paymentOptions}
                       placeholder="Selecione..."
                       error={errors.payment_method}
-                      disabled={isViewMode || isOtherStoreOrder || (loadedOrder?.status === 'completed' && !hasSuperAdminRole)}
+                      disabled={isViewMode || isOtherStoreOrder || paymentAndPriceLocked}
                     />
                   </div>
                   {formData.payment_method === 'credit_card' && (
@@ -1888,21 +1948,33 @@ export const ServiceOrderForm: React.FC = () => {
                           { value: '12', label: '12x' },
                         ]}
                         placeholder="1x"
-                        disabled={isViewMode || isOtherStoreOrder || (loadedOrder?.status === 'completed' && !hasSuperAdminRole)}
+                        disabled={isViewMode || isOtherStoreOrder || paymentAndPriceLocked}
                       />
                     </div>
                   )}
                 </div>
               ) : (
                 // Pagamentos parciais/mistos
-                <div className={`space-y-4 ${loadedOrder?.status === 'completed' && !hasSuperAdminRole ? 'rounded-xl p-4 bg-slate-50 border border-slate-200' : ''}`}>
-                  <div className={`p-4 rounded-xl ${(isOtherStoreOrder || (loadedOrder?.status === 'completed' && !hasSuperAdminRole)) ? 'bg-slate-100/50' : 'bg-blue-50 border border-blue-200'}`}>
-                    <p className={`text-sm ${(isOtherStoreOrder || (loadedOrder?.status === 'completed' && !hasSuperAdminRole)) ? 'text-slate-600' : 'text-blue-800'}`}>
+                <div className="space-y-4">
+                  <div
+                    className={`p-4 rounded-xl ${
+                      isOtherStoreOrder
+                        ? 'bg-slate-100/50'
+                        : paymentAndPriceLocked
+                          ? 'bg-amber-50 border border-amber-200'
+                          : 'bg-blue-50 border border-blue-200'
+                    }`}
+                  >
+                    <p
+                      className={`text-sm ${
+                        isOtherStoreOrder ? 'text-slate-600' : paymentAndPriceLocked ? 'text-amber-900' : 'text-blue-800'
+                      }`}
+                    >
                       {isOtherStoreOrder
                         ? 'Somente visualização'
-                        : loadedOrder?.status === 'completed' && !hasSuperAdminRole
-                        ? 'Pagamentos registrados (somente leitura)'
-                        : '💡 Adicione múltiplas formas de pagamento. A soma deve ser igual ao valor total.'}
+                        : paymentAndPriceLocked
+                          ? 'Preço e pagamentos desta OS finalizada não podem ser alterados.'
+                          : '💡 Adicione múltiplas formas de pagamento. A soma deve ser igual ao valor total.'}
                     </p>
                   </div>
                   {formData.partial_payments.map((payment, index) => {
@@ -1937,7 +2009,7 @@ export const ServiceOrderForm: React.FC = () => {
                                 { value: 'permuta', label: 'Permuta' },
                               ]}
                               placeholder="Selecione..."
-                              disabled={isViewMode || isOtherStoreOrder || (loadedOrder?.status === 'completed' && !hasSuperAdminRole)}
+                              disabled={isViewMode || isOtherStoreOrder || paymentAndPriceLocked}
                             />
                           </div>
                           <div className="w-40">
@@ -1954,14 +2026,14 @@ export const ServiceOrderForm: React.FC = () => {
                                 placeholder={isOtherStoreOrder ? 'Indisponível' : '0,00'}
                                 value={isOtherStoreOrder ? '' : payment.amount}
                                 onChange={(e) => {
-                                  if (isOtherStoreOrder) return;
+                                  if (isOtherStoreOrder || paymentAndPriceLocked) return;
                                   const formatted = formatCurrency(e.target.value);
                                   const newPayments = [...formData.partial_payments];
                                   newPayments[index] = { ...newPayments[index], amount: formatted };
                                   setFormData({ ...formData, partial_payments: newPayments });
                                 }}
-                                className={`w-full pl-10 pr-4 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:border-[var(--store-color)] focus:ring-2 focus:ring-[var(--store-color-opacity-5)] ${(isOtherStoreOrder || (loadedOrder?.status === 'completed' && !hasSuperAdminRole)) ? 'bg-slate-100 cursor-not-allowed' : ''}`}
-                                disabled={isViewMode || isOtherStoreOrder || (loadedOrder?.status === 'completed' && !hasSuperAdminRole)}
+                                className={`w-full pl-10 pr-4 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:border-[var(--store-color)] focus:ring-2 focus:ring-[var(--store-color-opacity-5)] ${(isOtherStoreOrder || paymentAndPriceLocked) ? 'bg-slate-100 cursor-not-allowed' : ''}`}
+                                disabled={isViewMode || isOtherStoreOrder || paymentAndPriceLocked}
                               />
                             </div>
                             {remaining >= 0 && (
@@ -1995,11 +2067,11 @@ export const ServiceOrderForm: React.FC = () => {
                                   { value: '12', label: '12x' },
                                 ]}
                                 placeholder="1x"
-                                disabled={isViewMode || isOtherStoreOrder || (loadedOrder?.status === 'completed' && !hasSuperAdminRole)}
+                                disabled={isViewMode || isOtherStoreOrder || paymentAndPriceLocked}
                               />
                             </div>
                           )}
-                          {!isViewMode && !isOtherStoreOrder && !(loadedOrder?.status === 'completed' && !hasSuperAdminRole) && (
+                          {!isViewMode && !isOtherStoreOrder && !paymentAndPriceLocked && (
                             <button
                               type="button"
                               onClick={() => {
@@ -2038,7 +2110,7 @@ export const ServiceOrderForm: React.FC = () => {
                             ⚠️ A soma dos pagamentos ({new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(totalPaid)}) deve ser igual ao valor total ({new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(totalPrice)})
                           </p>
                         )}
-                        {!isViewMode && !isOtherStoreOrder && !(loadedOrder?.status === 'completed' && !hasSuperAdminRole) && (
+                        {!isViewMode && !isOtherStoreOrder && !paymentAndPriceLocked && (
                           <Button
                             type="button"
                             variant="outline"
@@ -2101,33 +2173,31 @@ export const ServiceOrderForm: React.FC = () => {
               >
                 <ArrowLeft size={18} /> Voltar
               </Button>
-              {!(isEditMode && loadedOrder?.status === 'completed' && !hasSuperAdminRole) && (
-                <Button
-                  type="button"
-                  disabled={saving}
-                  onClick={() => {
-                    void validateAndSubmit();
-                  }}
-                >
-                  {saving ? (
-                    <>
-                      <Loader2 size={18} className="animate-spin" /> Salvando...
-                    </>
-                  ) : (
-                    <>
-                      <Save size={18} /> Salvar
-                    </>
-                  )}
-                </Button>
-              )}
+              <Button
+                type="button"
+                disabled={saving}
+                onClick={() => {
+                  void validateAndSubmit();
+                }}
+              >
+                {saving ? (
+                  <>
+                    <Loader2 size={18} className="animate-spin" /> Salvando...
+                  </>
+                ) : (
+                  <>
+                    <Save size={18} /> Salvar
+                  </>
+                )}
+              </Button>
             </div>
           )}
         </Card>
         </fieldset>
       </form>
 
-      {/* NF-e: preview + emitir (sem nota) ou link para nota (quando OS finalizada) */}
-      {id && loadedOrder && loadedOrder.status === 'completed' && (
+      {/* NF-e: quando elegível (finalizada ou paga sem só "na retirada") ou já com nota */}
+      {id && loadedOrder && (
         <NFeSection
           serviceOrder={loadedOrder}
           onEmitted={async () => {
@@ -2151,7 +2221,22 @@ export const ServiceOrderForm: React.FC = () => {
           order={formData.client_id ? { id: 0, client_id: parseInt(formData.client_id), client: null } as any : null}
           loading={saving}
           onGenerateInvoice={handleGenerateInvoice}
-          canGenerateInvoice={userHasAccessToStore(formData.store_id, user)}
+          canGenerateInvoice={
+            userHasAccessToStore(formData.store_id, user) &&
+            canShowNfeOptionInReceiptModal({
+              status: loadedOrder?.status ?? 'pending',
+              price: formData.price ? parseFloat(parseCurrency(formData.price)) : 0,
+              payment_method: formData.use_partial_payments ? null : formData.payment_method,
+              payments: formData.use_partial_payments
+                ? formData.partial_payments
+                    .filter((p) => p.payment_method && p.amount)
+                    .map((p) => ({ payment_method: p.payment_method }))
+                : undefined,
+              invoice_id: loadedOrder?.invoice_id,
+              invoice: loadedOrder?.invoice,
+              can_generate_invoice: loadedOrder?.can_generate_invoice,
+            })
+          }
         />
       )}
 

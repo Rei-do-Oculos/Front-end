@@ -26,6 +26,7 @@ export const useExpenses = (options: UseExpensesOptions = {}) => {
   return {
     expenses: api.data,
     loading: api.loading,
+    totalValue: api.totalSales ?? 0,
     error: api.error,
     pagination: api.pagination,
     fetchExpenses: api.fetch,

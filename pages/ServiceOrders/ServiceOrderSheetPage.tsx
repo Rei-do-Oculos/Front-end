@@ -53,6 +53,7 @@ export const ServiceOrderSheetPage: React.FC = () => {
         const receiptStore: ReceiptStore = {
           name: storeData?.name || orderData.store?.name || 'Loja',
           fancy_name: storeData?.fancy_name || storeData?.name || orderData.store?.name || 'Loja',
+          receipt_header: storeData?.receipt_header ?? (orderData.store as any)?.receipt_header ?? null,
           cnpj: storeData?.cnpj || '00.000.000/0000-00',
           ie: storeData?.ie || null,
           logradouro: storeData?.logradouro || '',

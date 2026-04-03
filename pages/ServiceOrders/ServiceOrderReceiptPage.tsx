@@ -8,6 +8,7 @@ import { clientsService } from '../../services/api/clients';
 import { ServiceOrder } from '../../services/api/serviceOrders';
 import { Store } from '../../services/api/stores';
 import { useNotification } from '../../hooks/useNotification';
+import { receiptPaymentLinesFromOrder } from '../../utils/receiptPaymentsFromOrder';
 
 function prepareReceiptData(order: ServiceOrder, storeData: Store | null): ReceiptData {
   const store = order.store as any;
@@ -15,6 +16,7 @@ function prepareReceiptData(order: ServiceOrder, storeData: Store | null): Recei
   const clientData = order.client;
 
   const totalPrice = typeof order.price === 'number' ? order.price : parseFloat(String(order.price)) || 0;
+  const payLines = receiptPaymentLinesFromOrder(order);
 
   const items: { description: string; quantity: number; price: number }[] = [];
   const orderFrames = Array.isArray(order.frames) ? order.frames : (order.frames && typeof order.frames === 'object' ? Object.values(order.frames) : []);
@@ -44,6 +46,7 @@ function prepareReceiptData(order: ServiceOrder, storeData: Store | null): Recei
     store: {
       name: storeFromApi?.name || store?.name || 'Loja',
       fancy_name: storeFromApi?.fancy_name || storeFromApi?.name || store?.name || 'Loja',
+      receipt_header: storeFromApi?.receipt_header ?? store?.receipt_header ?? null,
       cnpj: storeFromApi?.cnpj || store?.cnpj || '00.000.000/0000-00',
       ie: storeFromApi?.ie ?? store?.ie ?? null,
       logradouro: storeFromApi?.logradouro || store?.logradouro || '',
@@ -61,15 +64,9 @@ function prepareReceiptData(order: ServiceOrder, storeData: Store | null): Recei
     },
     items,
     total: totalPrice,
-    paymentMethod: order.payments && order.payments.length > 0 ? null : (order.payment_method || null),
-    installments: order.payments && order.payments.length > 0 ? null : (order.installments || null),
-    payments: order.payments && order.payments.length > 0
-      ? order.payments.map((p: any) => ({
-          payment_method: p.payment_method,
-          amount: p.amount,
-          installments: p.installments || null,
-        }))
-      : undefined,
+    paymentMethod: payLines.length > 0 ? null : (order.payment_method || null),
+    installments: payLines.length > 0 ? null : (order.installments || null),
+    payments: payLines.length > 0 ? payLines : undefined,
   };
 }
 
@@ -123,7 +120,16 @@ export const ServiceOrderReceiptPage: React.FC = () => {
     const styles = `
       <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { background: white; color: black; line-height: 1.4; font-family: 'Courier New', monospace; font-size: 12px; width: 80mm; max-width: 80mm; }
+        body {
+          background: white;
+          color: #000;
+          line-height: 1.4;
+          font-family: 'Arial Black', 'Helvetica Neue', Arial, sans-serif;
+          font-weight: 800;
+          font-size: 12px;
+          width: 80mm;
+          max-width: 80mm;
+        }
         @page { size: 80mm auto; margin: 0; }
         @media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
       </style>

@@ -18,24 +18,24 @@ export const EntryReceiptModal: React.FC<EntryReceiptModalProps> = ({
   receiptData,
   loading = false,
 }) => {
-  const receiptRef = useRef<HTMLDivElement>(null);
-  const FIXED_COPIES = 2;
+  const receiptFirstRef = useRef<HTMLDivElement>(null);
+  const receiptSecondRef = useRef<HTMLDivElement>(null);
 
   if (!isOpen) return null;
 
   const handlePrint = () => {
-    if (receiptRef.current) {
+    const elFirst = receiptFirstRef.current;
+    const elSecond = receiptSecondRef.current;
+    if (elFirst && elSecond) {
       const printWindow = window.open('', '_blank');
       if (printWindow) {
-        const receiptHtml = receiptRef.current.innerHTML;
-        const copiesHtml = Array.from({ length: FIXED_COPIES })
-          .map((_, idx) => `
-            <section class="receipt-copy">
-              ${receiptHtml}
-              ${idx < FIXED_COPIES - 1 ? '<div class="copy-separator"></div>' : ''}
-            </section>
-          `)
-          .join('');
+        const htmlFirst = elFirst.innerHTML;
+        const htmlSecond = elSecond.innerHTML;
+        const copiesHtml = `
+            <section class="receipt-copy">${htmlFirst}</section>
+            <div class="copy-separator"></div>
+            <section class="receipt-copy">${htmlSecond}</section>
+          `;
 
         printWindow.document.write(`
           <!DOCTYPE html>
@@ -140,17 +140,36 @@ export const EntryReceiptModal: React.FC<EntryReceiptModalProps> = ({
             Deseja imprimir o comprovante de entrada para o cliente?
           </p>
           <p className="text-xs text-slate-400 mb-4">
-            Serão impressas 2 vias automaticamente. Na janela de impressão, selecione sua impressora térmica e configure o papel para 80mm.
+            Serão impressas 2 vias: a primeira inclui receita e medidas preenchidas na OS; a segunda, só resumo para assinatura. Use impressora térmica 80mm.
           </p>
           
-          {/* Preview */}
+          {/* Preview = 1ª via (com receita, se houver) */}
           <div className="flex justify-center">
             <div 
               className="bg-white border border-slate-200 rounded-lg shadow-sm p-4"
               style={{ maxHeight: '400px', overflow: 'auto' }}
             >
-              <EntryReceipt ref={receiptRef} data={receiptData} />
+              <EntryReceipt ref={receiptFirstRef} data={receiptData} includePrescriptionDetails />
             </div>
+          </div>
+          {/* 2ª via invisível — mesmo layout, sem bloco de receita (innerHTML na impressão) */}
+          <div
+            aria-hidden
+            style={{
+              position: 'fixed',
+              left: '-9999px',
+              top: 0,
+              width: '80mm',
+              opacity: 0,
+              pointerEvents: 'none',
+              zIndex: -1,
+            }}
+          >
+            <EntryReceipt
+              ref={receiptSecondRef}
+              data={receiptData}
+              includePrescriptionDetails={false}
+            />
           </div>
         </div>
 

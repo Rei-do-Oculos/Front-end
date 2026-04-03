@@ -4,15 +4,14 @@ import { ArrowLeft, Loader2, Plus, Trash2, AlertTriangle, CheckCircle } from 'lu
 import { Card, Button, SingleSelect } from '../../components/Common';
 import { useServiceOrders } from '../../services/hooks/useServiceOrders';
 import { useNotification } from '../../hooks/useNotification';
-import { usePermission } from '../../services/hooks/usePermission';
 import { ServiceOrder } from '../../services/api/serviceOrders';
 import { parseMoneyBrInput } from '../../utils/formatters';
+import { persistedPaymentsFromServiceOrder } from '../../utils/receiptPaymentsFromOrder';
 
 export const ServiceOrderChangePayment: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { showSuccess, showError } = useNotification();
-  const { hasSuperAdminRole } = usePermission();
   const { getServiceOrder, completeWithPayment } = useServiceOrders({ autoFetch: false });
   
   const [order, setOrder] = useState<ServiceOrder | null>(null);
@@ -35,17 +34,11 @@ export const ServiceOrderChangePayment: React.FC = () => {
         setLoading(true);
         const orderData = await getServiceOrder(id);
         if (orderData) {
-          // OS já finalizada: apenas SuperAdmin pode alterar pagamento
-          if (orderData.status === 'completed' && !hasSuperAdminRole) {
-            showError('Esta OS já está finalizada. Você não tem permissão para alterar a forma de pagamento.');
-            navigate('/service-orders/lab');
-            return;
-          }
           setOrder(orderData);
-          // Se já tiver pagamentos parciais, carregar
-          if (orderData.payments && orderData.payments.length > 0) {
+          const persisted = persistedPaymentsFromServiceOrder(orderData);
+          if (persisted.length > 0) {
             setUsePartialPayments(true);
-            setPartialPayments(orderData.payments.map(p => ({
+            setPartialPayments(persisted.map((p) => ({
               payment_method: p.payment_method,
               amount: formatFromNumber(p.amount),
               installments: p.installments ? String(p.installments) : '1',

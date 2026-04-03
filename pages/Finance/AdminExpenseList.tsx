@@ -15,7 +15,7 @@ export const AdminExpenseList: React.FC = () => {
   const { showSuccess, showError } = useNotification();
   const { hasPermission } = usePermission();
   const { selectedStore } = useStore();
-  const { expenses, loading, error, pagination, fetchExpenses, deleteExpense } = useAdminExpenses({ autoFetch: false });
+  const { expenses, loading, totalValue, error, pagination, fetchExpenses, deleteExpense } = useAdminExpenses({ autoFetch: false });
   const { stores, fetchStores } = useStores({ autoFetch: false });
 
   const [searchName, setSearchName] = useState('');
@@ -207,6 +207,14 @@ export const AdminExpenseList: React.FC = () => {
             </p>
           )}
           {activeFilters > 0 && <ActiveFiltersBadge count={activeFilters} />}
+          {!loading && activeFilters > 0 && (
+            <div
+              className="flex items-center gap-2 px-3 py-1.5 rounded-lg font-bold text-sm"
+              style={{ backgroundColor: 'var(--store-color-light)', color: 'var(--store-color-dark)' }}
+            >
+              <span>Valor total (filtros): {formatCurrency(totalValue ?? 0)}</span>
+            </div>
+          )}
         </div>
         {pagination && (
           <div className="flex items-center gap-2">

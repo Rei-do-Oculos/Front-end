@@ -5,6 +5,7 @@
 
 import type { Invoice } from '../services/api/invoices';
 import type { NFCeData, NFCeStore, NFCeClient, NFCeItem } from '../components/NFCePreview';
+import { storeReceiptHeader, storeReceiptSubtitleLine } from './storeReceiptHeader';
 
 const paymentLabel: Record<string, string> = {
   credit_card: 'Cartão de Crédito',
@@ -63,6 +64,7 @@ export function invoiceToNFCeData(invoice: Invoice): NFCeData | null {
   const storeData: NFCeStore = {
     name: store.name || '',
     fancy_name: store.fancy_name || store.name || '',
+    receipt_header: store.receipt_header ?? null,
     cnpj: store.cnpj || '',
     ie: store.ie ?? null,
     logradouro: store.logradouro || '',
@@ -144,6 +146,7 @@ export function buildReciboHtml(data: NFCeData, tipo: ReciboTipo = 'NFC-e'): str
 
   const dateStr = authDate || new Date().toLocaleString('pt-BR');
   const accessKeyDigits = (accessKey || '').replace(/\D/g, '');
+  const reciboSubtitle = storeReceiptSubtitleLine(store);
 
   // Para NF-e/NFC-e, garante QR Code no recibo mesmo quando a API não retornar qrCodeUrl.
   const resolvedQrCodeUrl = (() => {
@@ -157,14 +160,14 @@ export function buildReciboHtml(data: NFCeData, tipo: ReciboTipo = 'NFC-e'): str
   const itemsHtml = itemsArr
     .map(
       (item, i) => `
-    <div style="margin-bottom:4px;font-size:10px">
-      <div style="display:flex;justify-content:space-between">
-        <span>${String(i + 1).padStart(3, '0')} ${item.code}</span>
-        <span style="flex:1;margin-left:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(item.description)}</span>
+    <div class="th-item">
+      <div class="th-item-row">
+        <span>${String(i + 1).padStart(3, '0')} ${escapeHtml(item.code)}</span>
+        <span class="th-item-desc">${escapeHtml(item.description)}</span>
       </div>
-      <div style="display:flex;justify-content:space-between;padding-left:20px">
+      <div class="th-item-row th-item-sub">
         <span>${item.quantity}</span>
-        <span>${item.unit}</span>
+        <span>${escapeHtml(item.unit)}</span>
         <span>${formatCurrency(item.unitPrice)}</span>
         <span>${formatCurrency(item.totalPrice)}</span>
       </div>
@@ -179,70 +182,111 @@ export function buildReciboHtml(data: NFCeData, tipo: ReciboTipo = 'NFC-e'): str
   <title>${docLabel}</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { font-family: 'Courier New', Courier, monospace; font-size: 11px; line-height: 1.3; background: white; color: black; padding: 8px; width: 80mm; max-width: 80mm; }
+    body {
+      font-family: 'Courier New', Courier, monospace;
+      font-size: 12px;
+      line-height: 1.4;
+      background: #fff;
+      color: #000;
+      font-weight: 600;
+      padding: 8px;
+      width: 80mm;
+      max-width: 80mm;
+      margin: 0 auto;
+    }
+    .th-center { text-align: center; }
+    .th-head-store { font-size: 14px; font-weight: 700; margin-bottom: 4px; }
+    .th-head-sub { font-size: 11px; font-weight: 600; }
+    .th-head-line { font-size: 11px; font-weight: 600; }
+    .th-head-addr { font-size: 10px; font-weight: 600; }
+    .th-doc-title { font-size: 11px; font-weight: 700; margin-top: 6px; }
+    .th-sep-dash { border-top: 1px dashed #000; margin: 8px 0; }
+    .th-sep-solid { border-top: 1px solid #000; margin: 4px 0; }
+    .th-cols-head { font-size: 11px; font-weight: 700; margin-bottom: 4px; }
+    .th-cols-head .th-row { display: flex; justify-content: space-between; }
+    .th-item { margin-bottom: 6px; font-size: 11px; font-weight: 600; }
+    .th-item-row { display: flex; justify-content: space-between; }
+    .th-item-desc { flex: 1; margin-left: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .th-item-sub { padding-left: 20px; margin-top: 2px; }
+    .th-totals { font-size: 12px; font-weight: 600; }
+    .th-totals .th-row { display: flex; justify-content: space-between; }
+    .th-totals-big { font-size: 14px; font-weight: 700; margin-top: 4px; }
+    .th-pay-head { font-size: 11px; font-weight: 700; }
+    .th-pay-head .th-row { display: flex; justify-content: space-between; }
+    .th-pay-body { font-size: 12px; font-weight: 600; margin-top: 4px; }
+    .th-pay-body .th-row { display: flex; justify-content: space-between; }
+    .th-key-title { font-size: 11px; font-weight: 700; margin-bottom: 4px; }
+    .th-key-url { font-size: 10px; font-weight: 600; }
+    .th-key-digits { font-size: 10px; font-weight: 600; margin: 8px 0; word-break: break-all; letter-spacing: 0.02em; }
+    .th-client { font-size: 12px; font-weight: 700; margin-bottom: 8px; }
+    .th-nfe-num { font-size: 12px; font-weight: 700; }
+    .th-nfe-meta { font-size: 11px; font-weight: 600; }
+    .th-protocol { font-size: 11px; font-weight: 600; }
+    .th-protocol-title { font-weight: 700; margin-bottom: 4px; }
+    .th-trib { font-size: 10px; font-weight: 600; line-height: 1.35; }
     @media print {
       body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-      @page { size: auto; margin: 8mm; }
+      @page { size: auto; margin: 5mm 6mm; }
     }
   </style>
 </head>
 <body>
-  <div style="text-align:center;margin-bottom:6px">
-    <div style="font-size:12px;font-weight:bold;margin-bottom:2px">${escapeHtml(store.fancy_name || store.name)}</div>
-    <div style="font-size:10px">${escapeHtml(store.name)}</div>
-    <div style="font-size:10px">CNPJ: ${formatCNPJ(store.cnpj)}${store.ie ? ` IE: ${store.ie}` : ''}</div>
-    <div style="font-size:9px">${escapeHtml(store.logradouro)}, ${store.numero} - ${escapeHtml(store.bairro)}</div>
-    <div style="font-size:9px">${escapeHtml(store.municipio)}, ${store.uf}${store.telefone ? ` - Fone: ${store.telefone}` : ''}</div>
-    <div style="font-size:9px;margin-top:4px;font-weight:bold">${docAuxLabel}</div>
+  <div class="th-center" style="margin-bottom:8px">
+    <div class="th-head-store">${escapeHtml(storeReceiptHeader(store))}</div>
+    ${reciboSubtitle ? `<div class="th-head-sub">${escapeHtml(reciboSubtitle)}</div>` : ''}
+    <div class="th-head-line">CNPJ: ${formatCNPJ(store.cnpj)}${store.ie ? ` IE: ${escapeHtml(String(store.ie))}` : ''}</div>
+    <div class="th-head-addr">${escapeHtml(store.logradouro)}, ${escapeHtml(store.numero)} - ${escapeHtml(store.bairro)}</div>
+    <div class="th-head-addr">${escapeHtml(store.municipio)}, ${escapeHtml(store.uf)}${store.telefone ? ` - Fone: ${escapeHtml(store.telefone)}` : ''}</div>
+    <div class="th-doc-title">${docAuxLabel}</div>
   </div>
-  <div style="border-top:1px dashed #000;margin:6px 0"></div>
-  <div style="font-size:9px;font-weight:bold;margin-bottom:2px">
-    <div style="display:flex;justify-content:space-between"><span>#CODIGO</span><span>DESCRIÇÃO</span></div>
-    <div style="display:flex;justify-content:space-between"><span>QTD</span><span>UN</span><span>VL.UNIT</span><span>VL.TOTAL</span></div>
+  <div class="th-sep-dash"></div>
+  <div class="th-cols-head">
+    <div class="th-row"><span>#CODIGO</span><span>DESCRIÇÃO</span></div>
+    <div class="th-row"><span>QTD</span><span>UN</span><span>VL.UNIT</span><span>VL.TOTAL</span></div>
   </div>
-  <div style="border-top:1px solid #000;margin:2px 0"></div>
+  <div class="th-sep-solid"></div>
   ${itemsHtml}
-  <div style="border-top:1px solid #000;margin:6px 0"></div>
-  <div style="font-size:10px">
-    <div style="display:flex;justify-content:space-between"><span>Qtde. Total de Itens</span><span>${itemsArr.length}</span></div>
-    <div style="display:flex;justify-content:space-between"><span>Valor Total R$</span><span>${formatCurrency(subtotal)}</span></div>
-    ${discount > 0 ? `<div style="display:flex;justify-content:space-between"><span>Desconto R$</span><span>-${formatCurrency(discount)}</span></div>` : ''}
-    <div style="display:flex;justify-content:space-between;font-weight:bold"><span>Valor a Pagar R$</span><span>${formatCurrency(total)}</span></div>
+  <div class="th-sep-solid" style="margin-top:8px"></div>
+  <div class="th-totals">
+    <div class="th-row"><span>Qtde. Total de Itens</span><span>${itemsArr.length}</span></div>
+    <div class="th-row"><span>Valor Total R$</span><span>${formatCurrency(subtotal)}</span></div>
+    ${discount > 0 ? `<div class="th-row"><span>Desconto R$</span><span>-${formatCurrency(discount)}</span></div>` : ''}
+    <div class="th-row th-totals-big"><span>Valor a Pagar R$</span><span>${formatCurrency(total)}</span></div>
   </div>
-  <div style="border-top:1px dashed #000;margin:6px 0"></div>
-  <div style="font-size:10px">
-    <div style="display:flex;justify-content:space-between"><span>FORMA DE PAGAMENTO</span><span>VALOR PAGO R$</span></div>
-    <div style="display:flex;justify-content:space-between"><span>${escapeHtml(paymentMethod)}</span><span>${formatCurrency(amountPaid)}</span></div>
-    ${change > 0 ? `<div style="display:flex;justify-content:space-between"><span>Troco R$</span><span>${formatCurrency(change)}</span></div>` : ''}
+  <div class="th-sep-dash"></div>
+  <div>
+    <div class="th-pay-head"><div class="th-row"><span>FORMA DE PAGAMENTO</span><span>VALOR PAGO R$</span></div></div>
+    <div class="th-pay-body"><div class="th-row"><span>${escapeHtml(paymentMethod)}</span><span>${formatCurrency(amountPaid)}</span></div></div>
+    ${change > 0 ? `<div class="th-pay-body"><div class="th-row"><span>Troco R$</span><span>${formatCurrency(change)}</span></div></div>` : ''}
   </div>
-  <div style="border-top:1px dashed #000;margin:6px 0"></div>
-  <div style="text-align:center;font-size:9px;margin-bottom:6px">
-    <div style="font-weight:bold">Consulte pela chave de acesso em</div>
-    <div>${consultaUrl}</div>
+  <div class="th-sep-dash"></div>
+  <div class="th-center" style="margin-bottom:8px">
+    <div class="th-key-title">Consulte pela chave de acesso em</div>
+    <div class="th-key-url">${consultaUrl}</div>
   </div>
-  <div style="text-align:center;font-size:8px;margin-bottom:6px;word-break:break-all">${formatAccessKey(accessKey)}</div>
-  <div style="text-align:center;font-size:10px;font-weight:bold;margin-bottom:6px">
+  <div class="th-center th-key-digits">${formatAccessKey(accessKey)}</div>
+  <div class="th-center th-client">
     ${client?.name ? `<div>${escapeHtml(client.name)}</div>${client.document ? `<div>CPF: ${formatCPF(client.document)}</div>` : ''}` : '<div>CONSUMIDOR NÃO IDENTIFICADO</div>'}
   </div>
   <div style="display:flex;justify-content:center;align-items:center;margin:8px auto">
     ${resolvedQrCodeUrl
-      ? `<img src="${escapeHtml(resolvedQrCodeUrl)}" alt="QR Code ${docLabel}" width="80" height="80" style="display:block" />`
-      : `<div style="width:80px;height:80px;border:1px solid #000;display:flex;align-items:center;justify-content:center;font-size:8px;text-align:center;background:#f5f5f5">[QR CODE]<br/>${docLabel}</div>`}
+      ? `<img src="${escapeHtml(resolvedQrCodeUrl)}" alt="QR Code ${docLabel}" width="96" height="96" style="display:block;image-rendering:pixelated" />`
+      : `<div style="width:96px;height:96px;border:2px solid #000;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;text-align:center">[QR CODE]<br/>${docLabel}</div>`}
   </div>
-  <div style="text-align:center;font-size:9px;margin-bottom:4px">
-    <div style="font-weight:bold">${nfceNumLabel} ${String(nfceNumber).padStart(6, '0')}</div>
+  <div class="th-center th-nfe-meta" style="margin-bottom:6px">
+    <div class="th-nfe-num">${nfceNumLabel} ${String(nfceNumber).padStart(6, '0')}</div>
     <div>Série ${String(series).padStart(3, '0')}</div>
-    <div>${dateStr}</div>
+    <div>${escapeHtml(dateStr)}</div>
     <div>Via Consumidor</div>
   </div>
-  <div style="border-top:1px dashed #000;margin:6px 0"></div>
-  <div style="text-align:center;font-size:9px;margin-bottom:6px">
-    <div style="font-weight:bold">Protocolo de autorização:</div>
-    <div>${authProtocol || '—'}</div>
-    <div>Data de autorização: ${dateStr}</div>
+  <div class="th-sep-dash"></div>
+  <div class="th-center th-protocol" style="margin-bottom:8px">
+    <div class="th-protocol-title">Protocolo de autorização:</div>
+    <div>${escapeHtml(authProtocol || '—')}</div>
+    <div>Data de autorização: ${escapeHtml(dateStr)}</div>
   </div>
-  <div style="border-top:1px dashed #000;margin:6px 0"></div>
-  <div style="text-align:center;font-size:8px">
+  <div class="th-sep-dash"></div>
+  <div class="th-center th-trib">
     <div>Trib Aprox R$ ${formatCurrency(federalTax)} Fed. e R$ ${formatCurrency(stateTax)} Est. e R$ ${formatCurrency(municipalTax)} Mun.</div>
     <div>Fonte: IBPT</div>
   </div>

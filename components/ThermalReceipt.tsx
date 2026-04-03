@@ -1,8 +1,12 @@
 import React, { forwardRef } from 'react';
+import { formatIsoDatePtBr } from '../utils/dateDisplay';
+import { storeReceiptHeader, storeReceiptSubtitleLine } from '../utils/storeReceiptHeader';
 
 export interface ReceiptStore {
   name: string;
   fancy_name: string;
+  /** Cabeçalho do recibo (opcional); se vazio, usa fancy_name. */
+  receipt_header?: string | null;
   cnpj: string;
   ie?: string | null;
   logradouro: string;
@@ -94,6 +98,16 @@ const formatOsNumber = (num: number): string => {
   return String(num);
 };
 
+/** Texto de uma linha de pagamento (parcial / misto). Sem calcular valor por parcela — só Nx e o total da linha. */
+function formatPartialPaymentLine(payment: ReceiptPayment): string {
+  const label = PAYMENT_METHOD_LABELS[payment.payment_method] || payment.payment_method;
+  const amount = payment.amount;
+  if (payment.payment_method === 'credit_card' && payment.installments && payment.installments > 1) {
+    return `${label}: ${payment.installments}x, R$ ${formatCurrency(amount)}`;
+  }
+  return `${label}: R$ ${formatCurrency(amount)}`;
+}
+
 export const ThermalReceipt = forwardRef<HTMLDivElement, ThermalReceiptProps>(
   ({ data }, ref) => {
     const { osNumber, date, expectedPickupDate, store, client, items, total, paymentMethod, installments, payments } = data;
@@ -107,6 +121,12 @@ export const ThermalReceipt = forwardRef<HTMLDivElement, ThermalReceiptProps>(
       .filter((part) => hasText(part))
       .join(' | ');
 
+    const headerTitle = storeReceiptHeader(store);
+    const receiptSubtitle = storeReceiptSubtitleLine(store);
+
+    const heavy = 800 as const;
+    const black = '#000';
+
     return (
       <div
         ref={ref}
@@ -114,36 +134,36 @@ export const ThermalReceipt = forwardRef<HTMLDivElement, ThermalReceiptProps>(
         style={{
           width: '80mm',
           maxWidth: '80mm',
-          fontFamily: "'Courier New', Courier, monospace",
+          fontFamily: "'Arial Black', 'Helvetica Neue', Arial, sans-serif",
           fontSize: '12px',
           lineHeight: '1.4',
           backgroundColor: 'white',
-          color: '#111',
-          fontWeight: 600,
+          color: black,
+          fontWeight: heavy,
           padding: '8px',
           boxSizing: 'border-box',
+          letterSpacing: '0.02px',
         }}
       >
-        {/* Header - Dados da Empresa */}
+        {/* Header - Dados da Empresa (tudo em peso alto para impressão térmica legível) */}
         <div style={{ textAlign: 'center', marginBottom: '8px' }}>
-          <div style={{ fontSize: '14px', fontWeight: 'bold', marginBottom: '4px' }}>
-            {store.fancy_name || store.name}
+          <div style={{ fontSize: '15px', fontWeight: 900, marginBottom: '4px' }}>
+            {headerTitle}
           </div>
-          <div style={{ fontSize: '11px' }}>
-            {store.name}
-          </div>
-          <div style={{ fontSize: '11px' }}>
+          {receiptSubtitle ? (
+            <div style={{ fontSize: '11px', fontWeight: heavy }}>{receiptSubtitle}</div>
+          ) : null}
+          <div style={{ fontSize: '11px', fontWeight: heavy }}>
             CNPJ: {cnpjDigits.length === 14 ? formatCNPJ(cnpjDigits) : (store.cnpj || 'N/I')}
-            {store.ie && ` IE: ${store.ie}`}
           </div>
           {hasText(addressLine) || hasText(neighborhood) ? (
-            <div style={{ fontSize: '10px' }}>
+            <div style={{ fontSize: '11px', fontWeight: heavy }}>
               {addressLine}
               {hasText(addressLine) && hasText(neighborhood) ? ` - ${neighborhood}` : neighborhood}
             </div>
           ) : null}
           {hasText(contactLine) ? (
-            <div style={{ fontSize: '10px' }}>
+            <div style={{ fontSize: '11px', fontWeight: heavy }}>
               {contactLine}
             </div>
           ) : null}
@@ -153,7 +173,7 @@ export const ThermalReceipt = forwardRef<HTMLDivElement, ThermalReceiptProps>(
         <div style={{ borderTop: '1px dashed #000', margin: '8px 0' }} />
 
         {/* Título */}
-        <div style={{ textAlign: 'center', fontWeight: 'bold', fontSize: '14px', margin: '8px 0' }}>
+        <div style={{ textAlign: 'center', fontWeight: 900, fontSize: '14px', margin: '8px 0' }}>
           RECIBO
         </div>
 
@@ -161,11 +181,15 @@ export const ThermalReceipt = forwardRef<HTMLDivElement, ThermalReceiptProps>(
         <div style={{ borderTop: '1px dashed #000', margin: '8px 0' }} />
 
         {/* Dados da OS */}
-        <div style={{ marginBottom: '8px' }}>
-          <div><strong>OS Nº:</strong> {formatOsNumber(osNumber)}</div>
-          <div><strong>Data:</strong> {date}</div>
+        <div style={{ marginBottom: '8px', fontWeight: heavy }}>
+          <div>
+            <strong>OS Nº:</strong> {formatOsNumber(osNumber)}
+          </div>
+          <div>
+            <strong>Data:</strong> {date}
+          </div>
           {expectedPickupDate && (
-            <div style={{ fontWeight: 'bold' }}>Retirada prevista: {new Date(expectedPickupDate).toLocaleDateString('pt-BR')}</div>
+            <div style={{ fontWeight: 900 }}>Retirada prevista: {formatIsoDatePtBr(expectedPickupDate)}</div>
           )}
         </div>
 
@@ -173,11 +197,11 @@ export const ThermalReceipt = forwardRef<HTMLDivElement, ThermalReceiptProps>(
         <div style={{ borderTop: '1px dashed #000', margin: '8px 0' }} />
 
         {/* Dados do Cliente */}
-        <div style={{ marginBottom: '8px' }}>
-          <div style={{ fontWeight: 'bold', marginBottom: '4px' }}>CONSUMIDOR</div>
-          <div style={{ fontWeight: 'bold' }}>{client.name}</div>
+        <div style={{ marginBottom: '8px', fontWeight: heavy }}>
+          <div style={{ fontWeight: 900, marginBottom: '4px' }}>CONSUMIDOR</div>
+          <div style={{ fontWeight: 900 }}>{client.name}</div>
           {client.document && (
-            <div>CPF: {formatDocument(client.document)}</div>
+            <div style={{ fontWeight: heavy }}>CPF: {formatDocument(client.document)}</div>
           )}
         </div>
 
@@ -185,7 +209,7 @@ export const ThermalReceipt = forwardRef<HTMLDivElement, ThermalReceiptProps>(
         <div style={{ borderTop: '1px dashed #000', margin: '8px 0' }} />
 
         {/* Cabeçalho dos Itens */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 'bold', marginBottom: '4px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 900, marginBottom: '4px' }}>
           <span>DESCRIÇÃO</span>
           <span>VALOR</span>
         </div>
@@ -194,17 +218,31 @@ export const ThermalReceipt = forwardRef<HTMLDivElement, ThermalReceiptProps>(
         {/* Itens */}
         {items.length > 0 ? (
           items.map((item, index) => (
-            <div key={index} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '2px' }}>
-              <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', paddingRight: '8px' }}>
+            <div
+              key={index}
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                marginBottom: '2px',
+                fontWeight: heavy,
+              }}
+            >
+              <span
+                style={{
+                  flex: 1,
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap',
+                  paddingRight: '8px',
+                }}
+              >
                 {item.quantity}x {item.description}
               </span>
-              <span style={{ whiteSpace: 'nowrap' }}>
-                {formatCurrency(item.price)}
-              </span>
+              <span style={{ whiteSpace: 'nowrap', fontWeight: heavy }}>{formatCurrency(item.price)}</span>
             </div>
           ))
         ) : (
-          <div style={{ textAlign: 'center', fontStyle: 'italic', color: '#666' }}>
+          <div style={{ textAlign: 'center', fontWeight: heavy, color: black }}>
             Nenhum item
           </div>
         )}
@@ -213,12 +251,12 @@ export const ThermalReceipt = forwardRef<HTMLDivElement, ThermalReceiptProps>(
         <div style={{ borderTop: '1px solid #000', margin: '8px 0' }} />
 
         {/* Totais */}
-        <div style={{ marginBottom: '8px' }}>
+        <div style={{ marginBottom: '8px', fontWeight: heavy }}>
           <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-            <span><strong>Qtde. Itens:</strong></span>
-            <span>{items.length}</span>
+            <span style={{ fontWeight: 900 }}>Qtde. Itens:</span>
+            <span style={{ fontWeight: heavy }}>{items.length}</span>
           </div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 'bold', fontSize: '14px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 900, fontSize: '14px' }}>
             <span>TOTAL R$:</span>
             <span>{formatCurrency(total)}</span>
           </div>
@@ -229,37 +267,38 @@ export const ThermalReceipt = forwardRef<HTMLDivElement, ThermalReceiptProps>(
           <>
             <div style={{ borderTop: '1px dashed #000', margin: '8px 0' }} />
             <div style={{ marginBottom: '8px' }}>
-              <div style={{ fontWeight: 'bold', marginBottom: '4px' }}>PAGAMENTO</div>
               {payments && payments.length > 0 ? (
-                // Múltiplos pagamentos
-                payments.map((payment, index) => (
-                  <div key={index} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: index < payments.length - 1 ? '4px' : '0' }}>
+                <>
+                  <div style={{ fontWeight: 900, marginBottom: '6px' }}>
+                    {payments.length > 1 ? 'Pagamento parcial:' : 'PAGAMENTO'}
+                  </div>
+                  {payments.map((payment, index) => (
+                    <div
+                      key={index}
+                      style={{
+                        fontSize: '11px',
+                        fontWeight: heavy,
+                        marginBottom: index < payments.length - 1 ? '6px' : '0',
+                        lineHeight: 1.35,
+                        wordBreak: 'break-word',
+                      }}
+                    >
+                      {formatPartialPaymentLine(payment)}
+                    </div>
+                  ))}
+                </>
+              ) : (
+                <>
+                  <div style={{ fontWeight: 900, marginBottom: '4px' }}>PAGAMENTO</div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: heavy }}>
+                    <span>{PAYMENT_METHOD_LABELS[paymentMethod!] || paymentMethod}</span>
                     <span>
-                      {PAYMENT_METHOD_LABELS[payment.payment_method] || payment.payment_method}
-                      {payment.payment_method === 'credit_card' && payment.installments && payment.installments > 1
-                        ? ` (${payment.installments}x)`
-                        : ''
-                      }
-                    </span>
-                    <span>
-                      {payment.payment_method === 'credit_card' && payment.installments && payment.installments > 1
-                        ? `${payment.installments}x de ${formatCurrency(payment.amount / payment.installments)}`
-                        : formatCurrency(payment.amount)
-                      }
+                      {paymentMethod === 'credit_card' && installments && installments > 1
+                        ? `${installments}x, R$ ${formatCurrency(total)}`
+                        : `R$ ${formatCurrency(total)}`}
                     </span>
                   </div>
-                ))
-              ) : (
-                // Pagamento único (modo tradicional)
-                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <span>{PAYMENT_METHOD_LABELS[paymentMethod!] || paymentMethod}</span>
-                  <span>
-                    {paymentMethod === 'credit_card' && installments && installments > 1
-                      ? `${installments}x de ${formatCurrency(total / installments)}`
-                      : formatCurrency(total)
-                    }
-                  </span>
-                </div>
+                </>
               )}
             </div>
           </>
@@ -270,10 +309,10 @@ export const ThermalReceipt = forwardRef<HTMLDivElement, ThermalReceiptProps>(
 
         {/* Rodapé */}
         <div style={{ textAlign: 'center', marginTop: '12px' }}>
-          <div style={{ fontWeight: 'bold', marginBottom: '4px' }}>
+          <div style={{ fontWeight: 900, marginBottom: '4px' }}>
             Obrigado pela preferência!
           </div>
-          <div style={{ fontSize: '10px', color: '#666' }}>
+          <div style={{ fontSize: '10px', fontWeight: heavy, color: black }}>
             Este documento não tem valor fiscal
           </div>
         </div>

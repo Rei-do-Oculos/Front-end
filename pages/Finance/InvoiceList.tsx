@@ -10,7 +10,6 @@ import {
   CheckCircle2,
   XCircle,
   Clock,
-  User,
   TrendingUp,
   AlertCircle,
   Loader2,
@@ -25,6 +24,7 @@ import { useNotification } from '../../hooks/useNotification';
 import { invoicesService, type Invoice as ApiInvoice } from '../../services/api/invoices';
 import { invoiceToNFCeData, buildReciboHtml } from '../../utils/nfceCupom';
 import { useStore } from '../../contexts/StoreContext';
+import { ClientWhatsAppAvatar } from '../../components/ClientWhatsAppAvatar';
 
 const statusToLabel: Record<string, string> = {
   authorized: 'Autorizada',
@@ -71,6 +71,7 @@ function mapApiInvoiceToRow(inv: ApiInvoice) {
     serviceOrderId: inv.service_order_id,
     client: client?.name || '—',
     clientCpf: formatCpf(client?.document),
+    clientPhone: client?.phone || null,
     dateTime: `${date.toLocaleDateString('pt-BR')} ${date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`,
     value: Number(inv.total_value) || 0,
     status: statusToLabel[inv.status] || inv.status,
@@ -643,9 +644,10 @@ export const InvoiceList: React.FC = () => {
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-3">
-                        <div className="w-9 h-9 rounded-xl bg-slate-100 flex items-center justify-center text-slate-400 group-hover:bg-red-50 group-hover:text-red-600 transition-colors">
-                          <User size={18} />
-                        </div>
+                        <ClientWhatsAppAvatar
+                          phone={invoice.clientPhone}
+                          clientName={invoice.client}
+                        />
                         <div className="flex flex-col">
                           <p className="text-sm font-bold text-slate-700 leading-tight group-hover:text-red-600 transition-colors">{invoice.client}</p>
                           <span className="text-[10px] text-slate-400 font-medium">{invoice.clientCpf}</span>

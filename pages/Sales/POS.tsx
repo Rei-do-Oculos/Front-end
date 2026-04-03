@@ -351,6 +351,7 @@ export const POS: React.FC = () => {
       store: {
         name: storeData?.name ?? selectedStore?.name ?? 'Loja',
         fancy_name: storeData?.fancy_name ?? storeDisplayName ?? selectedStore?.fancy_name ?? selectedStore?.name ?? 'Loja',
+        receipt_header: storeData?.receipt_header ?? selectedStore?.receipt_header ?? null,
         cnpj: storeData?.cnpj ?? storeCnpj ?? selectedStore?.cnpj ?? '00.000.000/0000-00',
         ie: storeData?.ie ?? null,
         logradouro: storeData?.logradouro ?? '',
@@ -546,7 +547,16 @@ export const POS: React.FC = () => {
     const styles = `
       <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { background: white; color: black; line-height: 1.4; font-family: 'Courier New', monospace; font-size: 12px; width: 80mm; max-width: 80mm; }
+        body {
+          background: white;
+          color: #000;
+          line-height: 1.4;
+          font-family: 'Arial Black', 'Helvetica Neue', Arial, sans-serif;
+          font-weight: 800;
+          font-size: 12px;
+          width: 80mm;
+          max-width: 80mm;
+        }
         @page { size: 80mm auto; margin: 0; }
         @media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
       </style>

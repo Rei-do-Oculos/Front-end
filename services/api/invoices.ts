@@ -41,7 +41,7 @@ export interface Invoice {
     os_number: number;
     client?: { id: number; name: string; document?: string; email?: string; phone?: string } | null;
   } | null;
-  store?: { id: number; name: string; fancy_name?: string; unity?: string; cnpj?: string; ie?: string; logradouro?: string; numero?: string; bairro?: string; municipio?: string; uf?: string; cep?: string; telefone?: string; email?: string } | null;
+  store?: { id: number; name: string; fancy_name?: string; receipt_header?: string | null; unity?: string; cnpj?: string; ie?: string; logradouro?: string; numero?: string; bairro?: string; municipio?: string; uf?: string; cep?: string; telefone?: string; email?: string } | null;
   items?: InvoiceItemApi[];
   payments?: InvoicePaymentApi[];
 }
@@ -150,7 +150,7 @@ export const invoicesService = {
 
   /**
    * Gerar e transmitir NF-e ou NFC-e a partir de uma OS.
-   * Só pode ser chamado para OS finalizada, sem NF-e já emitida.
+   * OS finalizada ou com pagamento diferente de "na retirada"; sem NF-e já emitida.
    * modelo: 55 = NF-e, 65 = NFC-e (cupom). Se omitido, usa config.
    * retry: quando true, remove NF-e rejeitada e gera novamente (para erros não-SEFAZ).
    * includeDocument: quando false, emite como consumidor não identificado (sem CPF/CNPJ).

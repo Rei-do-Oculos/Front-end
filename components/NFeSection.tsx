@@ -7,6 +7,10 @@ import { Card, Button } from './Common';
 import { invoicesService } from '../services/api/invoices';
 import { invoiceToNFCeData, buildReciboHtml } from '../utils/nfceCupom';
 import type { ServiceOrder } from '../services/api/serviceOrders';
+import {
+  isEligibleToEmitNewNfe,
+  orderHasInvoice,
+} from '../utils/serviceOrderNfeEligibility';
 
 const getInvoiceType = (accessKey: string | null | undefined): 'NF-e' | 'NFC-e' => {
   if (!accessKey || accessKey.length < 22) return 'NF-e';
@@ -48,11 +52,11 @@ export const NFeSection: React.FC<NFeSectionProps> = ({ serviceOrder, onEmitted 
   const storeId = serviceOrder.store_id ?? (serviceOrder.store as { id?: number })?.id;
   const canGenerateInvoice = userHasAccessToStore(storeId, user);
 
-  const isCompleted = serviceOrder.status === 'completed';
-  const hasInvoice = !!(serviceOrder.invoice_id || (serviceOrder as any).invoice);
+  const hasInvoice = orderHasInvoice(serviceOrder);
   const invoice = (serviceOrder as any).invoice ?? null;
+  const canEmitNew = isEligibleToEmitNewNfe(serviceOrder);
 
-  if (!isCompleted) {
+  if (!hasInvoice && !canEmitNew) {
     return null;
   }
 

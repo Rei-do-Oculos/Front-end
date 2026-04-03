@@ -1,8 +1,11 @@
 import React, { forwardRef } from 'react';
+import { formatIsoDatePtBr } from '../utils/dateDisplay';
+import { storeReceiptHeader } from '../utils/storeReceiptHeader';
 
 export interface EntryReceiptStore {
   name: string;
   fancy_name: string;
+  receipt_header?: string | null;
   logradouro: string;
   numero: string;
   telefone?: string | null;
@@ -11,6 +14,12 @@ export interface EntryReceiptStore {
 export interface EntryReceiptClient {
   name: string;
   telefone?: string | null;
+}
+
+export interface EntryReceiptPaymentLine {
+  payment_method: string;
+  amount: number;
+  installments?: number | null;
 }
 
 export interface EntryReceiptData {
@@ -24,11 +33,19 @@ export interface EntryReceiptData {
     quantity: number;
   }>;
   total: number;
+  /** Pagamento único (quando não há linhas em `payments`) */
   paymentMethod?: string | null;
+  installments?: number | null;
+  /** Pagamento parcial/misto: forma + valor por linha */
+  payments?: EntryReceiptPaymentLine[];
+  /** Receita/medidas — impresso só na 1ª via (ver `includePrescriptionDetails` no componente) */
+  prescriptionLines?: Array<{ label: string; value: string }>;
 }
 
 interface EntryReceiptProps {
   data: EntryReceiptData;
+  /** false = 2ª via (sem bloco de receita/lentes) */
+  includePrescriptionDetails?: boolean;
 }
 
 // Formatar moeda
@@ -55,8 +72,23 @@ const PAYMENT_METHOD_LABELS: Record<string, string> = {
 };
 
 export const EntryReceipt = forwardRef<HTMLDivElement, EntryReceiptProps>(
-  ({ data }, ref) => {
-    const { osNumber, date, expectedPickupDate, store, client, items, total, paymentMethod } = data;
+  ({ data, includePrescriptionDetails = true }, ref) => {
+    const {
+      osNumber,
+      date,
+      expectedPickupDate,
+      store,
+      client,
+      items,
+      total,
+      paymentMethod,
+      installments,
+      payments,
+      prescriptionLines = [],
+    } = data;
+
+    const showPrescription =
+      includePrescriptionDetails && prescriptionLines.length > 0;
 
     return (
       <div
@@ -79,7 +111,7 @@ export const EntryReceipt = forwardRef<HTMLDivElement, EntryReceiptProps>(
         {/* Header - Dados da Empresa */}
         <div style={{ textAlign: 'center', marginBottom: '8px' }}>
           <div style={{ fontSize: '15px', fontWeight: 900, marginBottom: '4px' }}>
-            {'>> '}{store.fancy_name || store.name}{' <<'}
+            {'>> '}{storeReceiptHeader(store)}{' <<'}
           </div>
           <div style={{ fontSize: '11px', fontWeight: 800 }}>
             {store.logradouro}, {store.numero}
@@ -117,6 +149,26 @@ export const EntryReceipt = forwardRef<HTMLDivElement, EntryReceiptProps>(
           )}
         </div>
 
+        {/* Receita / medidas — somente 1ª via */}
+        {showPrescription && (
+          <>
+            <div style={{ borderTop: '1px dashed #000', margin: '8px 0' }} />
+            <div style={{ marginBottom: '8px', fontWeight: 800 }}>
+              <div style={{ marginBottom: '6px', fontWeight: 900, fontSize: '12px' }}>
+                Receita e lentes:
+              </div>
+              {prescriptionLines.map((line, index) => (
+                <div
+                  key={`${line.label}-${index}`}
+                  style={{ fontWeight: 700, fontSize: '11px', marginBottom: '3px', lineHeight: 1.35 }}
+                >
+                  <strong>{line.label}:</strong> {line.value}
+                </div>
+              ))}
+            </div>
+          </>
+        )}
+
         {/* Itens/Serviços */}
         {items.length > 0 && (
           <div style={{ marginBottom: '8px', fontWeight: 800 }}>
@@ -141,10 +193,33 @@ export const EntryReceipt = forwardRef<HTMLDivElement, EntryReceiptProps>(
           </div>
         </div>
 
-        {/* Forma de Pagamento */}
-        {paymentMethod && (
+        {/* Pagamento parcial/misto */}
+        {payments && payments.length > 0 && (
           <div style={{ marginBottom: '8px' }}>
-            <div><strong>Pagamento:</strong> {PAYMENT_METHOD_LABELS[paymentMethod] || paymentMethod}</div>
+            <div style={{ marginBottom: '4px', fontWeight: 900 }}>
+              {payments.length > 1 ? 'Pagamento parcial:' : 'Pagamento:'}
+            </div>
+            {payments.map((p, index) => (
+              <div key={index} style={{ fontWeight: 800, marginBottom: '2px', fontSize: '12px' }}>
+                {PAYMENT_METHOD_LABELS[p.payment_method] || p.payment_method}
+                {p.payment_method === 'credit_card' && p.installments && p.installments > 1
+                  ? ` (${p.installments}x)`
+                  : ''}
+                : R$ {formatCurrency(p.amount)}
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Pagamento único */}
+        {!payments?.length && paymentMethod && (
+          <div style={{ marginBottom: '8px' }}>
+            <div>
+              <strong>Pagamento:</strong> {PAYMENT_METHOD_LABELS[paymentMethod] || paymentMethod}
+              {paymentMethod === 'credit_card' && installments && installments > 1
+                ? ` (${installments}x)`
+                : ''}
+            </div>
           </div>
         )}
 
@@ -152,7 +227,7 @@ export const EntryReceipt = forwardRef<HTMLDivElement, EntryReceiptProps>(
         {expectedPickupDate && (
           <div style={{ marginBottom: '8px' }}>
             <div style={{ fontWeight: 'bold' }}>
-              Previsão de entrega: {new Date(expectedPickupDate).toLocaleDateString('pt-BR')}
+              Previsão de entrega: {formatIsoDatePtBr(expectedPickupDate)}
             </div>
           </div>
         )}

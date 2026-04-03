@@ -46,7 +46,7 @@ export interface ServiceOrder {
   tinting: boolean;
   // Valores
   price: number;
-  payment_method: 'credit_card' | 'debit_card' | 'cash' | 'pix' | 'on_pickup' | null;
+  payment_method: 'credit_card' | 'debit_card' | 'cash' | 'pix' | 'on_pickup' | 'permuta' | null;
   installments: number | null;
   file_path: string | null;
   notes: string | null;
@@ -67,11 +67,24 @@ export interface ServiceOrder {
     id: number;
     name: string;
     document?: string;
+    phone?: string | null;
   };
   store?: {
     id: number;
     name: string;
     unity?: string;
+    fancy_name?: string;
+    receipt_header?: string | null;
+    cnpj?: string;
+    ie?: string | null;
+    logradouro?: string;
+    numero?: string;
+    bairro?: string;
+    municipio?: string;
+    uf?: string;
+    telefone?: string | null;
+    logo?: string | null;
+    color?: string;
   };
   user?: {
     id: number;
@@ -105,9 +118,17 @@ export interface ServiceOrder {
   }>;
   payments?: Array<{
     id: number;
-    payment_method: 'credit_card' | 'debit_card' | 'cash' | 'pix';
+    payment_method: string;
     amount: number;
     installments: number | null;
+  }>;
+  /** Quando false, backend bloqueia emissão de NF-e */
+  can_generate_invoice?: boolean;
+  /** Para recibo: linhas normalizadas (pivot ou fallback payment_method + price). */
+  receipt_payments?: Array<{
+    payment_method: string;
+    amount: number;
+    installments?: number | null;
   }>;
   // Status computed
   status_label?: string;
@@ -206,6 +227,8 @@ export interface ServiceOrdersQueryParams {
   include_inactive_overdue?: boolean;
   /** Lista de inadimplências: all = padrão (ativas+inativas); active | inactive = filtrar */
   overdue_metrics_status?: 'active' | 'inactive' | 'all';
+  /** Lista pedidos: pago (no ato ou parcial) | retirada (on_pickup) */
+  payment_situation?: 'paid' | 'on_pickup';
 }
 
 export interface LaravelPaginatedResponse<T> {

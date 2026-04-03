@@ -11,6 +11,8 @@ export interface Store {
   name: string;
   unity?: string | null;
   fancy_name: string;
+  /** Título no recibo/cupom; se vazio, usa fancy_name. */
+  receipt_header?: string | null;
   cnpj: string;
   ie?: string | null;
   is_uf?: string | null;
@@ -50,6 +52,7 @@ export interface CreateStoreDto {
   name: string;
   unity?: string;
   fancy_name: string;
+  receipt_header?: string | null;
   cnpj: string;
   ie?: string;
   is_uf?: string;

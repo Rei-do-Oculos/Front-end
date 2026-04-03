@@ -14,17 +14,18 @@ import {
   MoreVertical,
   Calendar,
   DollarSign,
-  User,
   ExternalLink,
   FileCheck
 } from 'lucide-react';
 import { Card, Button, Input, Select, Badge, FilterSection, ActiveFiltersBadge } from '../../components/Common';
 import { useActiveFilters } from '../../hooks/useActiveFilters';
+import { ClientWhatsAppAvatar } from '../../components/ClientWhatsAppAvatar';
 
 interface OS {
   id: string;
   osNumber: string;
   client: string;
+  clientPhone?: string | null;
   date: string;
   value: number;
   status: 'Pendente' | 'Laboratório' | 'Pronto' | 'Entregue' | 'Cancelado';
@@ -38,7 +39,8 @@ const mockOS: OS[] = [
   { 
     id: '1', 
     osNumber: '39832', 
-    client: 'Maria das Graças dos Santos', 
+    client: 'Maria das Graças dos Santos',
+    clientPhone: '44999998888',
     date: '21/01/2026 17:23', 
     value: 1450.00, 
     status: 'Laboratório', 
@@ -50,7 +52,8 @@ const mockOS: OS[] = [
   { 
     id: '2', 
     osNumber: '39831', 
-    client: 'Elisangela de Oliveira Batista', 
+    client: 'Elisangela de Oliveira Batista',
+    clientPhone: '44988887777',
     date: '21/01/2026 15:07', 
     value: 890.90, 
     status: 'Pendente', 
@@ -212,9 +215,10 @@ export const OrderList: React.FC = () => {
                   </td>
                   <td className="px-8 py-6">
                     <div className="flex items-center gap-3">
-                      <div className="w-9 h-9 rounded-xl bg-slate-100 flex items-center justify-center text-slate-400 group-hover:bg-red-50 group-hover:text-red-600 transition-colors">
-                        <User size={18} />
-                      </div>
+                      <ClientWhatsAppAvatar
+                        phone={os.clientPhone}
+                        clientName={os.client}
+                      />
                       <p className="text-sm font-bold text-slate-700 leading-tight group-hover:text-red-600 transition-colors">{os.client}</p>
                     </div>
                   </td>

@@ -35,6 +35,7 @@ export const StoreForm: React.FC = () => {
     name: '',
     unity: '',
     fancy_name: '',
+    receipt_header: '',
     cnpj: '',
     ie: '',
     is_uf: '',
@@ -75,6 +76,7 @@ export const StoreForm: React.FC = () => {
               name: store.name || '',
               unity: store.unity || '',
               fancy_name: store.fancy_name || '',
+              receipt_header: store.receipt_header || '',
               cnpj: store.cnpj || '',
               ie: store.ie || '',
               is_uf: store.is_uf || '',
@@ -166,6 +168,7 @@ export const StoreForm: React.FC = () => {
         name: formData.name,
         unity: formData.unity || null,
         fancy_name: formData.fancy_name,
+        receipt_header: formData.receipt_header?.trim() || null,
         cnpj: formData.cnpj,
         color: selectedColor,
         cep: formData.cep ? String(formData.cep).substring(0, 9) : '', // Limitar a 9 caracteres
@@ -366,6 +369,17 @@ export const StoreForm: React.FC = () => {
                       if (normalized !== e.target.value) setFormData({ ...formData, fancy_name: normalized });
                     }}
                   />
+                </div>
+                <div className="md:col-span-2">
+                  <Input
+                    label="Nome no recibo / cupom"
+                    placeholder="Ex.: Clara produtos rei do óculos matriz (opcional)"
+                    value={formData.receipt_header}
+                    onChange={(e) => setFormData({ ...formData, receipt_header: e.target.value })}
+                  />
+                  <p className="mt-1 text-xs text-slate-500">
+                    Aparece no topo do recibo térmico e do DANFE/cupom auxiliar. Se vazio, usa a razão social. Não altera a emissão na SEFAZ (CNPJ/token).
+                  </p>
                 </div>
                 <Input 
                   label="CNPJ *" 

@@ -143,7 +143,25 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
       onConfirm(docType);
       return;
     }
-    const styles = `<style>* { margin: 0; padding: 0; } body { font-family: Arial; padding: 12px; } @media print { body { -webkit-print-color-adjust: exact; } }</style>`;
+    const styles = `<style>
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      body {
+        font-family: 'Courier New', Courier, monospace;
+        font-size: 12px;
+        line-height: 1.4;
+        color: #000;
+        font-weight: 600;
+        padding: 8px;
+        width: 80mm;
+        max-width: 80mm;
+        margin: 0 auto;
+        background: #fff;
+      }
+      @media print {
+        body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        @page { size: auto; margin: 5mm 6mm; }
+      }
+    </style>`;
     printWindow.document.write(`<!DOCTYPE html><html><head><title>${docType === 'nfce' ? 'NFC-e' : 'NF-e'} OS ${receiptData.osNumber}</title>${styles}</head><body>${printContent.innerHTML}</body></html>`);
     printWindow.document.close();
     printWindow.onload = () => {
@@ -272,7 +290,7 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
               setTimeout(() => { printWindow.print(); printWindow.close(); onConfirm('nfe'); }, 500);
             } else {
               const printContent = nfceRef.current;
-              const styles = `*{margin:0;padding:0} body{font-family:'Courier New',monospace;padding:12px;background:#fff;color:#000;min-height:100vh} @media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact}}`;
+              const styles = `* { margin: 0; padding: 0; box-sizing: border-box; } body { font-family: 'Courier New', Courier, monospace; font-size: 12px; line-height: 1.4; color: #000; font-weight: 600; padding: 8px; width: 80mm; max-width: 80mm; margin: 0 auto; background: #fff; min-height: 100vh; } @media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } @page { size: auto; margin: 5mm 6mm; } }`;
               const bodyHtml = printContent ? printContent.innerHTML : `<p>Nota rejeitada ou sem dados para recibo.</p>`;
               printWindow.document.open();
               printWindow.document.write(`<!DOCTYPE html><html><head><title>${docLabel}</title><style>${styles}</style></head><body>${bodyHtml}</body></html>`);
@@ -313,7 +331,16 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
     const styles = `
       <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { background: white; color: black; line-height: 1.4; font-family: 'Courier New', monospace; font-size: 12px; width: 80mm; max-width: 80mm; }
+        body {
+          background: white;
+          color: #000;
+          line-height: 1.4;
+          font-family: 'Arial Black', 'Helvetica Neue', Arial, sans-serif;
+          font-weight: 800;
+          font-size: 12px;
+          width: 80mm;
+          max-width: 80mm;
+        }
         @page { size: 80mm auto; margin: 0; }
         @media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
       </style>

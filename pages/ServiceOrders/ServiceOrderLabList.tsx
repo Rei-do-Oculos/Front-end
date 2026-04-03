@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { Loader2, FlaskConical, User, Building2, Send, Package, CheckCircle, AlertTriangle, Eye, Plus, Trash2, RotateCcw, Printer } from 'lucide-react';
+import { Loader2, FlaskConical, Building2, Send, Package, CheckCircle, AlertTriangle, Eye, Plus, Trash2, RotateCcw, Printer } from 'lucide-react';
 import { Card, Button, Input, SingleSelect, FilterSection, Modal, ActiveFiltersBadge, SortableHeader, SortDirection, Pagination, AccessDeniedCard, Badge } from '../../components/Common';
 import { useServiceOrders } from '../../services/hooks/useServiceOrders';
 import { useStores } from '../../services/hooks/useStores';
@@ -13,13 +13,20 @@ import { useActiveFilters } from '../../hooks/useActiveFilters';
 import { useStore } from '../../contexts/StoreContext';
 import { useAuth } from '../../services/hooks/useAuth';
 import { userHasAccessToStore } from '../../utils/storeAccess';
+import {
+  canShowNfeOptionInReceiptModal,
+  nfeEligibilitySnapshotFromServiceOrder,
+} from '../../utils/serviceOrderNfeEligibility';
 import { useNavigate } from 'react-router-dom';
 import { ReceiptModal } from '../../components/ReceiptModal';
 import { ReceiptData } from '../../components/ThermalReceipt';
+import { receiptPaymentLinesFromOrder } from '../../utils/receiptPaymentsFromOrder';
 import { invoicesService } from '../../services/api/invoices';
 import { EntryReceiptModal } from '../../components/EntryReceiptModal';
 import { EntryReceiptData } from '../../components/EntryReceipt';
 import { parseMoneyBrInput } from '../../utils/formatters';
+import { buildPrescriptionLinesForEntryReceipt } from '../../utils/entryReceiptPrescription';
+import { ClientWhatsAppAvatar } from '../../components/ClientWhatsAppAvatar';
 
 // Status labels e cores
 const STATUS_CONFIG: Record<ServiceOrderStatus, { label: string; color: 'warning' | 'info' | 'primary' | 'success' | 'danger' }> = {
@@ -575,7 +582,8 @@ export const ServiceOrderLabList: React.FC = () => {
     const clientData = clientsList.find(c => c.id === order.client_id) || order.client;
     
     const totalPrice = order.price || 0;
-    
+    const payLines = receiptPaymentLinesFromOrder(order);
+
     // Montar itens do recibo (armações da OS)
     const items: { description: string; quantity: number; price: number }[] = [];
     
@@ -605,6 +613,7 @@ export const ServiceOrderLabList: React.FC = () => {
       store: {
         name: storeData?.name || order.store?.name || 'Loja',
         fancy_name: storeData?.fancy_name || order.store?.fancy_name || order.store?.name || 'Loja',
+        receipt_header: storeData?.receipt_header ?? (order.store as any)?.receipt_header ?? null,
         cnpj: storeData?.cnpj || order.store?.cnpj || '00.000.000/0000-00',
         ie: storeData?.ie || order.store?.ie || null,
         logradouro: storeData?.logradouro || order.store?.logradouro || '',
@@ -622,15 +631,9 @@ export const ServiceOrderLabList: React.FC = () => {
       },
       items,
       total: totalPrice,
-      paymentMethod: order.payments && order.payments.length > 0 ? null : (order.payment_method || null),
-      installments: order.payments && order.payments.length > 0 ? null : (order.installments || null),
-      payments: order.payments && order.payments.length > 0
-        ? order.payments.map(p => ({
-            payment_method: p.payment_method,
-            amount: p.amount,
-            installments: p.installments || null,
-          }))
-        : undefined,
+      paymentMethod: payLines.length > 0 ? null : (order.payment_method || null),
+      installments: payLines.length > 0 ? null : (order.installments || null),
+      payments: payLines.length > 0 ? payLines : undefined,
     };
   };
 
@@ -691,13 +694,49 @@ export const ServiceOrderLabList: React.FC = () => {
       ? Object.values(combinedItemsMap)
       : [{ description: 'Serviço Óptico', quantity: 1 }];
 
+    const payLines = receiptPaymentLinesFromOrder(order);
+    const usePartialBlock =
+      payLines.length > 1 || (payLines.length > 0 && !order.payment_method);
+
+    const prescriptionLines = buildPrescriptionLinesForEntryReceipt({
+      far_od_spherical: order.far_od_spherical,
+      far_od_cylindrical: order.far_od_cylindrical,
+      far_od_axis: order.far_od_axis,
+      far_oe_spherical: order.far_oe_spherical,
+      far_oe_cylindrical: order.far_oe_cylindrical,
+      far_oe_axis: order.far_oe_axis,
+      near_od_spherical: order.near_od_spherical,
+      near_od_cylindrical: order.near_od_cylindrical,
+      near_od_axis: order.near_od_axis,
+      near_oe_spherical: order.near_oe_spherical,
+      near_oe_cylindrical: order.near_oe_cylindrical,
+      near_oe_axis: order.near_oe_axis,
+      addition: order.addition,
+      far_dnp: order.far_dnp,
+      near_dnp: order.near_dnp,
+      frame_code: order.frame_code,
+      rim_use: order.rim_use,
+      warranty: order.warranty,
+      single_vision: order.single_vision,
+      bifocal: order.bifocal,
+      multifocal: order.multifocal,
+      anti_reflective: order.anti_reflective,
+      transitions: order.transitions,
+      frame_included: order.frame_included,
+      tinting: order.tinting,
+      notes: order.notes,
+      lenses: toItemsArray(order.lenses as any).map((l: { name?: string }) => ({ name: l.name })),
+    });
+
     return {
       osNumber: order.os_number,
       date: new Date().toLocaleString('pt-BR'),
       expectedPickupDate: order.expected_pickup_date || null,
+      prescriptionLines,
       store: {
         name: storeData?.name || order.store?.name || 'Loja',
         fancy_name: storeData?.fancy_name || (order.store as any)?.fancy_name || order.store?.name || 'Loja',
+        receipt_header: storeData?.receipt_header ?? (order.store as any)?.receipt_header ?? null,
         logradouro: storeData?.logradouro || (order.store as any)?.logradouro || '',
         numero: storeData?.numero || (order.store as any)?.numero || '',
         telefone: storeData?.telefone || (order.store as any)?.telefone || null,
@@ -708,7 +747,9 @@ export const ServiceOrderLabList: React.FC = () => {
       },
       items: itemsWithRimUse,
       total: order.price || 0,
-      paymentMethod: order.payment_method || null,
+      paymentMethod: usePartialBlock ? null : order.payment_method || null,
+      installments: usePartialBlock ? null : order.installments ?? null,
+      payments: usePartialBlock ? payLines : undefined,
     };
   };
 
@@ -762,6 +803,23 @@ export const ServiceOrderLabList: React.FC = () => {
       });
     } catch (e) {
       return dateString;
+    }
+  };
+
+  const formatDateTime = (dateString: string | null | undefined) => {
+    if (!dateString) return '-';
+    try {
+      const date = new Date(dateString);
+      if (isNaN(date.getTime())) return dateString;
+      return date.toLocaleString('pt-BR', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+      });
+    } catch {
+      return String(dateString);
     }
   };
 
@@ -894,6 +952,14 @@ export const ServiceOrderLabList: React.FC = () => {
                 <th className="px-6 py-4 text-left text-[10px] font-black uppercase text-slate-400 tracking-widest">Laboratório</th>
                 <th className="px-6 py-4 text-center text-[10px] font-black uppercase text-slate-400 tracking-widest">Status</th>
                 <SortableHeader
+                  label="Cadastrado em"
+                  sortKey="created_at"
+                  currentSort={sortBy}
+                  currentDirection={sortDirection}
+                  onSort={handleSort}
+                  className="px-6 py-4"
+                />
+                <SortableHeader
                   label="Enviado em"
                   sortKey="sent_to_lab_at"
                   currentSort={sortBy}
@@ -915,7 +981,7 @@ export const ServiceOrderLabList: React.FC = () => {
             <tbody className="divide-y divide-slate-50">
               {isLoading ? (
                 <tr>
-                  <td colSpan={9} className="px-6 py-12 text-center">
+                  <td colSpan={10} className="px-6 py-12 text-center">
                     <div className="flex items-center justify-center gap-3">
                       <Loader2 size={20} className="animate-spin" style={{ color: 'var(--store-color)' }} />
                       <span className="text-sm text-slate-500">Carregando ordens de serviço...</span>
@@ -924,7 +990,7 @@ export const ServiceOrderLabList: React.FC = () => {
                 </tr>
               ) : (error || labListError) ? (
                 <tr>
-                  <td colSpan={9} className="px-6 py-12 text-center">
+                  <td colSpan={10} className="px-6 py-12 text-center">
                     <div className="border rounded-lg p-4" style={{ backgroundColor: 'var(--store-color-light)', borderColor: 'var(--store-color-opacity-20)' }}>
                       <p className="text-sm font-bold mb-1" style={{ color: 'var(--store-color-dark)' }}>Erro ao carregar ordens de serviço</p>
                       <p className="text-xs" style={{ color: 'var(--store-color)' }}>{(error || labListError)?.message || 'Erro desconhecido'}</p>
@@ -933,7 +999,7 @@ export const ServiceOrderLabList: React.FC = () => {
                 </tr>
               ) : ordersList.length === 0 ? (
                 <tr>
-                  <td colSpan={9} className="px-6 py-12 text-center">
+                  <td colSpan={10} className="px-6 py-12 text-center">
                     <span className="text-sm text-slate-500">Nenhuma ordem de serviço do laboratório encontrada</span>
                   </td>
                 </tr>
@@ -951,9 +1017,10 @@ export const ServiceOrderLabList: React.FC = () => {
                       </td>
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ backgroundColor: 'var(--store-color-light)' }}>
-                            <User size={18} style={{ color: 'var(--store-color)' }} />
-                          </div>
+                          <ClientWhatsAppAvatar
+                            phone={order.client?.phone}
+                            clientName={order.client?.name}
+                          />
                           <div>
                             <p 
                               className="text-sm font-bold text-slate-900 transition-colors cursor-pointer"
@@ -994,6 +1061,9 @@ export const ServiceOrderLabList: React.FC = () => {
                         <Badge variant={statusConfig.color}>
                           {statusConfig.label}
                         </Badge>
+                      </td>
+                      <td className="px-6 py-4 text-center text-xs text-slate-500 whitespace-nowrap">
+                        {formatDateTime(order.created_at)}
                       </td>
                       <td className="px-6 py-4 text-center text-xs text-slate-500">
                         {formatDate(order.sent_to_lab_at)}
@@ -1518,7 +1588,10 @@ export const ServiceOrderLabList: React.FC = () => {
           }}
           onConfirm={handleReceiptConfirm}
           onGenerateInvoice={handleGenerateInvoice}
-          canGenerateInvoice={userHasAccessToStore(completedOrder.store_id ?? completedOrder.store?.id, user)}
+          canGenerateInvoice={
+            userHasAccessToStore(completedOrder.store_id ?? completedOrder.store?.id, user) &&
+            canShowNfeOptionInReceiptModal(nfeEligibilitySnapshotFromServiceOrder(completedOrder))
+          }
           receiptData={prepareReceiptData(completedOrder)}
           order={completedOrder}
           clientPhone={(Array.isArray(clients) ? clients : []).find(c => c.id === completedOrder.client_id)?.phone || (completedOrder.client as any)?.phone}

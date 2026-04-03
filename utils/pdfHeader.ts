@@ -2,9 +2,12 @@
  * Utilitário para gerar header padrão de PDFs
  */
 
+import { storeReceiptHeader } from './storeReceiptHeader';
+
 export interface StoreData {
   name?: string;
   fancy_name?: string;
+  receipt_header?: string | null;
   color?: string;
   logo?: string | null;
   logradouro?: string;
@@ -62,7 +65,11 @@ export const generatePdfHeader = async (options: PdfHeaderOptions): Promise<stri
 
   const color = storeData?.color ?? storeColor ?? '#dc2626';
   const storeName = storeData?.name ?? 'Sistema';
-  const storeFancy = storeData?.fancy_name ?? storeData?.name ?? storeName;
+  const storeFancy = storeReceiptHeader({
+    receipt_header: storeData?.receipt_header,
+    fancy_name: storeData?.fancy_name,
+    name: storeData?.name ?? storeName,
+  });
   const logradouro = storeData?.logradouro ?? '';
   const numero = storeData?.numero ?? '';
   const bairro = storeData?.bairro ?? '';

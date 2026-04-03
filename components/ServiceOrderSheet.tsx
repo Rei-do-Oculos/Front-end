@@ -1,6 +1,11 @@
 import React, { forwardRef } from 'react';
 import { ServiceOrder } from '../services/api/serviceOrders';
 import { ReceiptStore } from './ThermalReceipt';
+import { storeReceiptHeader } from '../utils/storeReceiptHeader';
+import {
+  receiptPaymentLinesFromOrder,
+  serviceOrderPaymentMethodLabel,
+} from '../utils/receiptPaymentsFromOrder';
 
 interface ServiceOrderSheetProps {
   order: ServiceOrder;
@@ -29,6 +34,8 @@ export const ServiceOrderSheet = forwardRef<HTMLDivElement, ServiceOrderSheetPro
     const client = order.client;
     const lensBrand = order.laboratory_lenses?.[0]?.name || '';
     const storeColor = store.color || '#dc2626';
+    const payLines = receiptPaymentLinesFromOrder(order);
+    const totalOs = Number(order.price) || 0;
 
     return (
       <div
@@ -67,7 +74,7 @@ export const ServiceOrderSheet = forwardRef<HTMLDivElement, ServiceOrderSheetPro
           </div>
           <div style={{ flex: 1, padding: '0 20px', textAlign: 'center' }}>
             <div style={{ fontWeight: 700, fontSize: 13, color: '#111827', marginBottom: 6 }}>
-              {store.fancy_name || store.name}
+              {storeReceiptHeader(store)}
             </div>
             {(store.logradouro || store.municipio) && (
               <div style={{ fontSize: 11, color: '#6b7280', lineHeight: 1.5 }}>
@@ -257,6 +264,34 @@ export const ServiceOrderSheet = forwardRef<HTMLDivElement, ServiceOrderSheetPro
                 <div style={{ fontWeight: 500, fontSize: 14, color: '#111827' }}>{lensBrand}</div>
               </div>
             )}
+
+            {/* Total e formas de pagamento (inclui parcial/misto quando salvo na OS) */}
+            <div>
+              <div style={{ fontWeight: 600, fontSize: 11, color: '#6b7280', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8 }}>Valores e pagamento</div>
+              <div style={{ fontSize: 13, color: '#111827', marginBottom: payLines.length > 0 ? 10 : 0 }}>
+                <strong>Total:</strong>{' '}
+                {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(totalOs)}
+              </div>
+              {payLines.length > 0 && (
+                <table style={{ width: '100%', maxWidth: 420, borderCollapse: 'collapse', fontSize: 12 }}>
+                  <tbody>
+                    {payLines.map((line, i) => (
+                      <tr key={i}>
+                        <td style={{ padding: '5px 12px 5px 0', color: '#374151', verticalAlign: 'top' }}>
+                          {serviceOrderPaymentMethodLabel(line.payment_method)}
+                          {line.payment_method === 'credit_card' && line.installments && line.installments > 1
+                            ? ` (${line.installments}x)`
+                            : ''}
+                        </td>
+                        <td style={{ padding: '5px 0', textAlign: 'right', fontWeight: 600, whiteSpace: 'nowrap' }}>
+                          {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(line.amount)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
           </div>
         </div>
       </div>

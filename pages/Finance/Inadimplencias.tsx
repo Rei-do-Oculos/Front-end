@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Loader2, AlertTriangle, FileDown, Phone, User, Building2, Eye, CheckCircle, X, Check } from 'lucide-react';
+import { Loader2, AlertTriangle, FileDown, Phone, Building2, Eye, CheckCircle, X, Check } from 'lucide-react';
 import { Card, Button, Input, SingleSelect, FilterSection, Modal, ActiveFiltersBadge, SortableHeader, SortDirection, Pagination, AccessDeniedCard, Badge } from '../../components/Common';
 import { useServiceOrders } from '../../services/hooks/useServiceOrders';
 import { usePlucks } from '../../services/hooks/usePlucks';
@@ -12,8 +12,14 @@ import { useStore } from '../../contexts/StoreContext';
 import { useNavigate } from 'react-router-dom';
 import { ReceiptModal } from '../../components/ReceiptModal';
 import { ReceiptData } from '../../components/ThermalReceipt';
+import { receiptPaymentLinesFromOrder } from '../../utils/receiptPaymentsFromOrder';
 import { useAuth } from '../../services/hooks/useAuth';
 import { userHasAccessToStore } from '../../utils/storeAccess';
+import {
+  canShowNfeOptionInReceiptModal,
+  nfeEligibilitySnapshotFromServiceOrder,
+} from '../../utils/serviceOrderNfeEligibility';
+import { ClientWhatsAppAvatar } from '../../components/ClientWhatsAppAvatar';
 import { invoicesService } from '../../services/api/invoices';
 import { serviceOrdersService } from '../../services/api/serviceOrders';
 import { generateInadimplenciasReportPdf } from '../../utils/inadimplenciasReportPdf';
@@ -319,7 +325,8 @@ export const Inadimplencias: React.FC = () => {
     const storeData = safeStoresPlucks.find((s: any) => s.id === order.store_id) || order.store;
     const clientData = order.client;
     const totalPrice = order.price || 0;
-    
+    const payLines = receiptPaymentLinesFromOrder(order);
+
     const items: { description: string; quantity: number; price: number }[] = [];
     
     if (order.frames && Array.isArray(order.frames) && order.frames.length > 0) {
@@ -347,6 +354,7 @@ export const Inadimplencias: React.FC = () => {
       store: {
         name: storeData?.name || 'Loja',
         fancy_name: storeData?.fancy_name || storeData?.name || 'Loja',
+        receipt_header: storeData?.receipt_header ?? (order.store as any)?.receipt_header ?? null,
         cnpj: storeData?.cnpj || '00.000.000/0000-00',
         ie: storeData?.ie || null,
         logradouro: storeData?.logradouro || '',
@@ -364,15 +372,9 @@ export const Inadimplencias: React.FC = () => {
       },
       items,
       total: totalPrice,
-      paymentMethod: order.payments && order.payments.length > 0 ? null : (order.payment_method || null),
-      installments: order.payments && order.payments.length > 0 ? null : (order.installments || null),
-      payments: order.payments && order.payments.length > 0
-        ? order.payments.map(p => ({
-            payment_method: p.payment_method,
-            amount: p.amount,
-            installments: p.installments || null,
-          }))
-        : undefined,
+      paymentMethod: payLines.length > 0 ? null : (order.payment_method || null),
+      installments: payLines.length > 0 ? null : (order.installments || null),
+      payments: payLines.length > 0 ? payLines : undefined,
     };
   };
 
@@ -418,8 +420,7 @@ export const Inadimplencias: React.FC = () => {
     return String(osNumber).padStart(4, '0');
   };
 
-  // Calcular dias de atraso (na tela de inadimplências todas as OS já são overdue)
-  // Para OS inadimplentes: dias desde arrived_at (quando deveria retirar), não usa grace period
+  // Calcular dias desde a chegada na ótica (todas as linhas já são status overdue)
   const getDaysOverdue = (arrivedAt: string | null) => {
     if (!arrivedAt) return 0;
     const arrived = new Date(arrivedAt);
@@ -448,7 +449,7 @@ export const Inadimplencias: React.FC = () => {
           <div>
             <h1 className="text-3xl font-black text-slate-950 tracking-tight">Inadimplências</h1>
             <p className="text-gray-500 font-medium mt-1">
-              Ordens de serviço aguardando retirada há mais de 5 dias. Inativas não entram nos totais do financeiro nem no gráfico do dashboard.
+              Ordens em que o produto já chegou na ótica (fluxo laboratório). Inativas não entram nos totais do financeiro nem no gráfico do dashboard.
             </p>
           </div>
         </div>
@@ -605,9 +606,10 @@ export const Inadimplencias: React.FC = () => {
                       </td>
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-xl bg-red-50 flex items-center justify-center">
-                            <User size={18} className="text-red-600" />
-                          </div>
+                          <ClientWhatsAppAvatar
+                            phone={order.client?.phone}
+                            clientName={order.client?.name}
+                          />
                           <div>
                             <p 
                               className="text-sm font-bold text-slate-900 hover:text-red-600 transition-colors cursor-pointer"
@@ -900,7 +902,10 @@ export const Inadimplencias: React.FC = () => {
           }}
           onConfirm={() => handleReceiptConfirm()}
           onGenerateInvoice={handleGenerateInvoice}
-          canGenerateInvoice={userHasAccessToStore(completedOrder.store_id ?? completedOrder.store?.id, user)}
+          canGenerateInvoice={
+            userHasAccessToStore(completedOrder.store_id ?? completedOrder.store?.id, user) &&
+            canShowNfeOptionInReceiptModal(nfeEligibilitySnapshotFromServiceOrder(completedOrder))
+          }
           receiptData={prepareReceiptData(completedOrder)}
           order={completedOrder}
           clientPhone={(completedOrder.client as any)?.phone}

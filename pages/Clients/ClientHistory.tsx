@@ -15,7 +15,6 @@ import {
   ClipboardList, 
   Stethoscope, 
   Plus,
-  User,
   AlertTriangle,
   Loader2,
   Building2,
@@ -28,6 +27,7 @@ import { useNotification } from '../../hooks/useNotification';
 import { Client } from '../../services/api/clients';
 import { ServiceOrder } from '../../services/api/serviceOrders';
 import { clientPrescriptionsService } from '../../services/api/clientPrescriptions';
+import { ClientWhatsAppAvatar } from '../../components/ClientWhatsAppAvatar';
 import { serviceOrdersService } from '../../services/api/serviceOrders';
 
 // Interface estendida para incluir dados do relacionamento
@@ -854,15 +854,11 @@ export const ClientHistory: React.FC = () => {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <div className="md:col-span-2">
             <div className="flex items-start gap-4">
-              <div 
-                className="w-16 h-16 rounded-2xl flex items-center justify-center"
-                style={{ 
-                  backgroundColor: statistics?.is_overdue ? '#fef2f2' : 'var(--store-color-light)',
-                  color: statistics?.is_overdue ? '#ef4444' : 'var(--store-color)',
-                }}
-              >
-                <User size={28} />
-              </div>
+              <ClientWhatsAppAvatar
+                phone={client.phone}
+                clientName={client.name}
+                iconSize={28}
+              />
               <div className="flex-1">
                 <h2 className="text-2xl font-black text-slate-900">{client.name}</h2>
                 <div className="grid grid-cols-2 gap-4 mt-4">

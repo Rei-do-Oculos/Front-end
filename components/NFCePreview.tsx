@@ -1,8 +1,10 @@
 import React, { forwardRef } from 'react';
+import { storeReceiptHeader, storeReceiptSubtitleLine } from '../utils/storeReceiptHeader';
 
 export interface NFCeStore {
   name: string;
   fancy_name: string;
+  receipt_header?: string | null;
   cnpj: string;
   ie?: string | null;
   logradouro: string;
@@ -108,6 +110,7 @@ export const NFCePreview = forwardRef<HTMLDivElement, NFCePreviewProps>(
 
     const now = new Date();
     const dateStr = authDate || now.toLocaleString('pt-BR');
+    const nfceSubtitle = storeReceiptSubtitleLine(store);
 
     return (
       <div
@@ -117,43 +120,42 @@ export const NFCePreview = forwardRef<HTMLDivElement, NFCePreviewProps>(
           width: '80mm',
           maxWidth: '80mm',
           fontFamily: "'Courier New', Courier, monospace",
-          fontSize: '11px',
-          lineHeight: '1.3',
+          fontSize: '12px',
+          lineHeight: '1.4',
           backgroundColor: 'white',
-          color: 'black',
+          color: '#000',
+          fontWeight: 600,
           padding: '8px',
           boxSizing: 'border-box',
         }}
       >
-        {/* Header - Dados da Empresa */}
-        <div style={{ textAlign: 'center', marginBottom: '6px' }}>
-          <div style={{ fontSize: '12px', fontWeight: 'bold', marginBottom: '2px' }}>
-            {store.fancy_name || store.name}
+        {/* Header - Dados da Empresa (alinhado ao recibo térmico) */}
+        <div style={{ textAlign: 'center', marginBottom: '8px' }}>
+          <div style={{ fontSize: '14px', fontWeight: 700, marginBottom: '4px' }}>
+            {storeReceiptHeader(store)}
           </div>
-          <div style={{ fontSize: '10px' }}>
-            {store.name}
-          </div>
-          <div style={{ fontSize: '10px' }}>
+          {nfceSubtitle ? (
+            <div style={{ fontSize: '11px', fontWeight: 600 }}>{nfceSubtitle}</div>
+          ) : null}
+          <div style={{ fontSize: '11px', fontWeight: 600 }}>
             CNPJ: {formatCNPJ(store.cnpj)}
             {store.ie && ` IE: ${store.ie}`}
           </div>
-          <div style={{ fontSize: '9px' }}>
+          <div style={{ fontSize: '10px', fontWeight: 600 }}>
             {store.logradouro}, {store.numero} - {store.bairro}
           </div>
-          <div style={{ fontSize: '9px' }}>
+          <div style={{ fontSize: '10px', fontWeight: 600 }}>
             {store.municipio}, {store.uf}
             {store.telefone && ` - Fone: ${store.telefone}`}
           </div>
-          <div style={{ fontSize: '9px', marginTop: '4px', fontWeight: 'bold' }}>
+          <div style={{ fontSize: '11px', marginTop: '6px', fontWeight: 700 }}>
             Documento Auxiliar da Nota Fiscal de Consumidor Eletrônica
           </div>
         </div>
 
-        {/* Separador */}
-        <div style={{ borderTop: '1px dashed #000', margin: '6px 0' }} />
+        <div style={{ borderTop: '1px dashed #000', margin: '8px 0' }} />
 
-        {/* Cabeçalho dos Itens */}
-        <div style={{ fontSize: '9px', fontWeight: 'bold', marginBottom: '2px' }}>
+        <div style={{ fontSize: '11px', fontWeight: 700, marginBottom: '4px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between' }}>
             <span>#CODIGO</span>
             <span>DESCRIÇÃO</span>
@@ -166,19 +168,17 @@ export const NFCePreview = forwardRef<HTMLDivElement, NFCePreviewProps>(
           </div>
         </div>
 
-        {/* Separador */}
-        <div style={{ borderTop: '1px solid #000', margin: '2px 0' }} />
+        <div style={{ borderTop: '1px solid #000', margin: '4px 0' }} />
 
-        {/* Itens */}
         {items.map((item, index) => (
-          <div key={index} style={{ marginBottom: '4px', fontSize: '10px' }}>
+          <div key={index} style={{ marginBottom: '6px', fontSize: '11px', fontWeight: 600 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between' }}>
               <span>{String(index + 1).padStart(3, '0')} {item.code}</span>
               <span style={{ flex: 1, marginLeft: '4px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                 {item.description}
               </span>
             </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', paddingLeft: '20px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', paddingLeft: '20px', marginTop: '2px' }}>
               <span>{item.quantity}</span>
               <span>{item.unit}</span>
               <span>{formatCurrency(item.unitPrice)}</span>
@@ -187,11 +187,9 @@ export const NFCePreview = forwardRef<HTMLDivElement, NFCePreviewProps>(
           </div>
         ))}
 
-        {/* Separador */}
-        <div style={{ borderTop: '1px solid #000', margin: '6px 0' }} />
+        <div style={{ borderTop: '1px solid #000', margin: '8px 0' }} />
 
-        {/* Totais */}
-        <div style={{ fontSize: '10px' }}>
+        <div style={{ fontSize: '12px', fontWeight: 600 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between' }}>
             <span>Qtde. Total de Itens</span>
             <span>{items.length}</span>
@@ -206,49 +204,47 @@ export const NFCePreview = forwardRef<HTMLDivElement, NFCePreviewProps>(
               <span>-{formatCurrency(discount)}</span>
             </div>
           )}
-          <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 'bold' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 700, fontSize: '14px', marginTop: '4px' }}>
             <span>Valor a Pagar R$</span>
             <span>{formatCurrency(total)}</span>
           </div>
         </div>
 
-        {/* Separador */}
-        <div style={{ borderTop: '1px dashed #000', margin: '6px 0' }} />
+        <div style={{ borderTop: '1px dashed #000', margin: '8px 0' }} />
 
-        {/* Forma de Pagamento */}
-        <div style={{ fontSize: '10px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-            <span>FORMA DE PAGAMENTO</span>
-            <span>VALOR PAGO R$</span>
+        <div>
+          <div style={{ fontSize: '11px', fontWeight: 700 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+              <span>FORMA DE PAGAMENTO</span>
+              <span>VALOR PAGO R$</span>
+            </div>
           </div>
-          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-            <span>{paymentMethod}</span>
-            <span>{formatCurrency(amountPaid)}</span>
+          <div style={{ fontSize: '12px', fontWeight: 600, marginTop: '4px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+              <span>{paymentMethod}</span>
+              <span>{formatCurrency(amountPaid)}</span>
+            </div>
           </div>
           {change > 0 && (
-            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', fontWeight: 600, marginTop: '4px' }}>
               <span>Troco R$</span>
               <span>{formatCurrency(change)}</span>
             </div>
           )}
         </div>
 
-        {/* Separador */}
-        <div style={{ borderTop: '1px dashed #000', margin: '6px 0' }} />
+        <div style={{ borderTop: '1px dashed #000', margin: '8px 0' }} />
 
-        {/* Consulta */}
-        <div style={{ textAlign: 'center', fontSize: '9px', marginBottom: '6px' }}>
-          <div style={{ fontWeight: 'bold' }}>Consulte pela chave de acesso em</div>
-          <div>http://www.fazenda.pr.gov.br/nfce/consulta</div>
+        <div style={{ textAlign: 'center', marginBottom: '8px' }}>
+          <div style={{ fontSize: '11px', fontWeight: 700, marginBottom: '4px' }}>Consulte pela chave de acesso em</div>
+          <div style={{ fontSize: '10px', fontWeight: 600 }}>http://www.fazenda.pr.gov.br/nfce/consulta</div>
         </div>
 
-        {/* Chave de Acesso */}
-        <div style={{ textAlign: 'center', fontSize: '8px', marginBottom: '6px', wordBreak: 'break-all' }}>
+        <div style={{ textAlign: 'center', fontSize: '10px', fontWeight: 600, margin: '8px 0', wordBreak: 'break-all', letterSpacing: '0.02em' }}>
           {formatAccessKey(accessKey)}
         </div>
 
-        {/* Cliente */}
-        <div style={{ textAlign: 'center', fontSize: '10px', fontWeight: 'bold', marginBottom: '6px' }}>
+        <div style={{ textAlign: 'center', fontSize: '12px', fontWeight: 700, marginBottom: '8px' }}>
           {client?.name ? (
             <>
               <div>{client.name}</div>
@@ -259,36 +255,40 @@ export const NFCePreview = forwardRef<HTMLDivElement, NFCePreviewProps>(
           )}
         </div>
 
-        {/* QR Code */}
-        <div style={{ 
-          display: 'flex', 
-          justifyContent: 'center', 
+        <div style={{
+          display: 'flex',
+          justifyContent: 'center',
           alignItems: 'center',
           margin: '8px auto',
         }}>
           {qrCodeUrl ? (
-            <img src={qrCodeUrl} alt="QR Code NFC-e" width={80} height={80} style={{ display: 'block' }} />
+            <img
+              src={qrCodeUrl}
+              alt="QR Code NFC-e"
+              width={96}
+              height={96}
+              style={{ display: 'block', imageRendering: 'pixelated' }}
+            />
           ) : (
             <div style={{
-              width: '80px',
-              height: '80px',
-              border: '1px solid #000',
+              width: '96px',
+              height: '96px',
+              border: '2px solid #000',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              fontSize: '8px',
+              fontSize: '10px',
+              fontWeight: 700,
               textAlign: 'center',
-              backgroundColor: '#f5f5f5',
             }}>
-              [QR CODE]<br/>
+              [QR CODE]<br />
               NFC-e
             </div>
           )}
         </div>
 
-        {/* Dados da NFC-e */}
-        <div style={{ textAlign: 'center', fontSize: '9px', marginBottom: '4px' }}>
-          <div style={{ fontWeight: 'bold' }}>
+        <div style={{ textAlign: 'center', fontSize: '11px', fontWeight: 600, marginBottom: '6px' }}>
+          <div style={{ fontWeight: 700, fontSize: '12px' }}>
             NFC-e nº {String(nfceNumber).padStart(6, '0')}
           </div>
           <div>Série {String(series).padStart(3, '0')}</div>
@@ -296,21 +296,17 @@ export const NFCePreview = forwardRef<HTMLDivElement, NFCePreviewProps>(
           <div>Via Consumidor</div>
         </div>
 
-        {/* Separador */}
-        <div style={{ borderTop: '1px dashed #000', margin: '6px 0' }} />
+        <div style={{ borderTop: '1px dashed #000', margin: '8px 0' }} />
 
-        {/* Protocolo de Autorização */}
-        <div style={{ textAlign: 'center', fontSize: '9px', marginBottom: '6px' }}>
-          <div style={{ fontWeight: 'bold' }}>Protocolo de autorização:</div>
+        <div style={{ textAlign: 'center', fontSize: '11px', fontWeight: 600, marginBottom: '8px' }}>
+          <div style={{ fontWeight: 700, marginBottom: '4px' }}>Protocolo de autorização:</div>
           <div>{authProtocol}</div>
           <div>Data de autorização: {dateStr}</div>
         </div>
 
-        {/* Separador */}
-        <div style={{ borderTop: '1px dashed #000', margin: '6px 0' }} />
+        <div style={{ borderTop: '1px dashed #000', margin: '8px 0' }} />
 
-        {/* Tributos */}
-        <div style={{ textAlign: 'center', fontSize: '8px' }}>
+        <div style={{ textAlign: 'center', fontSize: '10px', fontWeight: 600, lineHeight: 1.35 }}>
           <div>
             Trib Aprox R$ {formatCurrency(federalTax)} Fed. e R$ {formatCurrency(stateTax)} Est. e R$ {formatCurrency(municipalTax)} Mun.
           </div>

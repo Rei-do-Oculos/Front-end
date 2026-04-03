@@ -66,6 +66,8 @@ export interface ExpensesListResponse {
   data: {
     request: any;
     expenses: LaravelPaginatedResponse<Expense>;
+    /** Soma de `value` de todas as despesas que batem com os filtros (todas as páginas). */
+    total_value?: number;
   };
 }
 
@@ -97,6 +99,7 @@ class ExpensesService {
     }
     const pag = responseData.data.expenses;
     let data: Expense[] = Array.isArray(pag.data) ? pag.data : (pag.data ? Object.values(pag.data) : []);
+    const totalValue = responseData.data.total_value;
     return {
       data,
       meta: {
@@ -104,6 +107,7 @@ class ExpensesService {
         totalPages: pag.last_page || 1,
         totalItems: pag.total || 0,
       },
+      totalSales: typeof totalValue === 'number' ? totalValue : Number(totalValue) || 0,
     };
   }
 

@@ -10,6 +10,7 @@ import { usePermission } from '../../services/hooks/usePermission';
 import { useNotification } from '../../hooks/useNotification';
 import { useActiveFilters } from '../../hooks/useActiveFilters';
 import { maskCpfInput, maskPhoneInput } from '../../utils/formatters';
+import { whatsappHrefFromPhone } from '../../utils/whatsappLink';
 
 export const ClientList: React.FC = () => {
   const navigate = useNavigate();
@@ -432,7 +433,8 @@ export const ClientList: React.FC = () => {
               ) : (
                 clientsList.map((client) => {
                   const phoneFormatted = formatPhone(client.phone);
-                  
+                  const waHref = client.phone ? whatsappHrefFromPhone(client.phone) : null;
+
                   return (
                     <tr key={client.id} className="group hover:bg-slate-50/50 transition-colors">
                       <td className="px-6 py-4 text-xs font-bold text-slate-400">#{client.id}</td>
@@ -456,12 +458,12 @@ export const ClientList: React.FC = () => {
                         {formatDocument(client.document)}
                       </td>
                       <td className="px-6 py-4">
-                        {phoneFormatted && client.phone ? (
+                        {phoneFormatted && client.phone && waHref ? (
                           <a
-                            href={`https://wa.me/55${client.phone.replace(/\D/g, '')}`}
+                            href={waHref}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="flex items-center gap-2 text-emerald-600 font-bold text-xs hover:text-emerald-700 transition-colors"
+                            className="flex items-center gap-2 text-[#25D366] font-bold text-xs hover:opacity-85 transition-opacity"
                             title={`Abrir WhatsApp de ${client.name}`}
                           >
                             <svg 
