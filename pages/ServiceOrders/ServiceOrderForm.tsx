@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { Save, ArrowLeft, FileText, Loader2, Search, Edit, Plus, Trash2, Eye, EyeOff } from 'lucide-react';
-import { Card, Button, Input, NumberInput, SingleSelect, MultiSelect } from '../../components/Common';
+import { Card, Button, Input, NumberInput, SingleSelect, MultiSelect, Modal } from '../../components/Common';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { useServiceOrders } from '../../services/hooks/useServiceOrders';
 import { useClients } from '../../services/hooks/useClients';
@@ -30,7 +30,10 @@ import { invoicesService } from '../../services/api/invoices';
 import { serviceOrdersService } from '../../services/api/serviceOrders';
 import type { ServiceOrder } from '../../services/api/serviceOrders';
 import { formatIsoDatePtBr } from '../../utils/dateDisplay';
-import { buildPrescriptionLinesForEntryReceipt } from '../../utils/entryReceiptPrescription';
+import {
+  buildPrescriptionLinesForEntryReceipt,
+} from '../../utils/entryReceiptPrescription';
+import { styles } from '../../config/styles';
 
 // Função para formatar valor como moeda brasileira
 const formatCurrency = (value: string): string => {
@@ -190,6 +193,11 @@ const filterDNPInput = (value: string): string => {
   return value.replace(/[^\d,/]/g, '').slice(0, 11);
 };
 
+/** Apenas dígitos; limite alinhado ao backend (max 32). O prefixo "CRM-" é só visual no input. */
+const filterDoctorCrmInput = (value: string): string => {
+  return value.replace(/\D/g, '').slice(0, 32);
+};
+
 export const ServiceOrderForm: React.FC = () => {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -198,7 +206,7 @@ export const ServiceOrderForm: React.FC = () => {
   const { showSuccess, showError } = useNotification();
   const { availableStores, selectedStore } = useStore();
   const { user, isLoading: authLoading } = useAuth();
-  const { hasSuperAdminRole } = usePermission();
+  const { hasSuperAdminRole, hasPermission } = usePermission();
   
   // Determinar modo: criar, visualizar ou editar
   const isCreateMode = !id;
@@ -222,7 +230,7 @@ export const ServiceOrderForm: React.FC = () => {
   // Pegar client_id da URL se vier da página de clientes
   const preselectedClientId = searchParams.get('client_id') || '';
   
-  const { getServiceOrder, createServiceOrder, updateServiceOrder } = useServiceOrders({ autoFetch: false });
+  const { getServiceOrder, createServiceOrder, updateServiceOrder, deleteServiceOrder } = useServiceOrders({ autoFetch: false });
   const { clients, fetchClients, getClient } = useClients({ autoFetch: false });
   const { laboratories, fetchLaboratories, loading: loadingLaboratories } = useLaboratories({ autoFetch: false });
   const { laboratoryLenses, fetchLaboratoryLenses, loading: loadingLabLenses } = useLaboratoryLenses({ autoFetch: false });
@@ -246,6 +254,8 @@ export const ServiceOrderForm: React.FC = () => {
   // Estado para o modal de recibo
   const [showReceiptModal, setShowReceiptModal] = useState(false);
   const [showEntryReceiptModal, setShowEntryReceiptModal] = useState(false);
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [deletingOrder, setDeletingOrder] = useState(false);
   /** Padrão: valores dos produtos do laboratório ocultos (***). Eye para alternar. */
   const [showLabProductValues, setShowLabProductValues] = useState(false);
   const [pendingPayload, setPendingPayload] = useState<any>(null);
@@ -301,6 +311,9 @@ export const ServiceOrderForm: React.FC = () => {
     near_oe_axis: '',
     // Adição e DNP
     addition: '',
+    doctor_name: '',
+    doctor_crm: '',
+    prescription_date: '',
     far_dnp: '',
     near_dnp: '',
     // Armação
@@ -319,6 +332,8 @@ export const ServiceOrderForm: React.FC = () => {
     price: '',
     payment_method: '',
     installments: '1',
+    /** Fluxo de caixa: vazio envia null (usa data de cadastro). Nova OS sugere hoje. */
+    payment_date: new Date().toISOString().slice(0, 10),
     notes: '',
     verified: false,
     // Many-to-many
@@ -506,7 +521,18 @@ export const ServiceOrderForm: React.FC = () => {
     return [];
   };
 
-  // Opções de pagamento (inclui "Pagamento na Retirada" quando tem laboratório)
+  const selectedClientPickupBlocked = useMemo(() => {
+    const cid = formData.client_id;
+    if (!cid) return false;
+    const list = Array.isArray(clients) ? clients : [];
+    const fromList = list.find((c) => String(c.id) === cid);
+    if (fromList?.block_pickup_payment) return true;
+    if (loadedOrder?.client && String(loadedOrder.client_id) === cid && loadedOrder.client.block_pickup_payment) return true;
+    if (preselectedClientData && String(preselectedClientData.id) === cid && preselectedClientData.block_pickup_payment) return true;
+    return false;
+  }, [formData.client_id, clients, loadedOrder?.client, loadedOrder?.client_id, preselectedClientData]);
+
+  // Opções de pagamento (inclui "Pagamento na Retirada" quando tem laboratório e cliente não bloqueado)
   const paymentOptions = useMemo(() => {
     const base = [
       { value: 'credit_card', label: 'Cartão de Crédito' },
@@ -515,11 +541,59 @@ export const ServiceOrderForm: React.FC = () => {
       { value: 'pix', label: 'PIX' },
       { value: 'permuta', label: 'Permuta' },
     ];
-    if (formData.send_to_lab) {
+    if (formData.send_to_lab && !selectedClientPickupBlocked) {
       base.push({ value: 'on_pickup', label: 'Pagamento na Retirada' });
     }
     return base;
-  }, [formData.send_to_lab]);
+  }, [formData.send_to_lab, selectedClientPickupBlocked]);
+
+  /** Dia fixo ao abrir o formulário (sugestão padrão de data do pagamento). */
+  const formOpenDayStr = useMemo(() => new Date().toISOString().slice(0, 10), []);
+
+  /** Data de cadastro da OS: nova OS = hoje (abertura do form); edição = created_at da OS. */
+  const displayOsCreatedDateStr = useMemo(() => {
+    if (isCreateMode) return formOpenDayStr;
+    if (loadedOrder?.created_at) {
+      const s = String(loadedOrder.created_at);
+      return s.length >= 10 ? s.slice(0, 10) : formOpenDayStr;
+    }
+    return formOpenDayStr;
+  }, [isCreateMode, loadedOrder?.created_at, formOpenDayStr]);
+
+  const isPickupPaymentDateLocked =
+    !formData.use_partial_payments && formData.payment_method === 'on_pickup';
+
+  /** Pagamento na retirada: não persiste payment_date (null); fluxo usa cadastro da OS. */
+  useEffect(() => {
+    if (!isPickupPaymentDateLocked) return;
+    setFormData((prev) => (prev.payment_date === '' ? prev : { ...prev, payment_date: '' }));
+  }, [isPickupPaymentDateLocked]);
+
+  const prevPaymentMethodRef = useRef<string | undefined>(undefined);
+  useEffect(() => {
+    const prev = prevPaymentMethodRef.current;
+    prevPaymentMethodRef.current = formData.payment_method;
+    if (prev === undefined) return;
+    if (
+      prev === 'on_pickup' &&
+      formData.payment_method !== 'on_pickup' &&
+      !formData.use_partial_payments &&
+      !formData.warranty
+    ) {
+      setFormData((p) => ({
+        ...p,
+        payment_date: String(p.payment_date || '').trim() ? p.payment_date : formOpenDayStr,
+      }));
+    }
+  }, [formData.payment_method, formData.use_partial_payments, formData.warranty, formOpenDayStr]);
+
+  useEffect(() => {
+    if (isViewMode || !selectedClientPickupBlocked) return;
+    setFormData((prev) => {
+      if (prev.payment_method !== 'on_pickup') return prev;
+      return { ...prev, payment_method: '', installments: '1' };
+    });
+  }, [selectedClientPickupBlocked, isViewMode]);
 
   // Carregar OS para visualização ou edição
   useEffect(() => {
@@ -589,6 +663,9 @@ export const ServiceOrderForm: React.FC = () => {
               near_oe_axis: order.near_oe_axis || '',
               // Adição e DNP
               addition: order.addition || '',
+              doctor_name: order.doctor_name || '',
+              doctor_crm: order.doctor_crm ? String(order.doctor_crm).replace(/\D/g, '') : '',
+              prescription_date: order.prescription_date || '',
               far_dnp: order.far_dnp || '',
               near_dnp: order.near_dnp || '',
               // Armação
@@ -607,6 +684,9 @@ export const ServiceOrderForm: React.FC = () => {
               price: formatFromNumber(order.price),
               payment_method: order.payment_method || '',
               installments: order.installments ? String(order.installments) : '1',
+              payment_date: order.payment_date
+                ? String(order.payment_date).slice(0, 10)
+                : '',
               notes: order.notes || '',
               verified: order.verified || false,
               // Many-to-many - converter objetos para arrays e extrair IDs
@@ -711,11 +791,16 @@ export const ServiceOrderForm: React.FC = () => {
       });
     }
     
+    const doctorName = String(formData.doctor_name ?? '').trim();
+    const doctorCrm = String(formData.doctor_crm ?? '').trim();
+    const prescriptionDate = formData.prescription_date || null;
+
     return {
       osNumber,
       date: new Date().toLocaleString('pt-BR'),
       expectedPickupDate: formData.expected_pickup_date || null,
       seller: user?.name || 'Vendedor',
+      ...(doctorName && doctorCrm ? { doctorName, doctorCrm, ...(prescriptionDate ? { prescriptionDate } : {}) } : {}),
       store: {
         name: storeData?.name || 'Loja',
         fancy_name: storeData?.fancy_name || storeData?.name || 'Loja',
@@ -841,7 +926,7 @@ export const ServiceOrderForm: React.FC = () => {
       .filter((ln): ln is NonNullable<typeof ln> => Boolean(ln))
       .map((ln) => ({ name: ln.name }));
 
-    const prescriptionLines = buildPrescriptionLinesForEntryReceipt({
+    const entryReceiptSrc = {
       far_od_spherical: formData.far_od_spherical,
       far_od_cylindrical: formData.far_od_cylindrical,
       far_od_axis: formData.far_od_axis,
@@ -869,13 +954,19 @@ export const ServiceOrderForm: React.FC = () => {
       tinting: formData.tinting,
       notes: formData.notes,
       lenses: stockLensMeta,
-    });
+    };
+    const prescriptionLines = buildPrescriptionLinesForEntryReceipt(entryReceiptSrc);
+
+    const entryDoctorName = String(formData.doctor_name ?? '').trim();
+    const entryDoctorCrm = String(formData.doctor_crm ?? '').trim();
+    const entryPrescriptionDate = formData.prescription_date || null;
 
     return {
       osNumber,
       date: new Date().toLocaleString('pt-BR'),
       expectedPickupDate: formData.expected_pickup_date || null,
       prescriptionLines,
+      ...(entryDoctorName && entryDoctorCrm ? { doctorName: entryDoctorName, doctorCrm: entryDoctorCrm, ...(entryPrescriptionDate ? { prescriptionDate: entryPrescriptionDate } : {}) } : {}),
       store: {
         name: storeData?.name || 'Loja',
         fancy_name: storeData?.fancy_name || storeData?.name || 'Loja',
@@ -1059,6 +1150,9 @@ export const ServiceOrderForm: React.FC = () => {
       near_oe_axis: formData.near_oe_axis || null,
       // Adição e DNP
       addition: parseNumericField(formData.addition),
+      doctor_name: String(formData.doctor_name || '').trim() || null,
+      doctor_crm: String(formData.doctor_crm || '').replace(/\D/g, '') || null,
+      prescription_date: formData.prescription_date || null,
       far_dnp: formData.far_dnp || null,
       near_dnp: formData.near_dnp || null,
       // Armação
@@ -1079,6 +1173,11 @@ export const ServiceOrderForm: React.FC = () => {
       installments: formData.use_partial_payments ? null : (formData.payment_method === 'credit_card' && formData.installments 
         ? parseInt(formData.installments) 
         : null),
+      payment_date: isWarranty
+        ? null
+        : formData.payment_method === 'on_pickup'
+          ? null
+          : (String(formData.payment_date || '').trim() || null),
       notes: formData.notes || null,
       verified: formData.verified,
       // Many-to-many
@@ -1103,6 +1202,7 @@ export const ServiceOrderForm: React.FC = () => {
       delete payload.installments;
       delete payload.payments;
       delete payload.price;
+      delete payload.payment_date;
     }
 
     // No modo de criação (sem laboratório), mostrar modal de recibo antes de salvar
@@ -1252,6 +1352,28 @@ export const ServiceOrderForm: React.FC = () => {
   const paymentAndPriceLocked =
     isEditMode && loadedOrder?.status === 'completed' && !hasSuperAdminRole;
 
+  const canDeleteThisOrder =
+    !!loadedOrder &&
+    !!id &&
+    hasPermission('service-orders.delete') &&
+    !(loadedOrder as any).is_other_store &&
+    (loadedOrder.status !== 'completed' || hasSuperAdminRole);
+
+  const handleConfirmDeleteOrder = async () => {
+    if (!id || !loadedOrder) return;
+    setDeletingOrder(true);
+    try {
+      await deleteServiceOrder(String(loadedOrder.id));
+      showSuccess('Ordem de serviço excluída com sucesso!');
+      setDeleteModalOpen(false);
+      navigate('/service-orders');
+    } catch (err: any) {
+      showError(err.message || 'Erro ao excluir ordem de serviço');
+    } finally {
+      setDeletingOrder(false);
+    }
+  };
+
   // Mostrar loading enquanto carrega OS ou dados auxiliares (no modo view/edit)
   if (loading || (id && auxiliaryDataLoading)) {
     return (
@@ -1313,6 +1435,16 @@ export const ServiceOrderForm: React.FC = () => {
               onClick={() => navigate(`/service-orders/${id}/edit`)}
             >
               <Edit size={18} /> Editar
+            </Button>
+          )}
+          {(isViewMode || isEditMode) && canDeleteThisOrder && (
+            <Button
+              type="button"
+              variant="outline"
+              className="!border-red-200 !text-red-600 hover:!bg-red-50"
+              onClick={() => setDeleteModalOpen(true)}
+            >
+              <Trash2 size={18} /> Excluir OS
             </Button>
           )}
         </div>
@@ -1535,18 +1667,62 @@ export const ServiceOrderForm: React.FC = () => {
                 </div>
               </div>
             </div>
-            {/* Adição */}
-            <div className="mt-4 max-w-[200px]">
-              <NumberInput
-                label="Adição"
-                placeholder="0,00"
-                value={formData.addition}
-                onChange={(val) => handleFieldChange('addition', val)}
-                onBlur={(val) => handleFieldChange('addition', formatAddition(val))}
-                min={0}
-                max={4}
-                step={0.25}
-              />
+            {/* Adição; médico e CRM na linha de baixo */}
+            <div className="mt-4 space-y-4">
+              <div className="max-w-[200px]">
+                <NumberInput
+                  label="Adição"
+                  placeholder="0,00"
+                  value={formData.addition}
+                  onChange={(val) => handleFieldChange('addition', val)}
+                  onBlur={(val) => handleFieldChange('addition', formatAddition(val))}
+                  min={0}
+                  max={4}
+                  step={0.25}
+                />
+              </div>
+              <div className="flex flex-wrap items-end gap-6">
+                <div className="w-full sm:w-auto sm:min-w-[220px] max-w-md">
+                  <Input
+                    label="Nome do médico"
+                    placeholder="Nome completo"
+                    value={formData.doctor_name}
+                    onChange={(e) => handleFieldChange('doctor_name', e.target.value)}
+                    maxLength={255}
+                  />
+                </div>
+                <div className="w-full sm:w-44 space-y-1.5 lg:space-y-2">
+                  <label className="text-[10px] lg:text-[11px] font-bold text-slate-500 uppercase tracking-[0.15em] ml-1 block">
+                    CRM
+                  </label>
+                  <div className="relative">
+                    <span
+                      className="pointer-events-none absolute left-3 lg:left-4 top-1/2 -translate-y-1/2 text-sm font-bold text-slate-400 select-none"
+                      aria-hidden
+                    >
+                      CRM-
+                    </span>
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      autoComplete="off"
+                      placeholder=""
+                      value={formData.doctor_crm}
+                      onChange={(e) => handleFieldChange('doctor_crm', filterDoctorCrmInput(e.target.value))}
+                      maxLength={32}
+                      className={`w-full pl-[3.25rem] pr-4 py-3 lg:pl-[3.35rem] lg:pr-5 lg:py-3.5 ${styles.input.default} bg-gray-50 border-2 border-slate-200 text-sm font-medium text-slate-900 transition-all outline-none placeholder:text-gray-400 disabled:text-slate-800 disabled:bg-slate-50 focus:bg-white focus:border-[var(--store-color)] focus:shadow-[0_0_0_4px_var(--store-color-opacity-5)]`}
+                    />
+                  </div>
+                </div>
+                <div className="w-full sm:w-44">
+                  <Input
+                    label="Data da receita"
+                    type="date"
+                    value={formData.prescription_date}
+                    onChange={(e) => handleFieldChange('prescription_date', e.target.value)}
+                  />
+                </div>
+              </div>
             </div>
           </div>
 
@@ -1908,25 +2084,70 @@ export const ServiceOrderForm: React.FC = () => {
               {!formData.use_partial_payments ? (
                 // Pagamento único (modo tradicional)
                 <div className="flex flex-wrap items-end gap-6">
-                  <div className="w-48">
-                    <SingleSelect
-                      label={!!formData.warranty ? 'Forma de Pagamento' : 'Forma de Pagamento *'}
-                      value={formData.payment_method}
-                      onChange={(val) => {
-                        setFormData(prev => ({
-                          ...prev,
-                          payment_method: val,
-                          installments: val === 'credit_card' ? prev.installments : '1',
-                        }));
-                        if (errors.payment_method) {
-                          setErrors({ ...errors, payment_method: '' });
-                        }
-                      }}
-                      options={paymentOptions}
-                      placeholder="Selecione..."
-                      error={errors.payment_method}
-                      disabled={isViewMode || isOtherStoreOrder || paymentAndPriceLocked}
-                    />
+                  <div className="flex flex-wrap items-end gap-4 min-w-0 flex-1">
+                    <div className="w-48 shrink-0">
+                      <SingleSelect
+                        label={!!formData.warranty ? 'Forma de Pagamento' : 'Forma de Pagamento *'}
+                        value={formData.payment_method}
+                        onChange={(val) => {
+                          setFormData(prev => ({
+                            ...prev,
+                            payment_method: val,
+                            installments: val === 'credit_card' ? prev.installments : '1',
+                          }));
+                          if (errors.payment_method) {
+                            setErrors({ ...errors, payment_method: '' });
+                          }
+                        }}
+                        options={paymentOptions}
+                        placeholder="Selecione..."
+                        error={errors.payment_method}
+                        disabled={isViewMode || isOtherStoreOrder || paymentAndPriceLocked}
+                      />
+                    </div>
+                    {!formData.warranty && (
+                      <div className="flex flex-wrap items-end gap-3 min-w-0">
+                        <div className="w-48 shrink-0">
+                          <Input
+                            label="Data do pagamento"
+                            type="date"
+                            value={
+                              isPickupPaymentDateLocked
+                                ? displayOsCreatedDateStr
+                                : formData.payment_date
+                            }
+                            onChange={(e) => {
+                              if (
+                                isOtherStoreOrder ||
+                                paymentAndPriceLocked ||
+                                isPickupPaymentDateLocked
+                              ) {
+                                return;
+                              }
+                              handleFieldChange('payment_date', e.target.value);
+                            }}
+                            disabled={
+                              isOtherStoreOrder ||
+                              paymentAndPriceLocked ||
+                              isPickupPaymentDateLocked
+                            }
+                            className={
+                              isOtherStoreOrder || paymentAndPriceLocked || isPickupPaymentDateLocked
+                                ? 'bg-slate-100 cursor-not-allowed'
+                                : ''
+                            }
+                          />
+                        </div>
+                        <p className="text-sm text-slate-600 max-w-md pb-2 leading-snug">
+                          Fluxo de caixa: em branco usa a data de cadastro da OS; preenchido, usa esta data.
+                        </p>
+                      </div>
+                    )}
+                    {formData.send_to_lab && selectedClientPickupBlocked && (
+                      <p className="text-xs text-amber-800 font-medium max-w-md pb-2 leading-snug self-end">
+                        Usuário bloqueado para pagamento na retirada
+                      </p>
+                    )}
                   </div>
                   {formData.payment_method === 'credit_card' && (
                     <div className="w-32">
@@ -1957,6 +2178,26 @@ export const ServiceOrderForm: React.FC = () => {
               ) : (
                 // Pagamentos parciais/mistos
                 <div className="space-y-4">
+                  {!formData.warranty && (
+                    <div className="flex flex-wrap items-end gap-3 w-full max-w-full">
+                      <div className="w-48 shrink-0">
+                        <Input
+                          label="Data do pagamento"
+                          type="date"
+                          value={formData.payment_date}
+                          onChange={(e) => {
+                            if (isOtherStoreOrder || paymentAndPriceLocked) return;
+                            handleFieldChange('payment_date', e.target.value);
+                          }}
+                          disabled={isOtherStoreOrder || paymentAndPriceLocked}
+                          className={(isOtherStoreOrder || paymentAndPriceLocked) ? 'bg-slate-100 cursor-not-allowed' : ''}
+                        />
+                      </div>
+                      <p className="text-sm text-slate-600 max-w-md pb-2 leading-snug">
+                        Fluxo de caixa: em branco usa a data de cadastro da OS; preenchido, usa esta data.
+                      </p>
+                    </div>
+                  )}
                   <div
                     className={`p-4 rounded-xl ${
                       isOtherStoreOrder
@@ -1978,6 +2219,11 @@ export const ServiceOrderForm: React.FC = () => {
                           : '💡 Adicione múltiplas formas de pagamento. A soma deve ser igual ao valor total.'}
                     </p>
                   </div>
+                  {formData.send_to_lab && selectedClientPickupBlocked && (
+                    <p className="text-xs text-amber-800 font-medium leading-snug">
+                      Usuário bloqueado para pagamento na retirada
+                    </p>
+                  )}
                   {formData.partial_payments.map((payment, index) => {
                     const totalPaid = formData.partial_payments.reduce((sum, p) => {
                       const amount = p.amount ? parseFloat(parseCurrency(p.amount)) : 0;
@@ -2008,6 +2254,9 @@ export const ServiceOrderForm: React.FC = () => {
                                 { value: 'cash', label: 'Dinheiro' },
                                 { value: 'pix', label: 'PIX' },
                                 { value: 'permuta', label: 'Permuta' },
+                                ...(formData.send_to_lab && !selectedClientPickupBlocked
+                                  ? [{ value: 'on_pickup', label: 'Pagamento na Retirada' }]
+                                  : []),
                               ]}
                               placeholder="Selecione..."
                               disabled={isViewMode || isOtherStoreOrder || paymentAndPriceLocked}
@@ -2097,15 +2346,37 @@ export const ServiceOrderForm: React.FC = () => {
                     const totalPrice = formData.price ? parseFloat(parseCurrency(formData.price)) : 0;
                     const remaining = totalPrice - totalPaid;
                     const isValid = Math.abs(remaining) < 0.01;
+                    const pickupAmount = formData.partial_payments.reduce((sum, p) => {
+                      if (p.payment_method !== 'on_pickup') return sum;
+                      const amount = p.amount ? parseFloat(parseCurrency(p.amount)) : 0;
+                      return sum + (isNaN(amount) ? 0 : amount);
+                    }, 0);
+                    const paidToday = totalPaid - pickupAmount;
                     
                     return (
                       <div className="space-y-3">
                         <div className="flex items-center justify-between p-3 bg-slate-100 rounded-lg">
-                          <span className="text-sm font-medium text-slate-700">Total pago:</span>
+                          <span className="text-sm font-medium text-slate-700">Total lançado:</span>
                           <span className={`text-sm font-bold ${isValid ? 'text-green-600' : 'text-red-600'}`}>
                             {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(totalPaid)}
                           </span>
                         </div>
+                        {pickupAmount > 0 && (
+                          <div className="flex items-center justify-between px-3 py-2 bg-amber-50 border border-amber-200 rounded-lg">
+                            <span className="text-xs font-medium text-amber-800">Entra no caixa hoje:</span>
+                            <span className="text-xs font-bold text-amber-800">
+                              {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(paidToday)}
+                            </span>
+                          </div>
+                        )}
+                        {pickupAmount > 0 && (
+                          <div className="flex items-center justify-between px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg">
+                            <span className="text-xs font-medium text-slate-600">A receber na retirada:</span>
+                            <span className="text-xs font-bold text-slate-600">
+                              {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(pickupAmount)}
+                            </span>
+                          </div>
+                        )}
                         {!isValid && (
                           <p className="text-xs text-red-600 font-medium">
                             ⚠️ A soma dos pagamentos ({new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(totalPaid)}) deve ser igual ao valor total ({new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(totalPrice)})
@@ -2251,6 +2522,52 @@ export const ServiceOrderForm: React.FC = () => {
           loading={saving}
         />
       )}
+
+      <Modal
+        isOpen={deleteModalOpen}
+        onClose={() => {
+          if (!deletingOrder) setDeleteModalOpen(false);
+        }}
+        title="Confirmar exclusão"
+      >
+        <div className="space-y-4">
+          <p className="text-sm text-slate-700">
+            Tem certeza que deseja excluir a OS{' '}
+            <strong>
+              #{loadedOrder ? String(loadedOrder.os_number).padStart(4, '0') : ''}
+            </strong>
+            ?
+          </p>
+          <p className="text-xs text-slate-500">Esta ação não pode ser desfeita.</p>
+          <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-100">
+            <Button
+              variant="outline"
+              type="button"
+              onClick={() => setDeleteModalOpen(false)}
+              disabled={deletingOrder}
+            >
+              Cancelar
+            </Button>
+            <Button
+              type="button"
+              variant="secondary"
+              className="!bg-red-600 hover:!bg-red-700 !text-white border-0"
+              onClick={() => void handleConfirmDeleteOrder()}
+              disabled={deletingOrder}
+            >
+              {deletingOrder ? (
+                <>
+                  <Loader2 size={16} className="animate-spin" /> Excluindo...
+                </>
+              ) : (
+                <>
+                  <Trash2 size={16} /> Excluir
+                </>
+              )}
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 };

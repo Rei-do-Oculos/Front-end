@@ -104,3 +104,28 @@ export function buildPrescriptionLinesForEntryReceipt(
 
   return lines;
 }
+
+/** Linhas que não entram na tabela RECEITA (grade Esf./Cil./Eixo/DNP). */
+const RX_GRID_LABELS = new Set([
+  'Longe OD — Esférico',
+  'Longe OD — Cilíndrico',
+  'Longe OD — Eixo',
+  'Longe OE — Esférico',
+  'Longe OE — Cilíndrico',
+  'Longe OE — Eixo',
+  'Perto OD — Esférico',
+  'Perto OD — Cilíndrico',
+  'Perto OD — Eixo',
+  'Perto OE — Esférico',
+  'Perto OE — Cilíndrico',
+  'Perto OE — Eixo',
+  'Adição',
+  'DNP longe',
+  'DNP perto',
+]);
+
+export function buildPrescriptionLinesExcludingRxTable(
+  src: EntryReceiptPrescriptionSource
+): Array<{ label: string; value: string }> {
+  return buildPrescriptionLinesForEntryReceipt(src).filter((l) => !RX_GRID_LABELS.has(l.label));
+}

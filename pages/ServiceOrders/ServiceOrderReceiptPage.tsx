@@ -38,11 +38,16 @@ function prepareReceiptData(order: ServiceOrder, storeData: Store | null): Recei
     });
   }
 
+  const doctorName = String(order.doctor_name ?? '').trim();
+  const doctorCrm = String(order.doctor_crm ?? '').trim();
+  const prescriptionDate = order.prescription_date || null;
+
   return {
     osNumber: order.os_number,
     date: new Date(order.created_at).toLocaleString('pt-BR'),
     expectedPickupDate: order.expected_pickup_date || null,
     seller: order.user?.name || 'Vendedor',
+    ...(doctorName && doctorCrm ? { doctorName, doctorCrm, ...(prescriptionDate ? { prescriptionDate } : {}) } : {}),
     store: {
       name: storeFromApi?.name || store?.name || 'Loja',
       fancy_name: storeFromApi?.fancy_name || storeFromApi?.name || store?.name || 'Loja',

@@ -13,6 +13,8 @@ export interface Client {
   email: string | null;
   phone: string;
   document: string;
+  /** true quando o cliente foi inativado na tela de inadimplências (não pode usar pagamento na retirada) */
+  block_pickup_payment?: boolean;
   observations?: string | null;
   address?: string | null;
   created_at: string;

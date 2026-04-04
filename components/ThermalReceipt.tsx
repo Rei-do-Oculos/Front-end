@@ -44,6 +44,10 @@ export interface ReceiptData {
   seller: string;
   store: ReceiptStore;
   client: ReceiptClient;
+  /** Exibidos no recibo quando nome e CRM estão preenchidos */
+  doctorName?: string | null;
+  doctorCrm?: string | null;
+  prescriptionDate?: string | null;
   items: ReceiptItem[];
   total: number;
   paymentMethod?: string | null;
@@ -110,7 +114,21 @@ function formatPartialPaymentLine(payment: ReceiptPayment): string {
 
 export const ThermalReceipt = forwardRef<HTMLDivElement, ThermalReceiptProps>(
   ({ data }, ref) => {
-    const { osNumber, date, expectedPickupDate, store, client, items, total, paymentMethod, installments, payments } = data;
+    const {
+      osNumber,
+      date,
+      expectedPickupDate,
+      store,
+      client,
+      doctorName,
+      doctorCrm,
+      prescriptionDate,
+      items,
+      total,
+      paymentMethod,
+      installments,
+      payments,
+    } = data;
     const cnpjDigits = (store.cnpj || '').replace(/\D/g, '');
     const addressLine = [store.logradouro, store.numero]
       .filter((part) => hasText(part))
@@ -261,6 +279,22 @@ export const ThermalReceipt = forwardRef<HTMLDivElement, ThermalReceiptProps>(
             <span>{formatCurrency(total)}</span>
           </div>
         </div>
+
+        {hasText(doctorName) && hasText(doctorCrm) ? (
+          <>
+            <div style={{ borderTop: '1px dashed #000', margin: '8px 0' }} />
+            <div style={{ marginBottom: '8px', fontWeight: heavy }}>
+              <div style={{ fontWeight: 900, marginBottom: '4px' }}>Médico:</div>
+              <div style={{ fontWeight: 900 }}>{doctorName}</div>
+              <div style={{ fontWeight: heavy }}>CRM-{doctorCrm}</div>
+              {hasText(prescriptionDate) ? (
+                <div style={{ fontWeight: heavy }}>
+                  Receita: {new Date(`${prescriptionDate}T00:00:00`).toLocaleDateString('pt-BR')}
+                </div>
+              ) : null}
+            </div>
+          </>
+        ) : null}
 
         {/* Forma de Pagamento */}
         {(payments && payments.length > 0) || paymentMethod ? (

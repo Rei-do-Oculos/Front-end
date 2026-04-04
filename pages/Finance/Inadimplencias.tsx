@@ -17,6 +17,7 @@ import { useAuth } from '../../services/hooks/useAuth';
 import { userHasAccessToStore } from '../../utils/storeAccess';
 import {
   canShowNfeOptionInReceiptModal,
+  hasPickupPaymentPending,
   nfeEligibilitySnapshotFromServiceOrder,
 } from '../../utils/serviceOrderNfeEligibility';
 import { ClientWhatsAppAvatar } from '../../components/ClientWhatsAppAvatar';
@@ -55,6 +56,8 @@ export const Inadimplencias: React.FC = () => {
 
   const [serviceOrders, setServiceOrders] = useState<ServiceOrder[]>([]);
   const [pagination, setPagination] = useState<{ currentPage: number; totalPages: number; totalItems: number } | null>(null);
+  /** Soma do valor ainda na retirada (API total_sales; com parcial, não é mais o preço integral). */
+  const [totalOverdueValue, setTotalOverdueValue] = useState<number>(0);
   const [isLoading, setIsLoading] = useState(true);
 
   const [searchTerm, setSearchTerm] = useState('');
@@ -120,8 +123,10 @@ export const Inadimplencias: React.FC = () => {
       const result = await fetchOverdueOrders({ page, ...finalParams });
       setServiceOrders(result.data);
       setPagination(result.meta);
+      setTotalOverdueValue(result.totalSales ?? 0);
     } catch (err) {
       console.error('Erro ao carregar ordens de serviço:', err);
+      setTotalOverdueValue(0);
     } finally {
       setIsLoading(false);
     }
@@ -250,6 +255,10 @@ export const Inadimplencias: React.FC = () => {
   };
 
   const handleActionClick = (order: ServiceOrder) => {
+    if (hasPickupPaymentPending(nfeEligibilitySnapshotFromServiceOrder(order))) {
+      navigate(`/service-orders/${order.id}/change-payment`);
+      return;
+    }
     setOrderToAction(order);
     setActionModalOpen(true);
   };
@@ -346,11 +355,16 @@ export const Inadimplencias: React.FC = () => {
       });
     }
     
+    const doctorName = String(order.doctor_name ?? '').trim();
+    const doctorCrm = String(order.doctor_crm ?? '').trim();
+    const prescriptionDate = order.prescription_date || null;
+
     return {
       osNumber: order.os_number,
       date: new Date().toLocaleString('pt-BR'),
       expectedPickupDate: order.expected_pickup_date || null,
       seller: user?.name || order.user?.name || 'Vendedor',
+      ...(doctorName && doctorCrm ? { doctorName, doctorCrm, ...(prescriptionDate ? { prescriptionDate } : {}) } : {}),
       store: {
         name: storeData?.name || 'Loja',
         fancy_name: storeData?.fancy_name || storeData?.name || 'Loja',
@@ -448,9 +462,6 @@ export const Inadimplencias: React.FC = () => {
           </div>
           <div>
             <h1 className="text-3xl font-black text-slate-950 tracking-tight">Inadimplências</h1>
-            <p className="text-gray-500 font-medium mt-1">
-              Ordens em que o produto já chegou na ótica (fluxo laboratório). Inativas não entram nos totais do financeiro nem no gráfico do dashboard.
-            </p>
           </div>
         </div>
         {hasPermission('service-orders-overdue.export') && (
@@ -500,8 +511,8 @@ export const Inadimplencias: React.FC = () => {
         />
       </FilterSection>
 
-      <div className="flex items-center justify-between gap-4">
-        <div className="flex items-center gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div className="flex items-center gap-4 flex-wrap">
           {pagination && (
             <p className="text-sm font-medium text-slate-600">
               {pagination.totalItems === 0 ? 'Nenhum resultado encontrado' : 
@@ -511,6 +522,14 @@ export const Inadimplencias: React.FC = () => {
           )}
           {activeFilters > 0 && (
             <ActiveFiltersBadge count={activeFilters} />
+          )}
+          {!isLoading && pagination != null && (
+            <div
+              className="flex items-center gap-2 px-3 py-1.5 rounded-lg font-bold text-sm"
+              style={{ backgroundColor: 'var(--store-color-light)', color: 'var(--store-color-dark)' }}
+            >
+              <span>Total em inadimplência: {formatCurrency(totalOverdueValue)}</span>
+            </div>
           )}
         </div>
         {pagination && (
@@ -643,7 +662,9 @@ export const Inadimplencias: React.FC = () => {
                       </td>
                       <td className="px-6 py-4 text-right">
                         <span className="text-sm font-bold text-red-600">
-                          {formatCurrency(order.price || 0)}
+                          {formatCurrency(
+                            order.outstanding_pickup_amount ?? order.price || 0
+                          )}
                         </span>
                       </td>
                       <td className="px-6 py-4">
@@ -667,7 +688,11 @@ export const Inadimplencias: React.FC = () => {
                           {hasPermission('service-orders-overdue.update') && (
                             <button
                               type="button"
-                              title={order.overdue_inactive ? 'Reativar nos indicadores' : 'Inativar nos indicadores'}
+                              title={
+                                order.overdue_inactive
+                                  ? 'Liberar cliente para pagamento na retirada (e reativar nos indicadores)'
+                                  : 'Bloquear cliente para pagamento na retirada (e inativar nos indicadores)'
+                              }
                               onClick={() => handleOpenInactiveModal(order)}
                               disabled={actionLoading}
                               className={`p-2 rounded-xl shadow-sm border transition-all disabled:opacity-50 ${
@@ -804,8 +829,8 @@ export const Inadimplencias: React.FC = () => {
         }}
         title={
           orderForInactive?.overdue_inactive
-            ? 'Reativar nos indicadores?'
-            : 'Inativar nos indicadores?'
+            ? 'Liberar pagamento na retirada?'
+            : 'Bloquear pagamento na retirada?'
         }
       >
         {orderForInactive && (
@@ -822,20 +847,20 @@ export const Inadimplencias: React.FC = () => {
 
             {orderForInactive.overdue_inactive ? (
               <div className="rounded-xl border border-emerald-200 bg-emerald-50/80 p-4 text-sm text-slate-700 space-y-2">
-                <p className="font-semibold text-emerald-900">Ao reativar:</p>
+                <p className="font-semibold text-emerald-900">Ao confirmar:</p>
                 <ul className="list-disc pl-5 space-y-1.5 text-slate-700">
                   <li>Esta OS <strong>volta a entrar</strong> nos totais de inadimplência do sistema.</li>
-                  <li>O valor <strong>passa a contar de novo</strong> no fluxo de caixa, resumos, gráficos do dashboard e alertas de cliente (conforme permissões).</li>
+                  <li>Se não houver outra inadimplência inativa para o mesmo cliente, ele <strong>volta a poder</strong> usar <strong>pagamento na retirada</strong> em novas OS.</li>
                   <li>O status da OS continua <strong>Inadimplente</strong>; apenas o flag “fora dos totais” é desligado.</li>
                 </ul>
               </div>
             ) : (
               <div className="rounded-xl border border-red-200 bg-red-50/80 p-4 text-sm text-slate-700 space-y-2">
-                <p className="font-semibold text-red-900">Ao inativar:</p>
+                <p className="font-semibold text-red-900">Ao confirmar:</p>
                 <ul className="list-disc pl-5 space-y-1.5 text-slate-700">
-                  <li>A OS <strong>continua</strong> com status <strong>Inadimplente</strong> no cadastro (histórico preservado).</li>
-                  <li>Ela <strong>deixa de entrar</strong> nos totais de inadimplência: fluxo de caixa, dashboard, gráficos e alertas de cliente.</li>
-                  <li>Use para casos <strong>antigos, caducados ou acordos</strong> em que o valor não deve mais “pesar” nos números do sistema.</li>
+                  <li>O <strong>cliente</strong> fica <strong>bloqueado para pagamento na retirada</strong>: em novas OS só poderá pagar à vista (cartão, dinheiro, PIX, permuta).</li>
+                  <li>Na forma de pagamento da OS aparecerá a mensagem <strong>“Usuário bloqueado para pagamento na retirada”</strong>.</li>
+                  <li>A OS <strong>continua inadimplente</strong> no cadastro e <strong>sai dos totais</strong> (fluxo de caixa, dashboard, gráficos).</li>
                 </ul>
               </div>
             )}
@@ -865,7 +890,7 @@ export const Inadimplencias: React.FC = () => {
                     </>
                   ) : (
                     <>
-                      <Check size={16} /> Sim, reativar
+                      <Check size={16} /> Sim, liberar
                     </>
                   )}
                 </Button>
@@ -882,7 +907,7 @@ export const Inadimplencias: React.FC = () => {
                     </>
                   ) : (
                     <>
-                      <X size={16} /> Sim, inativar
+                      <X size={16} /> Sim, bloquear
                     </>
                   )}
                 </Button>

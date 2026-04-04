@@ -20,11 +20,16 @@ export const ServiceOrderChangePayment: React.FC = () => {
   const [usePartialPayments, setUsePartialPayments] = useState(false);
   const [newPaymentMethod, setNewPaymentMethod] = useState<string>('');
   const [newInstallments, setNewInstallments] = useState<string>('1');
-  const [partialPayments, setPartialPayments] = useState<Array<{
+  type PartialPayRow = {
+    id?: number;
     payment_method: string;
     amount: string;
     installments: string;
-  }>>([]);
+    /** Já quitado na criação da OS — não editar; mantém data no fluxo de caixa */
+    locked: boolean;
+    received_at?: string | null;
+  };
+  const [partialPayments, setPartialPayments] = useState<PartialPayRow[]>([]);
 
   useEffect(() => {
     const loadOrder = async () => {
@@ -38,11 +43,16 @@ export const ServiceOrderChangePayment: React.FC = () => {
           const persisted = persistedPaymentsFromServiceOrder(orderData);
           if (persisted.length > 0) {
             setUsePartialPayments(true);
-            setPartialPayments(persisted.map((p) => ({
-              payment_method: p.payment_method,
-              amount: formatFromNumber(p.amount),
-              installments: p.installments ? String(p.installments) : '1',
-            })));
+            setPartialPayments(
+              persisted.map((p) => ({
+                id: p.id,
+                payment_method: p.payment_method,
+                amount: formatFromNumber(p.amount),
+                installments: p.installments ? String(p.installments) : '1',
+                locked: p.payment_method !== 'on_pickup',
+                received_at: p.received_at ?? null,
+              }))
+            );
           } else {
             setNewPaymentMethod('');
             setNewInstallments('1');
@@ -96,6 +106,10 @@ export const ServiceOrderChangePayment: React.FC = () => {
         showError('Adicione pelo menos uma forma de pagamento');
         return;
       }
+      if (partialPayments.some((p) => !p.payment_method)) {
+        showError('Selecione a forma de pagamento em todas as linhas');
+        return;
+      }
       const totalPaid = partialPayments.reduce((sum, p) => sum + parseMoneyBrInput(p.amount), 0);
       const totalPrice = order.price || 0;
       if (Math.abs(totalPaid - totalPrice) > 0.01) {
@@ -116,7 +130,8 @@ export const ServiceOrderChangePayment: React.FC = () => {
             price: order.price ?? 0,
             payment_method: null,
             installments: null,
-            payments: partialPayments.map(p => ({
+            payments: partialPayments.map((p) => ({
+              ...(p.id != null ? { id: p.id } : {}),
               payment_method: p.payment_method as any,
               amount: parseMoneyBrInput(p.amount),
               installments: p.payment_method === 'credit_card' && p.installments ? parseInt(p.installments) : null,
@@ -188,8 +203,10 @@ export const ServiceOrderChangePayment: React.FC = () => {
             <AlertTriangle className="w-5 h-5 text-yellow-600 flex-shrink-0 mt-0.5" />
             <div className="flex-1">
               <p className="text-sm font-medium text-yellow-800">
-                Esta OS está configurada como "Pagamento na Retirada". 
-                Como o cliente está retirando agora, é necessário alterar a forma de pagamento para faturar corretamente.
+                Esta OS ainda tem valor pendente (ex.: &quot;Pagamento na Retirada&quot;). Registre abaixo como o restante foi pago na retirada.
+              </p>
+              <p className="text-xs text-yellow-800/90 mt-2 leading-relaxed">
+                Pagamentos já feitos no cadastro da OS permanecem fixos: o fluxo de caixa usa a data em que entraram. Só o que falta (retirada) é informado agora, com data de hoje.
               </p>
             </div>
           </div>
@@ -283,6 +300,7 @@ export const ServiceOrderChangePayment: React.FC = () => {
                         payment_method: '',
                         amount: formatFromNumber(totalPrice),
                         installments: '1',
+                        locked: false,
                       }]);
                       setNewPaymentMethod('');
                     } else {
@@ -352,21 +370,43 @@ export const ServiceOrderChangePayment: React.FC = () => {
               <div className="space-y-4">
                 <div className="p-3 bg-blue-50 border border-blue-200 rounded-xl">
                   <p className="text-xs text-blue-800">
-                    💡 Adicione múltiplas formas de pagamento. A soma deve ser igual ao valor total.
+                    A soma deve fechar o valor total. Linhas já pagas no cadastro da OS aparecem bloqueadas — altere só o que era &quot;na retirada&quot; ou linhas novas.
                   </p>
                 </div>
                 {partialPayments.map((payment, index) => {
                   const currentTotalPaid = partialPayments.reduce((sum, p) => sum + parseMoneyBrInput(p.amount), 0);
                   const currentRemaining = totalPrice - currentTotalPaid + parseMoneyBrInput(payment.amount);
-                  
+                  const payOptions = [
+                    { value: 'credit_card', label: 'Cartão de Crédito' },
+                    { value: 'debit_card', label: 'Cartão de Débito' },
+                    { value: 'cash', label: 'Dinheiro' },
+                    { value: 'pix', label: 'PIX' },
+                    { value: 'permuta', label: 'Permuta' },
+                  ];
+
                   return (
-                    <div key={index} className="p-4 border border-slate-200 rounded-xl bg-slate-50">
+                    <div
+                      key={payment.id != null ? `id-${payment.id}` : `idx-${index}`}
+                      className={`p-4 border rounded-xl ${payment.locked ? 'border-slate-300 bg-slate-100/80' : 'border-slate-200 bg-slate-50'}`}
+                    >
+                      {payment.locked && (
+                        <p className="text-[11px] font-semibold text-slate-600 mb-2 flex items-center gap-1">
+                          <span className="text-emerald-700">✓</span> Pago no cadastro da OS
+                          {payment.received_at ? (
+                            <span className="font-normal text-slate-500">
+                              · fluxo de caixa:{' '}
+                              {new Date(`${payment.received_at}T12:00:00`).toLocaleDateString('pt-BR')}
+                            </span>
+                          ) : null}
+                        </p>
+                      )}
                       <div className="flex flex-wrap items-end gap-4">
                         <div className="flex-1 min-w-[200px]">
                           <SingleSelect
                             label={`Pagamento ${index + 1}`}
                             value={payment.payment_method}
                             onChange={(val) => {
+                              if (payment.locked) return;
                               const newPayments = [...partialPayments];
                               newPayments[index] = {
                                 ...newPayments[index],
@@ -375,14 +415,9 @@ export const ServiceOrderChangePayment: React.FC = () => {
                               };
                               setPartialPayments(newPayments);
                             }}
-                            options={[
-                              { value: 'credit_card', label: 'Cartão de Crédito' },
-                              { value: 'debit_card', label: 'Cartão de Débito' },
-                              { value: 'cash', label: 'Dinheiro' },
-                              { value: 'pix', label: 'PIX' },
-                              { value: 'permuta', label: 'Permuta' },
-                            ]}
+                            options={payOptions}
                             placeholder="Selecione..."
+                            disabled={payment.locked}
                           />
                         </div>
                         <div className="w-40">
@@ -399,15 +434,17 @@ export const ServiceOrderChangePayment: React.FC = () => {
                               placeholder="0,00"
                               value={payment.amount}
                               onChange={(e) => {
+                                if (payment.locked) return;
                                 const formatted = formatCurrencyInput(e.target.value);
                                 const newPayments = [...partialPayments];
                                 newPayments[index] = { ...newPayments[index], amount: formatted };
                                 setPartialPayments(newPayments);
                               }}
-                              className="w-full pl-10 pr-4 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:border-[var(--store-color)] focus:ring-2 focus:ring-[var(--store-color-opacity-5)]"
+                              disabled={payment.locked}
+                              className={`w-full pl-10 pr-4 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:border-[var(--store-color)] focus:ring-2 focus:ring-[var(--store-color-opacity-5)] ${payment.locked ? 'bg-slate-200/60 cursor-not-allowed text-slate-700' : ''}`}
                             />
                           </div>
-                          {currentRemaining >= 0 && (
+                          {!payment.locked && currentRemaining >= 0 && (
                             <p className="mt-1 text-xs text-slate-500">
                               Restante: {formatCurrency(currentRemaining)}
                             </p>
@@ -419,6 +456,7 @@ export const ServiceOrderChangePayment: React.FC = () => {
                               label="Parcelas"
                               value={payment.installments}
                               onChange={(val) => {
+                                if (payment.locked) return;
                                 const newPayments = [...partialPayments];
                                 newPayments[index] = { ...newPayments[index], installments: val };
                                 setPartialPayments(newPayments);
@@ -438,19 +476,22 @@ export const ServiceOrderChangePayment: React.FC = () => {
                                 { value: '12', label: '12x' },
                               ]}
                               placeholder="1x"
+                              disabled={payment.locked}
                             />
                           </div>
                         )}
-                        <button
-                          type="button"
-                          onClick={() => {
-                            const newPayments = partialPayments.filter((_, i) => i !== index);
-                            setPartialPayments(newPayments);
-                          }}
-                          className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
-                        >
-                          <Trash2 size={18} />
-                        </button>
+                        {!payment.locked && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const newPayments = partialPayments.filter((_, i) => i !== index);
+                              setPartialPayments(newPayments);
+                            }}
+                            className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                          >
+                            <Trash2 size={18} />
+                          </button>
+                        )}
                       </div>
                     </div>
                   );
@@ -483,6 +524,7 @@ export const ServiceOrderChangePayment: React.FC = () => {
                             payment_method: '',
                             amount: formattedRemaining,
                             installments: '1',
+                            locked: false,
                           },
                         ]);
                       }

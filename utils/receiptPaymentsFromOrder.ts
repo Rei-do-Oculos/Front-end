@@ -18,6 +18,7 @@ export type PersistedServiceOrderPaymentRow = {
   payment_method: string;
   amount: number;
   installments: number | null;
+  received_at?: string | null;
 };
 
 export function persistedPaymentsFromServiceOrder(order: ServiceOrder): PersistedServiceOrderPaymentRow[] {
@@ -34,6 +35,7 @@ export function persistedPaymentsFromServiceOrder(order: ServiceOrder): Persiste
       payment_method: String(p.payment_method),
       amount: Number(p.amount) || 0,
       installments: p.installments != null ? Number(p.installments) : null,
+      received_at: p.received_at != null && p.received_at !== '' ? String(p.received_at) : null,
     }));
 }
 

@@ -50,13 +50,28 @@ export function hasNonPickupPayment(snapshot: NfeEligibilitySnapshot): boolean {
 }
 
 /**
+ * Possui alguma parcela pendente de "Pagamento na Retirada".
+ * Enquanto existir, a NF-e não pode ser emitida (valor não foi totalmente recebido).
+ */
+export function hasPickupPaymentPending(snapshot: NfeEligibilitySnapshot): boolean {
+  const rows = normalizeOrderPayments(snapshot.payments);
+  if (rows.length > 0) {
+    return rows.some((p) => (p.payment_method ?? '') === 'on_pickup');
+  }
+  return (snapshot.payment_method ?? '') === 'on_pickup';
+}
+
+/**
  * Pode emitir nova NF-e (ainda sem nota vinculada).
  */
 export function isEligibleToEmitNewNfe(snapshot: NfeEligibilitySnapshot): boolean {
   if (orderHasInvoice(snapshot)) return false;
   if (snapshot.can_generate_invoice === false) return false;
   if (parsePrice(snapshot.price) <= 0) return false;
+  // OS finalizada (completed) significa que foi retirada e o valor foi recebido integralmente.
   if (snapshot.status === 'completed') return true;
+  // Enquanto houver parcela "na retirada" pendente, o valor não foi 100% recebido.
+  if (hasPickupPaymentPending(snapshot)) return false;
   return hasNonPickupPayment(snapshot);
 }
 

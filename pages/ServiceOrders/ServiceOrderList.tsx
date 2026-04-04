@@ -41,25 +41,39 @@ function statusBadgeVariant(apiColor?: string): 'primary' | 'danger' | 'success'
   return 'primary';
 }
 
+function normalizePayments(p: unknown): Array<{ payment_method?: string | null; amount?: number | string | null }> {
+  if (!p) return [];
+  if (Array.isArray(p)) return p.filter(Boolean);
+  if (typeof p === 'object') return Object.values(p as Record<string, { payment_method?: string | null; amount?: number | string | null }>).filter(Boolean);
+  return [];
+}
+
 function countOrderPayments(order: ServiceOrder): number {
-  const p = order.payments;
-  if (!p) return 0;
-  if (Array.isArray(p)) return p.filter(Boolean).length;
-  if (typeof p === 'object') return Object.values(p as Record<string, unknown>).filter(Boolean).length;
-  return 0;
+  return normalizePayments((order as any).payments).length;
 }
 
 const PAID_AT_SALE_METHODS = new Set(['credit_card', 'debit_card', 'cash', 'pix', 'permuta']);
 
+type PaymentBadgeResult = { label: string; variant: 'success' | 'warning' | 'info' | 'danger' };
+
 /** Pagamento na retirada, pago no ato, garantia (sem cobrança registrada) ou indefinido. */
-function orderPaymentBadge(order: ServiceOrder): { label: string; variant: 'success' | 'warning' | 'info' } | null {
+function orderPaymentBadge(order: ServiceOrder): PaymentBadgeResult | null {
+  const payments = normalizePayments((order as any).payments);
+
+  if (payments.length > 0) {
+    const pickupRows = payments.filter((p) => p.payment_method === 'on_pickup');
+
+    if (pickupRows.length > 0) {
+      return { label: 'Parcial retirada', variant: 'danger' };
+    }
+
+    return { label: 'Pago', variant: 'success' };
+  }
+
   if (order.payment_method === 'on_pickup') {
     return { label: 'Retirada', variant: 'warning' };
   }
   if (order.payment_method && PAID_AT_SALE_METHODS.has(order.payment_method)) {
-    return { label: 'Pago', variant: 'success' };
-  }
-  if (countOrderPayments(order) > 0) {
     return { label: 'Pago', variant: 'success' };
   }
   const w = order.warranty;
@@ -350,11 +364,16 @@ export const ServiceOrderList: React.FC = () => {
       });
     }
     
+    const doctorName = String(order.doctor_name ?? '').trim();
+    const doctorCrm = String(order.doctor_crm ?? '').trim();
+    const prescriptionDate = order.prescription_date || null;
+
     return {
       osNumber: order.os_number,
       date: new Date(order.created_at).toLocaleString('pt-BR'),
       expectedPickupDate: order.expected_pickup_date || null,
       seller: order.user?.name || 'Vendedor',
+      ...(doctorName && doctorCrm ? { doctorName, doctorCrm, ...(prescriptionDate ? { prescriptionDate } : {}) } : {}),
       store: {
         name: storeFromPlucks?.name || order.store?.name || 'Loja',
         fancy_name:

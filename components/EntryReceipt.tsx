@@ -40,6 +40,10 @@ export interface EntryReceiptData {
   payments?: EntryReceiptPaymentLine[];
   /** Receita/medidas — impresso só na 1ª via (ver `includePrescriptionDetails` no componente) */
   prescriptionLines?: Array<{ label: string; value: string }>;
+  /** Após totais, antes do pagamento — quando nome e CRM preenchidos */
+  doctorName?: string | null;
+  doctorCrm?: string | null;
+  prescriptionDate?: string | null;
 }
 
 interface EntryReceiptProps {
@@ -60,6 +64,8 @@ const formatCurrency = (value: number): string => {
 const formatOsNumber = (num: number): string => {
   return String(num);
 };
+
+const hasText = (value: string | null | undefined): boolean => Boolean(value && String(value).trim());
 
 // Labels para formas de pagamento
 const PAYMENT_METHOD_LABELS: Record<string, string> = {
@@ -85,9 +91,12 @@ export const EntryReceipt = forwardRef<HTMLDivElement, EntryReceiptProps>(
       installments,
       payments,
       prescriptionLines = [],
+      doctorName,
+      doctorCrm,
+      prescriptionDate,
     } = data;
 
-    const showPrescription =
+    const showPrescriptionLines =
       includePrescriptionDetails && prescriptionLines.length > 0;
 
     return (
@@ -149,8 +158,8 @@ export const EntryReceipt = forwardRef<HTMLDivElement, EntryReceiptProps>(
           )}
         </div>
 
-        {/* Receita / medidas — somente 1ª via */}
-        {showPrescription && (
+        {/* Receita e lentes — somente 1ª via */}
+        {showPrescriptionLines ? (
           <>
             <div style={{ borderTop: '1px dashed #000', margin: '8px 0' }} />
             <div style={{ marginBottom: '8px', fontWeight: 800 }}>
@@ -167,7 +176,7 @@ export const EntryReceipt = forwardRef<HTMLDivElement, EntryReceiptProps>(
               ))}
             </div>
           </>
-        )}
+        ) : null}
 
         {/* Itens/Serviços */}
         {items.length > 0 && (
@@ -192,6 +201,20 @@ export const EntryReceipt = forwardRef<HTMLDivElement, EntryReceiptProps>(
             Total: R$ {formatCurrency(total)}
           </div>
         </div>
+
+        {hasText(doctorName) && hasText(doctorCrm) ? (
+          <div style={{ marginBottom: '8px', fontWeight: 800 }}>
+            <div style={{ borderTop: '1px dashed #000', margin: '8px 0' }} />
+            <div style={{ fontWeight: 900, marginBottom: '4px', fontSize: '12px' }}>Médico:</div>
+            <div style={{ fontWeight: 800, fontSize: '11px' }}>{doctorName}</div>
+            <div style={{ fontWeight: 800, fontSize: '11px' }}>CRM-{doctorCrm}</div>
+            {hasText(prescriptionDate) ? (
+              <div style={{ fontWeight: 800, fontSize: '11px' }}>
+                Receita: {new Date(`${prescriptionDate}T00:00:00`).toLocaleDateString('pt-BR')}
+              </div>
+            ) : null}
+          </div>
+        ) : null}
 
         {/* Pagamento parcial/misto */}
         {payments && payments.length > 0 && (

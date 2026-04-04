@@ -15,6 +15,7 @@ import { useAuth } from '../../services/hooks/useAuth';
 import { userHasAccessToStore } from '../../utils/storeAccess';
 import {
   canShowNfeOptionInReceiptModal,
+  hasPickupPaymentPending,
   nfeEligibilitySnapshotFromServiceOrder,
 } from '../../utils/serviceOrderNfeEligibility';
 import { useNavigate } from 'react-router-dom';
@@ -25,7 +26,9 @@ import { invoicesService } from '../../services/api/invoices';
 import { EntryReceiptModal } from '../../components/EntryReceiptModal';
 import { EntryReceiptData } from '../../components/EntryReceipt';
 import { parseMoneyBrInput } from '../../utils/formatters';
-import { buildPrescriptionLinesForEntryReceipt } from '../../utils/entryReceiptPrescription';
+import {
+  buildPrescriptionLinesForEntryReceipt,
+} from '../../utils/entryReceiptPrescription';
 import { ClientWhatsAppAvatar } from '../../components/ClientWhatsAppAvatar';
 
 // Status labels e cores
@@ -244,8 +247,8 @@ export const ServiceOrderLabList: React.FC = () => {
   };
 
   const handleActionClick = (order: ServiceOrder, action: 'send' | 'arrived' | 'completed') => {
-    // Se for finalizar e tiver pagamento na retirada, navegar para página de alteração de pagamento
-    if (action === 'completed' && order.payment_method === 'on_pickup') {
+    // Finalizar só com 100% recebido: pagamento único ou parcial sem parcela "na retirada"
+    if (action === 'completed' && hasPickupPaymentPending(nfeEligibilitySnapshotFromServiceOrder(order))) {
       navigate(`/service-orders/${order.id}/change-payment`);
       return;
     }
@@ -605,11 +608,16 @@ export const ServiceOrderLabList: React.FC = () => {
       });
     }
     
+    const doctorName = String(order.doctor_name ?? '').trim();
+    const doctorCrm = String(order.doctor_crm ?? '').trim();
+    const prescriptionDate = order.prescription_date || null;
+
     return {
       osNumber: order.os_number,
       date: new Date().toLocaleString('pt-BR'),
       expectedPickupDate: order.expected_pickup_date || null,
       seller: user?.name || order.user?.name || 'Vendedor',
+      ...(doctorName && doctorCrm ? { doctorName, doctorCrm, ...(prescriptionDate ? { prescriptionDate } : {}) } : {}),
       store: {
         name: storeData?.name || order.store?.name || 'Loja',
         fancy_name: storeData?.fancy_name || order.store?.fancy_name || order.store?.name || 'Loja',
@@ -698,7 +706,7 @@ export const ServiceOrderLabList: React.FC = () => {
     const usePartialBlock =
       payLines.length > 1 || (payLines.length > 0 && !order.payment_method);
 
-    const prescriptionLines = buildPrescriptionLinesForEntryReceipt({
+    const entryReceiptSrc = {
       far_od_spherical: order.far_od_spherical,
       far_od_cylindrical: order.far_od_cylindrical,
       far_od_axis: order.far_od_axis,
@@ -726,13 +734,19 @@ export const ServiceOrderLabList: React.FC = () => {
       tinting: order.tinting,
       notes: order.notes,
       lenses: toItemsArray(order.lenses as any).map((l: { name?: string }) => ({ name: l.name })),
-    });
+    };
+    const prescriptionLines = buildPrescriptionLinesForEntryReceipt(entryReceiptSrc);
+
+    const entryDoctorName = String(order.doctor_name ?? '').trim();
+    const entryDoctorCrm = String(order.doctor_crm ?? '').trim();
+    const entryPrescriptionDate = order.prescription_date || null;
 
     return {
       osNumber: order.os_number,
       date: new Date().toLocaleString('pt-BR'),
       expectedPickupDate: order.expected_pickup_date || null,
       prescriptionLines,
+      ...(entryDoctorName && entryDoctorCrm ? { doctorName: entryDoctorName, doctorCrm: entryDoctorCrm, ...(entryPrescriptionDate ? { prescriptionDate: entryPrescriptionDate } : {}) } : {}),
       store: {
         name: storeData?.name || order.store?.name || 'Loja',
         fancy_name: storeData?.fancy_name || (order.store as any)?.fancy_name || order.store?.name || 'Loja',

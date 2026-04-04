@@ -10,6 +10,8 @@ import type { ServiceOrder } from '../services/api/serviceOrders';
 import {
   isEligibleToEmitNewNfe,
   orderHasInvoice,
+  hasPickupPaymentPending,
+  nfeEligibilitySnapshotFromServiceOrder,
 } from '../utils/serviceOrderNfeEligibility';
 
 const getInvoiceType = (accessKey: string | null | undefined): 'NF-e' | 'NFC-e' => {
@@ -54,14 +56,35 @@ export const NFeSection: React.FC<NFeSectionProps> = ({ serviceOrder, onEmitted 
 
   const hasInvoice = orderHasInvoice(serviceOrder);
   const invoice = (serviceOrder as any).invoice ?? null;
-  const canEmitNew = isEligibleToEmitNewNfe(serviceOrder);
-
-  if (!hasInvoice && !canEmitNew) {
-    return null;
-  }
+  const snapshot = nfeEligibilitySnapshotFromServiceOrder(serviceOrder);
+  const canEmitNew = isEligibleToEmitNewNfe(snapshot);
+  const pickupPending = !hasInvoice && !canEmitNew && hasPickupPaymentPending(snapshot);
 
   // Sem acesso à loja e sem nota emitida: ocultar a seção inteira
   if (!canGenerateInvoice && !hasInvoice) {
+    return null;
+  }
+
+  // Pagamento parcial ainda pendente (na retirada): mostrar aviso em vez de sumir
+  if (pickupPending) {
+    return (
+      <Card title="Nota Fiscal Eletrônica (NF-e)" className="border-l-4 border-l-amber-400">
+        <div className="p-4 rounded-xl bg-amber-50 border border-amber-200 flex items-start gap-3">
+          <div className="w-9 h-9 shrink-0 rounded-xl bg-amber-100 flex items-center justify-center text-amber-600">
+            <FileText size={18} />
+          </div>
+          <div>
+            <p className="text-sm font-bold text-amber-900">NF-e indisponível</p>
+            <p className="text-xs text-amber-800 mt-1 leading-snug">
+              Esta OS possui parcela pendente de <strong>Pagamento na Retirada</strong>. A NF-e só pode ser emitida após o recebimento integral do valor — quando a OS for finalizada ou o pagamento for atualizado.
+            </p>
+          </div>
+        </div>
+      </Card>
+    );
+  }
+
+  if (!hasInvoice && !canEmitNew) {
     return null;
   }
 

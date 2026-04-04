@@ -30,6 +30,9 @@ export interface ServiceOrder {
   near_oe_axis: string | null;
   // Adição e DNP
   addition: string | null;
+  doctor_name?: string | null;
+  doctor_crm?: string | null;
+  prescription_date?: string | null;
   far_dnp: string | null;
   near_dnp: string | null;
   // Armação
@@ -46,8 +49,12 @@ export interface ServiceOrder {
   tinting: boolean;
   // Valores
   price: number;
+  /** Soma das parcelas "na retirada" ainda não recebidas (pagamento parcial). Ausente em respostas antigas. */
+  outstanding_pickup_amount?: number;
   payment_method: 'credit_card' | 'debit_card' | 'cash' | 'pix' | 'on_pickup' | 'permuta' | null;
   installments: number | null;
+  /** Data em que o valor entrou no caixa (fluxo de caixa). Null = usar data de cadastro ou finalização conforme regra. */
+  payment_date?: string | null;
   file_path: string | null;
   notes: string | null;
   verified: boolean;
@@ -68,6 +75,7 @@ export interface ServiceOrder {
     name: string;
     document?: string;
     phone?: string | null;
+    block_pickup_payment?: boolean;
   };
   store?: {
     id: number;
@@ -121,6 +129,8 @@ export interface ServiceOrder {
     payment_method: string;
     amount: number;
     installments: number | null;
+    /** Data em que o valor entrou no caixa (fluxo de caixa por linha). */
+    received_at?: string | null;
   }>;
   /** Quando false, backend bloqueia emissão de NF-e */
   can_generate_invoice?: boolean;
@@ -170,6 +180,9 @@ export interface CreateServiceOrderDto {
   near_oe_axis?: string | null;
   // Adição e DNP
   addition?: string | null;
+  doctor_name?: string | null;
+  doctor_crm?: string | null;
+  prescription_date?: string | null;
   far_dnp?: string | null;
   near_dnp?: string | null;
   // Armação
@@ -188,6 +201,7 @@ export interface CreateServiceOrderDto {
   price?: number;
   payment_method?: 'credit_card' | 'debit_card' | 'cash' | 'pix' | 'on_pickup' | null;
   installments?: number | null;
+  payment_date?: string | null;
   file_path?: string | null;
   notes?: string | null;
   verified?: boolean;
@@ -469,6 +483,7 @@ class ServiceOrdersService {
 
   /**
    * Inativar ou reativar inadimplência nos indicadores (status permanece overdue).
+   * Ao inativar, bloqueia o cliente para pagamento na retirada; ao reativar, libera se não houver outra OS inadimplente inativa.
    */
   async setOverdueInactive(
     id: string,
@@ -540,7 +555,12 @@ class ServiceOrdersService {
       price?: number;
       payment_method?: string | null;
       installments?: number | null;
-      payments?: Array<{ payment_method: string; amount: number; installments?: number | null }>;
+      payments?: Array<{
+        id?: number;
+        payment_method: string;
+        amount: number;
+        installments?: number | null;
+      }>;
     }
   ): Promise<{ success: boolean; message: string; service_order: ServiceOrder }> {
     const { data } = await apiClient.post<{
