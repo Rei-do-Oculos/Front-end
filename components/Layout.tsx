@@ -88,6 +88,7 @@ const menuItems: MenuItem[] = [
     path: '/finance',
     submenu: [
       { title: 'Fluxo de Caixa', path: '/finance' },
+      { title: 'Faturamento operacional', path: '/finance/operational' },
       { title: 'Despesas', path: '/finance/expenses' },
       { title: 'Despesas administrativas', path: '/finance/admin-expenses' },
       { title: 'Inadimplências', path: '/finance/overdue' },

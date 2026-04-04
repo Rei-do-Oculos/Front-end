@@ -659,18 +659,16 @@ export const ServiceOrderLabList: React.FC = () => {
     const labLenses = toItemsArray(order.laboratory_lenses as any);
     const orderFrames = toItemsArray(order.frames as any);
 
-    const labProductItems = labLenses.length > 0
-      ? labLenses.reduce<Array<{ description: string; quantity: number }>>((acc, lens: any) => {
-          const description = lens.name || 'Produto';
-          const existing = acc.find(item => item.description === description);
-          if (existing) {
-            existing.quantity += 1;
-          } else {
-            acc.push({ description, quantity: 1 });
-          }
-          return acc;
-        }, [])
-      : [];
+    const labProductItems =
+      labLenses.length > 0
+        ? labLenses.map((lens: any) => ({
+            description: lens.name || 'Produto',
+            quantity:
+              lens.quantity != null && Number(lens.quantity) > 0
+                ? Math.min(999, Math.max(1, Math.floor(Number(lens.quantity))))
+                : 1,
+          }))
+        : [];
     const frameItems = orderFrames.length > 0
       ? orderFrames.reduce<Array<{ description: string; quantity: number }>>((acc, frame: any) => {
           const description = frame.description || `Armação ${frame.code || ''}`;

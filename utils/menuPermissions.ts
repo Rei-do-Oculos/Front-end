@@ -61,6 +61,7 @@ export const routePermissionMap: Record<string, string[]> = {
   
   // Financeiro
   '/finance': ['finance.dashboard', 'finance.revenue-by-store', 'finance.top-sellers', 'finance.overdue-summary'],
+  '/finance/operational': ['finance.operational-summary'],
   '/finance/expenses': ['expenses.list', 'expenses.read'],
   '/finance/expenses/create': ['expenses.create'],
   '/finance/expenses/:id/edit': ['expenses.update', 'expenses.read'],

@@ -90,6 +90,24 @@ export interface FinanceFilters {
   payment_method?: string[];
 }
 
+/** Resposta do endpoint operacional (sem matriz Clara Produtos). */
+export interface OperationalFinanceSummary {
+  revenue: number;
+  total_orders: number;
+  revenue_by_payment_method: RevenueByPaymentMethod;
+}
+
+export interface OperationalStoreOption {
+  id: number;
+  name: string;
+  unity?: string | null;
+}
+
+export interface OperationalFinanceApiResponse {
+  summary: OperationalFinanceSummary;
+  stores: OperationalStoreOption[];
+}
+
 class FinanceService {
   protected endpoint: string;
 
@@ -169,6 +187,33 @@ class FinanceService {
     }
 
     return response.data.data.overdue;
+  }
+
+  async getOperationalSummary(filters?: FinanceFilters): Promise<OperationalFinanceApiResponse> {
+    const response = await apiClient.get<{
+      success: boolean;
+      data?: OperationalFinanceApiResponse & { request?: unknown };
+    }>(`${this.endpoint}/operational-summary`, { params: filters });
+
+    if (!response.data.success || !response.data.data?.summary) {
+      throw new Error('Erro ao buscar faturamento operacional');
+    }
+
+    const raw = response.data.data;
+    return {
+      summary: {
+        revenue: raw.summary.revenue ?? 0,
+        total_orders: raw.summary.total_orders ?? 0,
+        revenue_by_payment_method: {
+          credit_card: raw.summary.revenue_by_payment_method?.credit_card ?? 0,
+          debit_card: raw.summary.revenue_by_payment_method?.debit_card ?? 0,
+          cash: raw.summary.revenue_by_payment_method?.cash ?? 0,
+          pix: raw.summary.revenue_by_payment_method?.pix ?? 0,
+          permuta: raw.summary.revenue_by_payment_method?.permuta ?? 0,
+        },
+      },
+      stores: this.toArray<OperationalStoreOption>(raw.stores),
+    };
   }
 }
 

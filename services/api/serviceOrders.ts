@@ -113,6 +113,8 @@ export interface ServiceOrder {
     cost_price_at_sale?: number | null;
     sale_price_at_sale?: number | null;
     promotion_applied?: boolean;
+    /** Quantidade vendida no pivot (padrão 1). */
+    quantity?: number;
   }>;
   frames?: Array<{
     id: number;

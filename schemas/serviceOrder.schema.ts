@@ -148,6 +148,7 @@ export const serviceOrderSchema = z.object({
 
   // Many-to-many (opcionais)
   laboratory_lenses: z.array(z.string()).default([]),
+  laboratory_lens_quantities: z.record(z.string(), z.string()).default({}),
   frames: z.array(z.string()).default([]),
   lenses: z.array(z.string()).default([]),
 

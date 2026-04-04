@@ -250,6 +250,7 @@ export const ServiceOrderForm: React.FC = () => {
     cost_price_at_sale?: number | null;
     sale_price_at_sale?: number | null;
     promotion_applied?: boolean;
+    quantity?: number;
   }> | null>(null);
   // Estado para o modal de recibo
   const [showReceiptModal, setShowReceiptModal] = useState(false);
@@ -338,6 +339,8 @@ export const ServiceOrderForm: React.FC = () => {
     verified: false,
     // Many-to-many
     laboratory_lenses: [] as string[],
+    /** Quantidade por laboratory_lens id (string keys). */
+    laboratory_lens_quantities: {} as Record<string, string>,
     frames: [] as string[],
     lenses: [] as string[],
     // Toggle de laboratório
@@ -633,6 +636,7 @@ export const ServiceOrderForm: React.FC = () => {
               cost_price_at_sale: l.cost_price_at_sale ?? null,
               sale_price_at_sale: l.sale_price_at_sale ?? null,
               promotion_applied: !!l.promotion_applied,
+              quantity: l.quantity != null && Number(l.quantity) > 0 ? Number(l.quantity) : 1,
             })));
             
             setFormData({
@@ -691,6 +695,14 @@ export const ServiceOrderForm: React.FC = () => {
               verified: order.verified || false,
               // Many-to-many - converter objetos para arrays e extrair IDs
               laboratory_lenses: lensesFromOrder.map((l: { id: number }) => String(l.id)),
+              laboratory_lens_quantities: lensesFromOrder.reduce((acc: Record<string, string>, l: any) => {
+                const q =
+                  l.quantity != null && Number(l.quantity) > 0
+                    ? Math.min(999, Math.max(1, Math.floor(Number(l.quantity))))
+                    : 1;
+                acc[String(l.id)] = String(q);
+                return acc;
+              }, {}),
               frames: toArray(order.frames).map(f => String(f.id)),
               lenses: toArray(order.lenses).map(l => String(l.id)),
               // Toggle de laboratório
@@ -848,26 +860,23 @@ export const ServiceOrderForm: React.FC = () => {
     const totalPrice = formData.price ? parseFloat(parseCurrency(formData.price)) : 0;
     
     // Montar lista de itens do comprovante: produtos de laboratório + armações
-    const selectedLabProducts = formData.laboratory_lenses.map((lensId) => {
-      const lens = laboratoryLensesList.find(l => String(l.id) === String(lensId));
-      return {
-        id: lens?.id ?? Number(lensId),
-        name: lens?.name || `Produto #${lensId}`,
-        laboratory_id: lens?.laboratory_id ?? 0,
-      };
-    });
     const selectedFrames = formData.frames.map(frameId =>
       framesList.find(f => String(f.id) === frameId)
     ).filter(Boolean);
 
-    const labProductsMap = selectedLabProducts.reduce<Record<string, { description: string; quantity: number }>>((acc, product) => {
-      const key = String(product.name || 'Produto');
-      if (!acc[key]) {
-        acc[key] = { description: key, quantity: 0 };
-      }
-      acc[key].quantity += 1;
-      return acc;
-    }, {});
+    const labProductsMap = formData.laboratory_lenses.reduce<Record<string, { description: string; quantity: number }>>(
+      (acc, lensId) => {
+        const lens = laboratoryLensesList.find((l) => String(l.id) === String(lensId));
+        const description = lens?.name || `Produto #${lensId}`;
+        const q = Math.max(
+          1,
+          Math.min(999, parseInt(formData.laboratory_lens_quantities[lensId] || '1', 10) || 1)
+        );
+        acc[`lab-${lensId}`] = { description, quantity: q };
+        return acc;
+      },
+      {}
+    );
     const frameItemsMap = selectedFrames.reduce<Record<string, { description: string; quantity: number }>>((acc, frame) => {
       const description = frame?.description || `Armação ${frame?.code}`;
       if (!acc[description]) {
@@ -1181,7 +1190,15 @@ export const ServiceOrderForm: React.FC = () => {
       notes: formData.notes || null,
       verified: formData.verified,
       // Many-to-many
-      laboratory_lenses: formData.send_to_lab ? formData.laboratory_lenses.map(id => parseInt(id)) : [],
+      laboratory_lenses: formData.send_to_lab
+        ? formData.laboratory_lenses.map((lid) => {
+            const q = Math.max(
+              1,
+              Math.min(999, parseInt(formData.laboratory_lens_quantities[lid] || '1', 10) || 1)
+            );
+            return { id: parseInt(lid, 10), quantity: q };
+          })
+        : [],
       frames: formData.frames.map(id => parseInt(id)),
       lenses: formData.lenses.map(id => parseInt(id)),
       // Pagamentos parciais/mistos. Com pagamento único enviar [] para o backend apagar linhas em service_order_payments
@@ -1825,19 +1842,26 @@ export const ServiceOrderForm: React.FC = () => {
                   label="Laboratórios"
                   value={formData.laboratory_ids}
                   onChange={(vals) => {
-                    setFormData(prev => ({
-                      ...prev,
-                      laboratory_ids: vals,
-                      // Mantém compatibilidade com backend atual (laboratório principal = primeiro selecionado)
-                      laboratory_id: vals.length > 0 ? vals[0] : '',
-                      laboratory_lenses: prev.laboratory_lenses.filter((lensId) =>
+                    setFormData((prev) => {
+                      const newLensIds = prev.laboratory_lenses.filter((lensId) =>
                         laboratoryLensesList.some(
-                          lens => String(lens.id) === lensId && vals.includes(String(lens.laboratory_id))
+                          (lens) => String(lens.id) === lensId && vals.includes(String(lens.laboratory_id))
                         )
-                      ),
-                      expected_pickup_date: vals.length === 0 ? '' : prev.expected_pickup_date,
-                      send_to_lab: vals.length > 0,
-                    }));
+                      );
+                      const nextQ: Record<string, string> = {};
+                      newLensIds.forEach((id) => {
+                        nextQ[id] = prev.laboratory_lens_quantities[id] ?? '1';
+                      });
+                      return {
+                        ...prev,
+                        laboratory_ids: vals,
+                        laboratory_id: vals.length > 0 ? vals[0] : '',
+                        laboratory_lenses: newLensIds,
+                        laboratory_lens_quantities: nextQ,
+                        expected_pickup_date: vals.length === 0 ? '' : prev.expected_pickup_date,
+                        send_to_lab: vals.length > 0,
+                      };
+                    });
                   }}
                   options={laboratorySelectOptions}
                   placeholder="Selecione os laboratórios..."
@@ -1933,7 +1957,21 @@ export const ServiceOrderForm: React.FC = () => {
                 <MultiSelect
                   label=""
                   value={formData.laboratory_lenses}
-                  onChange={(vals) => handleFieldChange('laboratory_lenses', vals)}
+                  onChange={(vals) => {
+                    setFormData((prev) => {
+                      const nextQ: Record<string, string> = { ...prev.laboratory_lens_quantities };
+                      vals.forEach((id) => {
+                        if (nextQ[id] == null || nextQ[id] === '') nextQ[id] = '1';
+                      });
+                      Object.keys(nextQ).forEach((k) => {
+                        if (!vals.includes(k)) delete nextQ[k];
+                      });
+                      return { ...prev, laboratory_lenses: vals, laboratory_lens_quantities: nextQ };
+                    });
+                    if (errors.laboratory_lenses) {
+                      setErrors({ ...errors, laboratory_lenses: '' });
+                    }
+                  }}
                   error={errors.laboratory_lenses}
                   options={(() => {
                     const laboratoryNamesById: Record<string, string> = {};
@@ -1994,6 +2032,45 @@ export const ServiceOrderForm: React.FC = () => {
                   disabledMessage={isViewMode ? undefined : "Selecione ao menos um laboratório"}
                   searchable
                 />
+                {formData.laboratory_lenses.length > 0 && (
+                  <div className="mt-4 space-y-3">
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                      Quantidade por produto
+                    </p>
+                    {formData.laboratory_lenses.map((lensId) => {
+                      const lens =
+                        filteredLaboratoryLenses.find((l) => String(l.id) === lensId) ??
+                        laboratoryLensesList.find((l) => String(l.id) === lensId) ??
+                        orderLaboratoryLensesSnapshot?.find((l) => String(l.id) === lensId);
+                      const label = lens?.name || `Produto #${lensId}`;
+                      return (
+                        <div key={lensId} className="flex flex-col sm:flex-row sm:items-end gap-2 sm:gap-4">
+                          <span className="text-sm text-slate-700 flex-1 min-w-0 leading-snug">{label}</span>
+                          <div className="w-full sm:w-28 shrink-0">
+                            <Input
+                              label="Qtd."
+                              type="number"
+                              min={1}
+                              max={999}
+                              value={formData.laboratory_lens_quantities[lensId] ?? '1'}
+                              onChange={(e) => {
+                                const v = e.target.value;
+                                setFormData((prev) => ({
+                                  ...prev,
+                                  laboratory_lens_quantities: {
+                                    ...prev.laboratory_lens_quantities,
+                                    [lensId]: v,
+                                  },
+                                }));
+                              }}
+                              disabled={isViewMode}
+                            />
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             </div>
           </div>
