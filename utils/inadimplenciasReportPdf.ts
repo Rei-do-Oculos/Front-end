@@ -63,7 +63,11 @@ const buildRows = (orders: ServiceOrder[], color: string): string => {
           <td style="padding: 8px; border: 1px solid #e5e7eb; font-size: 10px; text-align: center;">${order.arrived_at ? formatDate(order.arrived_at) : '-'}</td>
           <td style="padding: 8px; border: 1px solid #e5e7eb; font-size: 10px; text-align: center;">${days} ${days === 1 ? 'dia' : 'dias'}</td>
           <td style="padding: 8px; border: 1px solid #e5e7eb; font-size: 10px; text-align: center; font-weight: 600; color: ${stColor};">${st}</td>
-          <td style="padding: 8px; border: 1px solid #e5e7eb; font-size: 10px; text-align: right; font-weight: 600; color: ${color};">${formatCurrency((order as ServiceOrder & { outstanding_pickup_amount?: number }).outstanding_pickup_amount ?? order.price || 0)}</td>
+          <td style="padding: 8px; border: 1px solid #e5e7eb; font-size: 10px; text-align: right; font-weight: 600; color: ${color};">${formatCurrency(
+            (order as ServiceOrder & { outstanding_pickup_amount?: number }).outstanding_pickup_amount ??
+              order.price ??
+              0
+          )}</td>
         </tr>
       `;
     })

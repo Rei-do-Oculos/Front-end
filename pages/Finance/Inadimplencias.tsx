@@ -663,7 +663,9 @@ export const Inadimplencias: React.FC = () => {
                       <td className="px-6 py-4 text-right">
                         <span className="text-sm font-bold text-red-600">
                           {formatCurrency(
-                            order.outstanding_pickup_amount ?? order.price || 0
+                            order.outstanding_pickup_amount ??
+                              order.price ??
+                              0
                           )}
                         </span>
                       </td>
