@@ -226,7 +226,7 @@ export const ServiceOrderForm: React.FC = () => {
   const { clients, fetchClients, getClient } = useClients({ autoFetch: false });
   const { laboratories, fetchLaboratories, loading: loadingLaboratories } = useLaboratories({ autoFetch: false });
   const { laboratoryLenses, fetchLaboratoryLenses, loading: loadingLabLenses } = useLaboratoryLenses({ autoFetch: false });
-  const { frames, fetchFrames, loading: loadingFrames } = useFrames({ autoFetch: false });
+  const { frames, fetchFrames } = useFrames({ autoFetch: false });
   const { lenses, fetchLenses, loading: loadingLenses } = useLenses({ autoFetch: false });
   const { stores, fetchStores } = useStores({ autoFetch: false });
   
@@ -254,8 +254,9 @@ export const ServiceOrderForm: React.FC = () => {
   const [nextOsPreview, setNextOsPreview] = useState<number | null>(null);
   const [nextOsPreviewLoading, setNextOsPreviewLoading] = useState(false);
 
-  // Loading geral inclui dados auxiliares
-  const auxiliaryDataLoading = loadingLaboratories || loadingLabLenses || loadingFrames || loadingLenses;
+  // Dados auxiliares (labs/lentes): bloqueia a tela só no carregamento inicial.
+  // Não incluir loadingFrames: a busca de armações refaz fetch a cada termo e esconderia o formulário inteiro.
+  const auxiliaryDataLoading = loadingLaboratories || loadingLabLenses || loadingLenses;
 
   // Rolar até o banner de erro quando houver validação
   useEffect(() => {
