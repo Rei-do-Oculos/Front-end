@@ -441,7 +441,7 @@ export const InvoiceList: React.FC = () => {
         <Card className="p-6">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">NF-e emitidas</p>
+              <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Notas emitidas</p>
               <p className="text-2xl font-black text-slate-900">{stats.nfeCount}</p>
               <p className="text-sm font-bold text-slate-600 mt-1">autorizadas</p>
             </div>
@@ -500,6 +500,7 @@ export const InvoiceList: React.FC = () => {
             options={[
               { value: '', label: 'Todos' },
               { value: 'NF-e', label: 'NF-e' },
+              { value: 'NFC-e', label: 'NFC-e' },
             ]}
             placeholder="Todos"
           />
