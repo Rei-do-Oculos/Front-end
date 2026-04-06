@@ -1,9 +1,11 @@
 import { apiClient } from './client';
 
 export interface FrameSoldItem {
-  pivot_id: number;
+  /** Null quando a linha vem só do código em texto na OS (sem cadastro em service_order_frame). */
+  pivot_id: number | null;
   service_order_id: number;
-  frame_id: number;
+  /** Null quando a linha vem só do código em texto na OS. */
+  frame_id: number | null;
   os_number: number;
   completed_at: string;
   store_id: number;

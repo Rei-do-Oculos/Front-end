@@ -463,7 +463,10 @@ export const FramesSoldReport: React.FC = () => {
                 </tr>
               ) : (
                 items.map((row) => (
-                  <tr key={row.pivot_id} className="group hover:bg-slate-50/50 transition-colors">
+                  <tr
+                    key={row.pivot_id != null ? row.pivot_id : `frame-code-${row.service_order_id}`}
+                    className="group hover:bg-slate-50/50 transition-colors"
+                  >
                     <td className="px-6 py-4 text-sm font-medium text-slate-900">
                       {row.frame_code || '-'}
                     </td>

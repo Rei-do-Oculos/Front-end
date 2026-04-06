@@ -13,6 +13,7 @@ import { useNavigate } from 'react-router-dom';
 import { ReceiptModal } from '../../components/ReceiptModal';
 import { ReceiptData } from '../../components/ThermalReceipt';
 import { receiptPaymentLinesFromOrder } from '../../utils/receiptPaymentsFromOrder';
+import { buildReceiptItemsFromOrder } from '../../utils/receiptItemsFromOrder';
 import { useAuth } from '../../services/hooks/useAuth';
 import { userHasAccessToStore } from '../../utils/storeAccess';
 import {
@@ -336,24 +337,7 @@ export const Inadimplencias: React.FC = () => {
     const totalPrice = order.price || 0;
     const payLines = receiptPaymentLinesFromOrder(order);
 
-    const items: { description: string; quantity: number; price: number }[] = [];
-    
-    if (order.frames && Array.isArray(order.frames) && order.frames.length > 0) {
-      const pricePerFrame = totalPrice / order.frames.length;
-      order.frames.forEach((frame: any) => {
-        items.push({
-          description: frame.description || `Armação ${frame.code || ''}`,
-          quantity: 1,
-          price: pricePerFrame,
-        });
-      });
-    } else {
-      items.push({
-        description: 'Serviço Óptico',
-        quantity: 1,
-        price: totalPrice,
-      });
-    }
+    const items = buildReceiptItemsFromOrder(order);
     
     const doctorName = String(order.doctor_name ?? '').trim();
     const doctorCrm = String(order.doctor_crm ?? '').trim();

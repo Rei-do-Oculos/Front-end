@@ -1,7 +1,7 @@
 import { apiClient } from './client';
 import { PaginatedResponse } from './base.service';
 
-export type PaymentMethod = 'credit_card' | 'debit_card' | 'cash' | 'pix' | 'permuta';
+export type PaymentMethod = 'credit_card' | 'debit_card' | 'cash' | 'pix' | 'permuta' | 'debit_account' | 'transfer';
 
 export interface Expense {
   id: number;
@@ -86,6 +86,8 @@ export const PAYMENT_METHOD_LABELS: Record<PaymentMethod, string> = {
   cash: 'Dinheiro',
   pix: 'PIX',
   permuta: 'Permuta',
+  debit_account: 'Débito em Conta',
+  transfer: 'Transferência',
 };
 
 class ExpensesService {

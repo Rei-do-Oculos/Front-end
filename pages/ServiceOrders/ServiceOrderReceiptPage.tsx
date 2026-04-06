@@ -9,6 +9,7 @@ import { ServiceOrder } from '../../services/api/serviceOrders';
 import { Store } from '../../services/api/stores';
 import { useNotification } from '../../hooks/useNotification';
 import { receiptPaymentLinesFromOrder } from '../../utils/receiptPaymentsFromOrder';
+import { buildReceiptItemsFromOrder } from '../../utils/receiptItemsFromOrder';
 
 function prepareReceiptData(order: ServiceOrder, storeData: Store | null): ReceiptData {
   const store = order.store as any;
@@ -18,25 +19,7 @@ function prepareReceiptData(order: ServiceOrder, storeData: Store | null): Recei
   const totalPrice = typeof order.price === 'number' ? order.price : parseFloat(String(order.price)) || 0;
   const payLines = receiptPaymentLinesFromOrder(order);
 
-  const items: { description: string; quantity: number; price: number }[] = [];
-  const orderFrames = Array.isArray(order.frames) ? order.frames : (order.frames && typeof order.frames === 'object' ? Object.values(order.frames) : []);
-
-  if (orderFrames.length > 0) {
-    const pricePerFrame = totalPrice / orderFrames.length;
-    orderFrames.forEach((frame: any) => {
-      items.push({
-        description: frame.description || `Armação ${frame.code || ''}`,
-        quantity: 1,
-        price: pricePerFrame,
-      });
-    });
-  } else {
-    items.push({
-      description: 'Serviço Óptico',
-      quantity: 1,
-      price: totalPrice,
-    });
-  }
+  const items = buildReceiptItemsFromOrder(order);
 
   const doctorName = String(order.doctor_name ?? '').trim();
   const doctorCrm = String(order.doctor_crm ?? '').trim();

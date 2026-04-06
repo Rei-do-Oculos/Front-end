@@ -70,7 +70,7 @@ export const LaboratoryDetail: React.FC = () => {
   const [historyDateFrom, setHistoryDateFrom] = useState('');
   const [historyDateTo, setHistoryDateTo] = useState('');
   const [historyProductFilter, setHistoryProductFilter] = useState<string[]>([]);
-  const [historySortBy, setHistorySortBy] = useState<string | null>('completed_at');
+  const [historySortBy, setHistorySortBy] = useState<string | null>('id');
   const [historySortDirection, setHistorySortDirection] = useState<SortDirection>('desc');
   const [historyPerPage, setHistoryPerPage] = useState<number>(10);
   const [historyReportData, setHistoryReportData] = useState<{
@@ -151,7 +151,7 @@ export const LaboratoryDetail: React.FC = () => {
     try {
       const finalParams: any = {
         page,
-        order_by: params.order_by || historySortBy || 'completed_at',
+        order_by: params.order_by || historySortBy || 'id',
         order_dir: params.order_dir || historySortDirection || 'desc',
         per_page: params.per_page || historyPerPage,
       };
@@ -837,7 +837,7 @@ export const LaboratoryDetail: React.FC = () => {
                   <div className="p-6 border-b border-slate-50">
                     <h3 className="text-sm font-black text-slate-900 uppercase tracking-tight">Histórico de OS</h3>
                     <p className="text-xs text-slate-500 mt-1">
-                      Ordens de serviço finalizadas com produtos deste laboratório
+                      Ordens de serviço com produtos deste laboratório
                     </p>
                   </div>
 
@@ -856,8 +856,8 @@ export const LaboratoryDetail: React.FC = () => {
                           <th className="px-6 py-4 text-left text-[10px] font-black uppercase text-slate-400 tracking-widest">Cliente</th>
                           <th className="px-6 py-4 text-left text-[10px] font-black uppercase text-slate-400 tracking-widest">Ótica</th>
                           <SortableHeader
-                            label="Finalizado em"
-                            sortKey="completed_at"
+                            label="Data"
+                            sortKey="created_at"
                             currentSort={historySortBy}
                             currentDirection={historySortDirection}
                             onSort={handleHistorySort}
@@ -882,7 +882,7 @@ export const LaboratoryDetail: React.FC = () => {
                             <td colSpan={6} className="px-6 py-12 text-center">
                               <div className="flex flex-col items-center gap-4">
                                 <History size={48} className="text-slate-200" />
-                                <p className="text-sm text-slate-500">Nenhuma OS finalizada encontrada para este laboratório</p>
+                                <p className="text-sm text-slate-500">Nenhuma OS encontrada para este laboratório</p>
                               </div>
                             </td>
                           </tr>
@@ -906,7 +906,22 @@ export const LaboratoryDetail: React.FC = () => {
                                 <p className="text-sm text-slate-600">{order.store?.name || '-'}</p>
                               </td>
                               <td className="px-6 py-4 text-sm text-slate-500">
-                                {order.completed_at ? formatDate(order.completed_at) : '-'}
+                                <div>{formatDate(order.completed_at || order.created_at)}</div>
+                                <div className="text-xs mt-0.5">
+                                  <span className={`inline-flex items-center px-1.5 py-0.5 rounded font-semibold ${
+                                    order.status === 'completed' ? 'bg-green-50 text-green-700' :
+                                    order.status === 'overdue' ? 'bg-red-50 text-red-700' :
+                                    order.status === 'ready_for_pickup' ? 'bg-blue-50 text-blue-700' :
+                                    order.status === 'sent_to_lab' ? 'bg-cyan-50 text-cyan-700' :
+                                    'bg-slate-100 text-slate-500'
+                                  }`}>
+                                    {order.status === 'completed' ? 'Finalizada' :
+                                     order.status === 'overdue' ? 'Inadimplente' :
+                                     order.status === 'ready_for_pickup' ? 'Ag. Retirada' :
+                                     order.status === 'sent_to_lab' ? 'No Lab' :
+                                     'Pendente'}
+                                  </span>
+                                </div>
                               </td>
                               <td className="px-6 py-4 text-right">
                                 <span className="text-sm font-bold" style={{ color: 'var(--store-color)' }}>

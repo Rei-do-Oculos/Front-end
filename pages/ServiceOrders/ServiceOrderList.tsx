@@ -19,6 +19,7 @@ import { useNavigate } from 'react-router-dom';
 import { ReceiptModal } from '../../components/ReceiptModal';
 import { ReceiptData } from '../../components/ThermalReceipt';
 import { receiptPaymentLinesFromOrder } from '../../utils/receiptPaymentsFromOrder';
+import { buildReceiptItemsFromOrder } from '../../utils/receiptItemsFromOrder';
 import { usersService } from '../../services/api/users';
 import { invoicesService } from '../../services/api/invoices';
 import { storesService } from '../../services/api/stores';
@@ -339,30 +340,7 @@ export const ServiceOrderList: React.FC = () => {
     
     const totalPrice = typeof order.price === 'number' ? order.price : parseFloat(String(order.price)) || 0;
     const payLines = receiptPaymentLinesFromOrder(order);
-    
-    // Montar itens do recibo (armações)
-    const items: { description: string; quantity: number; price: number }[] = [];
-    
-    // Se a OS tem armações no relacionamento
-    const orderFrames = Array.isArray(order.frames) ? order.frames : 
-      (order.frames && typeof order.frames === 'object' ? Object.values(order.frames) : []);
-    
-    if (orderFrames.length > 0) {
-      const pricePerFrame = totalPrice / orderFrames.length;
-      orderFrames.forEach((frame: any) => {
-        items.push({
-          description: frame.description || `Armação ${frame.code || ''}`,
-          quantity: 1,
-          price: pricePerFrame,
-        });
-      });
-    } else {
-      items.push({
-        description: 'Serviço Óptico',
-        quantity: 1,
-        price: totalPrice,
-      });
-    }
+    const items = buildReceiptItemsFromOrder(order);
     
     const doctorName = String(order.doctor_name ?? '').trim();
     const doctorCrm = String(order.doctor_crm ?? '').trim();
