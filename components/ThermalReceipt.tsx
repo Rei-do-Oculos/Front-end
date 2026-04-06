@@ -28,6 +28,7 @@ export interface ReceiptClient {
 export interface ReceiptItem {
   description: string;
   quantity: number;
+  /** Preço unitário (uso em NFC-e / totais; não exibido linha a linha no recibo térmico). */
   price: number;
 }
 
@@ -145,6 +146,11 @@ export const ThermalReceipt = forwardRef<HTMLDivElement, ThermalReceiptProps>(
     const heavy = 800 as const;
     const black = '#000';
 
+    const totalUnits = items.reduce((sum, item) => {
+      const q = Number(item.quantity);
+      return sum + (Number.isFinite(q) && q > 0 ? q : 0);
+    }, 0);
+
     return (
       <div
         ref={ref}
@@ -229,13 +235,16 @@ export const ThermalReceipt = forwardRef<HTMLDivElement, ThermalReceiptProps>(
         {/* Cabeçalho dos Itens */}
         <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 900, marginBottom: '4px' }}>
           <span>DESCRIÇÃO</span>
-          <span>VALOR</span>
+          <span>QTDE</span>
         </div>
         <div style={{ borderTop: '1px solid #000', marginBottom: '4px' }} />
 
         {/* Itens */}
         {items.length > 0 ? (
-          items.map((item, index) => (
+          items.map((item, index) => {
+            const q = Number(item.quantity);
+            const qtyDisplay = Number.isFinite(q) && q > 0 ? Math.floor(q) : 1;
+            return (
             <div
               key={index}
               style={{
@@ -254,11 +263,14 @@ export const ThermalReceipt = forwardRef<HTMLDivElement, ThermalReceiptProps>(
                   paddingRight: '8px',
                 }}
               >
-                {item.quantity}x {item.description}
+                {item.description}
               </span>
-              <span style={{ whiteSpace: 'nowrap', fontWeight: heavy }}>{formatCurrency(item.price)}</span>
+              <span style={{ whiteSpace: 'nowrap', fontWeight: heavy, minWidth: '2.5em', textAlign: 'right' }}>
+                {qtyDisplay}
+              </span>
             </div>
-          ))
+            );
+          })
         ) : (
           <div style={{ textAlign: 'center', fontWeight: heavy, color: black }}>
             Nenhum item
@@ -272,7 +284,7 @@ export const ThermalReceipt = forwardRef<HTMLDivElement, ThermalReceiptProps>(
         <div style={{ marginBottom: '8px', fontWeight: heavy }}>
           <div style={{ display: 'flex', justifyContent: 'space-between' }}>
             <span style={{ fontWeight: 900 }}>Qtde. Itens:</span>
-            <span style={{ fontWeight: heavy }}>{items.length}</span>
+            <span style={{ fontWeight: heavy }}>{totalUnits > 0 ? totalUnits : items.length}</span>
           </div>
           <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 900, fontSize: '14px' }}>
             <span>TOTAL R$:</span>

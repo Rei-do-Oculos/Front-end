@@ -43,6 +43,29 @@ const buildLogoUrl = (logoPath: string | null | undefined): string | null => {
   return import.meta.env.DEV ? `/${path}` : `${API_BASE}/${path}`;
 };
 
+/** Soma das quantidades no pivot (mesma regra do backend: mín. 1 por linha). */
+function laboratoryProductsQuantityForOrder(order: ServiceOrder): number {
+  const raw = order.laboratory_lenses;
+  const lines: Array<{ quantity?: number }> = Array.isArray(raw)
+    ? raw
+    : Object.values((raw as Record<string, { quantity?: number }>) || {});
+  if (lines.length > 0) {
+    return lines.reduce((sum, row) => {
+      const q = Number(row?.quantity);
+      return sum + (Number.isFinite(q) && q > 0 ? q : 1);
+    }, 0);
+  }
+  const apiQty = Number(order.laboratory_products_quantity);
+  if (Number.isFinite(apiQty) && apiQty > 0) {
+    return apiQty;
+  }
+  const cost = Number(order.laboratory_products_cost);
+  if (Number.isFinite(cost) && cost > 0) {
+    return 1;
+  }
+  return Number.isFinite(apiQty) ? apiQty : 0;
+}
+
 export const LaboratoryDetail: React.FC = () => {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -76,7 +99,14 @@ export const LaboratoryDetail: React.FC = () => {
   const [historyReportData, setHistoryReportData] = useState<{
     total_os: number;
     total_cost: number;
-    top_lenses: Array<{ id: number; name: string; count: number; total_cost: number }>;
+    top_lenses: Array<{
+      id: number;
+      name: string;
+      count: number;
+      quantity_sold?: number;
+      os_count?: number;
+      total_cost: number;
+    }>;
     laboratory: { id: number; name: string };
   } | null>(null);
   const [generatingPdf, setGeneratingPdf] = useState(false);
@@ -863,14 +893,15 @@ export const LaboratoryDetail: React.FC = () => {
                             onSort={handleHistorySort}
                             className="px-6 py-4"
                           />
-                          <th className="px-6 py-4 text-right text-[10px] font-black uppercase text-slate-400 tracking-widest">Valor</th>
+                          <th className="px-6 py-4 text-right text-[10px] font-black uppercase text-slate-400 tracking-widest">Valor OS</th>
+                          <th className="px-6 py-4 text-right text-[10px] font-black uppercase text-slate-400 tracking-widest">Custo (lab)</th>
                           <th className="px-6 py-4 text-center text-[10px] font-black uppercase text-slate-400 tracking-widest">Ações</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-50">
                         {loadingHistory ? (
                           <tr>
-                            <td colSpan={6} className="px-6 py-12 text-center">
+                            <td colSpan={7} className="px-6 py-12 text-center">
                               <div className="flex items-center justify-center gap-3">
                                 <Loader2 size={20} className="animate-spin" style={{ color: 'var(--store-color)' }} />
                                 <span className="text-sm text-slate-500">Carregando histórico...</span>
@@ -879,7 +910,7 @@ export const LaboratoryDetail: React.FC = () => {
                           </tr>
                         ) : historyOrdersList.length === 0 ? (
                           <tr>
-                            <td colSpan={6} className="px-6 py-12 text-center">
+                            <td colSpan={7} className="px-6 py-12 text-center">
                               <div className="flex flex-col items-center gap-4">
                                 <History size={48} className="text-slate-200" />
                                 <p className="text-sm text-slate-500">Nenhuma OS encontrada para este laboratório</p>
@@ -887,7 +918,11 @@ export const LaboratoryDetail: React.FC = () => {
                             </td>
                           </tr>
                         ) : (
-                          historyOrdersList.map((order) => (
+                          historyOrdersList.map((order) => {
+                            const labProductsCost = Number(order.laboratory_products_cost);
+                            const labCostDisplay = Number.isFinite(labProductsCost) ? labProductsCost : 0;
+                            const labQtyDisplay = laboratoryProductsQuantityForOrder(order);
+                            return (
                             <tr key={order.id} className="group hover:bg-slate-50/50 transition-colors">
                               <td className="px-6 py-4">
                                 <span className="text-sm font-bold" style={{ color: 'var(--store-color)' }}>
@@ -928,6 +963,12 @@ export const LaboratoryDetail: React.FC = () => {
                                   {formatCurrency(order.price || 0)}
                                 </span>
                               </td>
+                              <td className="px-6 py-4 text-right">
+                                <span className="text-sm font-semibold text-slate-700">
+                                  {formatCurrency(labCostDisplay)}
+                                  <span className="text-slate-400 font-normal"> x{labQtyDisplay}</span>
+                                </span>
+                              </td>
                               <td className="px-6 py-4">
                                 <div className="flex items-center justify-center">
                                   <button 
@@ -946,7 +987,8 @@ export const LaboratoryDetail: React.FC = () => {
                                 </div>
                               </td>
                             </tr>
-                          ))
+                            );
+                          })
                         )}
                       </tbody>
                     </table>

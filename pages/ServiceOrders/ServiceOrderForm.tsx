@@ -22,7 +22,8 @@ import { canShowNfeOptionInReceiptModal } from '../../utils/serviceOrderNfeEligi
 import { serviceOrderSchema, formatZodErrors } from '../../schemas/serviceOrder.schema';
 import { ReceiptModal } from '../../components/ReceiptModal';
 import { ReceiptData } from '../../components/ThermalReceipt';
-import { persistedPaymentsFromServiceOrder } from '../../utils/receiptPaymentsFromOrder';
+import { persistedPaymentsFromServiceOrder, receiptPaymentLinesFromOrder } from '../../utils/receiptPaymentsFromOrder';
+import { buildReceiptItemsFromOrder } from '../../utils/receiptItemsFromOrder';
 import { EntryReceiptModal } from '../../components/EntryReceiptModal';
 import { EntryReceiptData, EntryReceiptPaymentLine } from '../../components/EntryReceipt';
 import { NFeSection } from '../../components/NFeSection';
@@ -261,6 +262,8 @@ export const ServiceOrderForm: React.FC = () => {
   const [showLabProductValues, setShowLabProductValues] = useState(false);
   const [pendingPayload, setPendingPayload] = useState<any>(null);
   const [createdOsNumber, setCreatedOsNumber] = useState<number | null>(null);
+  /** OS já salva na API — usada só na primeira impressão do recibo (nº real + quantidades). */
+  const [createdOrderForFirstReceipt, setCreatedOrderForFirstReceipt] = useState<ServiceOrder | null>(null);
   /** Próximo número de OS da loja selecionada (somente criação). */
   const [nextOsPreview, setNextOsPreview] = useState<number | null>(null);
   const [nextOsPreviewLoading, setNextOsPreviewLoading] = useState(false);
@@ -765,8 +768,58 @@ export const ServiceOrderForm: React.FC = () => {
     const storesList = Array.isArray(stores) ? stores : [];
     const clientsList = Array.isArray(clients) ? clients : [];
     const framesList = Array.isArray(frames) ? frames : [];
-    
-    // Buscar dados completos da loja
+
+    // Primeira impressão após criar a OS: dados já salvos na API (nº OS real + quantidades corretas)
+    if (createdOrderForFirstReceipt) {
+      const order = createdOrderForFirstReceipt;
+      const totalPrice =
+        typeof order.price === 'number' ? order.price : parseFloat(String(order.price)) || 0;
+      const payLines = receiptPaymentLinesFromOrder(order);
+      const items = buildReceiptItemsFromOrder(order);
+      const storeData = storesList.find((s) => String(s.id) === String(order.store_id));
+      const clientData = clientsList.find((c) => c.id === order.client_id) || order.client;
+
+      const doctorName = String(order.doctor_name ?? '').trim();
+      const doctorCrm = String(order.doctor_crm ?? '').trim();
+      const prescriptionDate = order.prescription_date || null;
+
+      return {
+        osNumber: order.os_number,
+        date: new Date(order.created_at).toLocaleString('pt-BR'),
+        expectedPickupDate: order.expected_pickup_date || null,
+        seller: order.user?.name || user?.name || 'Vendedor',
+        ...(doctorName && doctorCrm ? { doctorName, doctorCrm, ...(prescriptionDate ? { prescriptionDate } : {}) } : {}),
+        store: {
+          name: storeData?.name || order.store?.name || 'Loja',
+          fancy_name: storeData?.fancy_name || order.store?.fancy_name || order.store?.name || 'Loja',
+          receipt_header: storeData?.receipt_header ?? order.store?.receipt_header ?? null,
+          cnpj: storeData?.cnpj || order.store?.cnpj || '00.000.000/0000-00',
+          ie: storeData?.ie ?? order.store?.ie ?? null,
+          logradouro: storeData?.logradouro || order.store?.logradouro || '',
+          numero: storeData?.numero || order.store?.numero || '',
+          bairro: storeData?.bairro || order.store?.bairro || '',
+          municipio: storeData?.municipio || order.store?.municipio || '',
+          uf: storeData?.uf || order.store?.uf || '',
+          telefone: storeData?.telefone ?? order.store?.telefone ?? null,
+        },
+        client: {
+          name: clientData?.name || order.client?.name || 'Cliente',
+          document: clientData?.document || order.client?.document || null,
+        },
+        items,
+        total: totalPrice,
+        paymentMethod: payLines.length > 0 ? null : (order.payment_method || null),
+        installments:
+          payLines.length > 0
+            ? null
+            : order.payment_method === 'credit_card' && order.installments
+              ? order.installments
+              : null,
+        payments: payLines.length > 0 ? payLines : undefined,
+      };
+    }
+
+    // Pré-visualização antes de salvar (não usado no fluxo atual de criação sem lab)
     const storeData = storesList.find(s => String(s.id) === formData.store_id);
     const clientData = clientsList.find(c => String(c.id) === formData.client_id);
     
@@ -1029,6 +1082,16 @@ export const ServiceOrderForm: React.FC = () => {
 
   // Callback quando confirma no modal de recibo
   const handleReceiptConfirm = async (type: 'receipt' | 'nfce' | 'nfe' | 'none') => {
+    // Primeira impressão: OS já foi salva antes de abrir o modal
+    if (createdOrderForFirstReceipt) {
+      setShowReceiptModal(false);
+      setCreatedOrderForFirstReceipt(null);
+      setCreatedOsNumber(null);
+      setPendingPayload(null);
+      navigate('/service-orders');
+      return;
+    }
+
     if (!pendingPayload) return;
 
     // NFC-e/NF-e: a OS já foi salva e a nota emitida dentro de onGenerateInvoice
@@ -1056,6 +1119,16 @@ export const ServiceOrderForm: React.FC = () => {
 
   // Emitir NFC-e ou NF-e e retornar cupom/PDF (chamado pelo ReceiptModal)
   const handleGenerateInvoice = async (modelo: 55 | 65, options?: { includeDocument?: boolean }): Promise<{ pdfBase64?: string; invoice?: import('../../services/api/invoices').Invoice } | null> => {
+    if (createdOrderForFirstReceipt?.id) {
+      const inv = await invoicesService.generateFromServiceOrder(
+        String(createdOrderForFirstReceipt.id),
+        true,
+        modelo,
+        undefined,
+        options?.includeDocument ?? false
+      );
+      return { pdfBase64: inv.pdf_base64 ?? undefined, invoice: inv };
+    }
     if (!pendingPayload) return null;
     const os = await performSave(pendingPayload);
     if (!os?.id) return null;
@@ -1222,13 +1295,20 @@ export const ServiceOrderForm: React.FC = () => {
       delete payload.payment_date;
     }
 
-    // No modo de criação (sem laboratório), mostrar modal de recibo antes de salvar
+    // Criação sem laboratório: salvar primeiro para o recibo mostrar nº real da OS e quantidades da API
     if (isCreateMode && !formData.send_to_lab) {
-      // Gerar número da OS provisório (será substituído pelo real após salvar)
-      const provisionalOsNumber = Date.now() % 10000;
-      setCreatedOsNumber(provisionalOsNumber);
-      setPendingPayload(payload);
-      setShowReceiptModal(true);
+      setSaving(true);
+      try {
+        const created = await performSave(payload);
+        if (created) {
+          setCreatedOrderForFirstReceipt(created);
+          setCreatedOsNumber(created.os_number);
+          setPendingPayload(null);
+          setShowReceiptModal(true);
+        }
+      } finally {
+        setSaving(false);
+      }
       return;
     }
 
@@ -2564,10 +2644,11 @@ export const ServiceOrderForm: React.FC = () => {
             setShowReceiptModal(false);
             setPendingPayload(null);
             setCreatedOsNumber(null);
+            setCreatedOrderForFirstReceipt(null);
           }}
           onConfirm={handleReceiptConfirm}
           receiptData={prepareReceiptData(createdOsNumber)}
-          order={formData.client_id ? { id: 0, client_id: parseInt(formData.client_id), client: null } as any : null}
+          order={createdOrderForFirstReceipt ?? (formData.client_id ? { id: 0, client_id: parseInt(formData.client_id), client: null } as any : null)}
           loading={saving}
           onGenerateInvoice={handleGenerateInvoice}
           canGenerateInvoice={

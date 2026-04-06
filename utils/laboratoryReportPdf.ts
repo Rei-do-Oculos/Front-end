@@ -13,6 +13,8 @@ export interface LaboratoryReportData {
     id: number;
     name: string;
     count: number;
+    quantity_sold?: number;
+    os_count?: number;
     total_cost: number;
   }>;
   laboratory: {
@@ -43,7 +45,7 @@ const generateReportContent = (
     : 'Todo o histórico';
 
   // Converter para array se vier como objeto indexado numericamente
-  let topLenses: Array<{ id: number; name: string; count: number; total_cost: number }> = [];
+  let topLenses: Array<{ id: number; name: string; count: number; quantity_sold?: number; total_cost: number }> = [];
   
   if (Array.isArray(report.top_lenses)) {
     topLenses = report.top_lenses;
@@ -87,7 +89,7 @@ const generateReportContent = (
       <thead>
         <tr style="background: #f3f4f6; border-left: 4px solid ${color};">
           <th style="padding: 10px; text-align: left; font-size: 11px; color: #374151;">Produto</th>
-          <th style="padding: 10px; text-align: center; font-size: 11px; color: #374151;">Qtd. OS</th>
+          <th style="padding: 10px; text-align: center; font-size: 11px; color: #374151;">Qtd. vendida</th>
           <th style="padding: 10px; text-align: right; font-size: 11px; color: #374151;">Custo Total</th>
         </tr>
       </thead>
@@ -95,7 +97,7 @@ const generateReportContent = (
         ${topLensesForTemplate.length > 0 ? topLensesForTemplate.map((l, i) => `
           <tr style="${i % 2 ? 'background: #f9fafb;' : ''}">
             <td style="padding: 10px; border: 1px solid #e5e7eb;">${l.name || ''}</td>
-            <td style="padding: 10px; text-align: center; border: 1px solid #e5e7eb;">${l.count || 0}</td>
+            <td style="padding: 10px; text-align: center; border: 1px solid #e5e7eb;">${l.quantity_sold ?? l.count ?? 0}</td>
             <td style="padding: 10px; text-align: right; border: 1px solid #e5e7eb;">${formatCurrency(l.total_cost || 0)}</td>
           </tr>
         `).join('') : `

@@ -49,6 +49,10 @@ export interface ServiceOrder {
   tinting: boolean;
   // Valores
   price: number;
+  /** Soma do custo dos produtos de laboratório na OS (preço de custo × quantidade por linha). */
+  laboratory_products_cost?: number;
+  /** Soma das quantidades das linhas de produto de laboratório na OS. */
+  laboratory_products_quantity?: number;
   /** Soma das parcelas "na retirada" ainda não recebidas (pagamento parcial). Ausente em respostas antigas. */
   outstanding_pickup_amount?: number;
   payment_method: 'credit_card' | 'debit_card' | 'cash' | 'pix' | 'on_pickup' | 'permuta' | null;

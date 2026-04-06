@@ -7,8 +7,8 @@
  * - "Aro de uso" aparece quando não há armação mas há laboratório (rim_use está preenchido).
  * - Se não houver nenhum item, cai no genérico "Serviço Óptico".
  *
- * O valor total é dividido igualmente entre os itens para exibição.
- * (O recibo não detalha custo por produto — só distribui o total.)
+ * O total da OS é distribuído por linha em `price` (unitário) para compatibilidade com NFC-e;
+ * o recibo térmico mostra só produto e quantidade por linha, não valor unitário.
  */
 export interface ReceiptLineItem {
   description: string;
@@ -43,12 +43,17 @@ export function buildReceiptItemsFromOrder(
 
   const lines: ReceiptLineItem[] = [];
 
+  const parseLensQty = (lens: any): number => {
+    const raw = lens?.quantity ?? lens?.pivot?.quantity;
+    const n = typeof raw === 'string' ? parseInt(raw.trim(), 10) : Number(raw);
+    if (!Number.isFinite(n) || n < 1) return 1;
+    return Math.min(999, Math.floor(n));
+  };
+
   // Lentes de laboratório (ex.: Filtro Azul 1.56 x2)
   labLenses.forEach((lens: any) => {
     const name = lens.name || lens.description || 'Lente';
-    // O backend serializa a quantity do pivot diretamente no objeto (não aninhado)
-    const qty = lens.quantity ?? lens.pivot?.quantity ?? 1;
-    lines.push({ description: name, quantity: Number(qty) || 1, price: 0 });
+    lines.push({ description: name, quantity: parseLensQty(lens), price: 0 });
   });
 
   // Armações do cadastro

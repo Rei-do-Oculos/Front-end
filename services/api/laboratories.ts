@@ -265,7 +265,14 @@ class LaboratoriesService {
   }): Promise<{
     total_os: number;
     total_cost: number;
-    top_lenses: Array<{ id: number; name: string; count: number; total_cost: number }>;
+    top_lenses: Array<{
+      id: number;
+      name: string;
+      count: number;
+      quantity_sold?: number;
+      os_count?: number;
+      total_cost: number;
+    }>;
     laboratory: { id: number; name: string };
     date_from: string | null;
     date_to: string | null;
@@ -275,7 +282,14 @@ class LaboratoriesService {
       data: {
         total_os: number;
         total_cost: number;
-        top_lenses: Array<{ id: number; name: string; count: number; total_cost: number }>;
+        top_lenses: Array<{
+          id: number;
+          name: string;
+          count: number;
+          quantity_sold?: number;
+          os_count?: number;
+          total_cost: number;
+        }>;
         laboratory: { id: number; name: string };
         date_from: string | null;
         date_to: string | null;
