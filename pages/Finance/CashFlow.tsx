@@ -184,6 +184,7 @@ export const CashFlow: React.FC = () => {
     if (storeIdForNavigation) params.set('store_id', storeIdForNavigation);
     if (filterDateFrom) params.set('date_from', filterDateFrom);
     if (filterDateTo) params.set('date_to', filterDateTo);
+    params.set('date_field', 'payment_date');
     params.set('payment_method', paymentMethod);
     navigate(`/service-orders?${params.toString()}`);
   };

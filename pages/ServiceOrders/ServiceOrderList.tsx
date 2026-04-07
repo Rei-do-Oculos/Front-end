@@ -136,6 +136,7 @@ export const ServiceOrderList: React.FC = () => {
   const [filterWarranty, setFilterWarranty] = useState('');
   const [filterDateFrom, setFilterDateFrom] = useState('');
   const [filterDateTo, setFilterDateTo] = useState('');
+  const [filterDateField, setFilterDateField] = useState<'created_at' | 'payment_date'>('created_at');
   /** paid | on_pickup | '' — casos “—” na coluna Pagamento: use o filtro Garantia */
   const [filterPaymentSituation, setFilterPaymentSituation] = useState('');
   const [filterPaymentMethod, setFilterPaymentMethod] = useState('');
@@ -147,6 +148,7 @@ export const ServiceOrderList: React.FC = () => {
     filterWarranty: string;
     filterDateFrom: string;
     filterDateTo: string;
+    filterDateField: 'created_at' | 'payment_date';
     filterPaymentSituation: string;
     filterPaymentMethod: string;
   }>({
@@ -156,6 +158,7 @@ export const ServiceOrderList: React.FC = () => {
     filterWarranty: '',
     filterDateFrom: '',
     filterDateTo: '',
+    filterDateField: 'created_at',
     filterPaymentSituation: '',
     filterPaymentMethod: '',
   });
@@ -172,6 +175,7 @@ export const ServiceOrderList: React.FC = () => {
     filterWarranty: appliedFilters.filterWarranty,
     filterDateFrom: appliedFilters.filterDateFrom,
     filterDateTo: appliedFilters.filterDateTo,
+    filterDateField: appliedFilters.filterDateField,
     filterPaymentSituation: appliedFilters.filterPaymentSituation,
     filterPaymentMethod: appliedFilters.filterPaymentMethod,
   });
@@ -188,6 +192,7 @@ export const ServiceOrderList: React.FC = () => {
     if (f.filterDateFrom || f.filterDateTo) {
       params.date_from = f.filterDateFrom || undefined;
       params.date_to = f.filterDateTo || undefined;
+      params.date_field = f.filterDateField || 'created_at';
     }
     if (f.filterPaymentSituation === 'paid' || f.filterPaymentSituation === 'on_pickup') {
       params.payment_situation = f.filterPaymentSituation;
@@ -203,8 +208,9 @@ export const ServiceOrderList: React.FC = () => {
     const qStore = searchParams.get('store_id') || '';
     const qFrom = searchParams.get('date_from') || '';
     const qTo = searchParams.get('date_to') || '';
+    const qDateField = (searchParams.get('date_field') || '').toLowerCase() === 'payment_date' ? 'payment_date' : 'created_at';
     const qMethod = searchParams.get('payment_method') || '';
-    if (!qStore && !qFrom && !qTo && !qMethod) return;
+    if (!qStore && !qFrom && !qTo && !qMethod && qDateField === 'created_at') return;
 
     const next = {
       searchTerm: '',
@@ -213,6 +219,7 @@ export const ServiceOrderList: React.FC = () => {
       filterWarranty: '',
       filterDateFrom: qFrom,
       filterDateTo: qTo,
+      filterDateField: qDateField as 'created_at' | 'payment_date',
       filterPaymentSituation: '',
       filterPaymentMethod: qMethod,
     };
@@ -223,6 +230,7 @@ export const ServiceOrderList: React.FC = () => {
     setFilterWarranty(next.filterWarranty);
     setFilterDateFrom(next.filterDateFrom);
     setFilterDateTo(next.filterDateTo);
+    setFilterDateField(next.filterDateField);
     setFilterPaymentSituation(next.filterPaymentSituation);
     setFilterPaymentMethod(next.filterPaymentMethod);
     setAppliedFilters(next);
@@ -281,6 +289,7 @@ export const ServiceOrderList: React.FC = () => {
         filterWarranty,
         filterDateFrom,
         filterDateTo,
+        filterDateField,
         filterPaymentSituation,
         filterPaymentMethod,
       };
@@ -302,6 +311,7 @@ export const ServiceOrderList: React.FC = () => {
     setFilterWarranty('');
     setFilterDateFrom('');
     setFilterDateTo('');
+    setFilterDateField('created_at');
     setFilterPaymentSituation('');
     setFilterPaymentMethod('');
     const empty = {
@@ -311,6 +321,7 @@ export const ServiceOrderList: React.FC = () => {
       filterWarranty: '',
       filterDateFrom: '',
       filterDateTo: '',
+      filterDateField: 'created_at' as const,
       filterPaymentSituation: '',
       filterPaymentMethod: '',
     };
@@ -512,7 +523,7 @@ export const ServiceOrderList: React.FC = () => {
       </div>
 
       <FilterSection onClear={handleClearFilters} onApply={handleApplyFilters}>
-        <div className="col-span-full grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="col-span-full grid grid-cols-1 md:grid-cols-4 gap-6">
           <Input 
             label="Nº OS / Cliente" 
             placeholder="Buscar..." 
@@ -530,6 +541,16 @@ export const ServiceOrderList: React.FC = () => {
             type="date"
             value={filterDateTo}
             onChange={(e) => setFilterDateTo(e.target.value)}
+          />
+          <SingleSelect
+            label="Tipo de data"
+            value={filterDateField}
+            onChange={(val) => setFilterDateField((val as 'created_at' | 'payment_date') || 'created_at')}
+            options={[
+              { value: 'created_at', label: 'Cadastro da OS' },
+              { value: 'payment_date', label: 'Pagamento' },
+            ]}
+            placeholder="Cadastro da OS"
           />
         </div>
         <div className="col-span-full grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">

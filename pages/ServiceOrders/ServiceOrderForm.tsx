@@ -1215,6 +1215,9 @@ export const ServiceOrderForm: React.FC = () => {
     const hasPaymentPartial = formData.use_partial_payments && formData.partial_payments.some(
       p => p.payment_method && p.amount && parseFloat(parseCurrency(p.amount)) > 0
     );
+    const hasImmediatePaymentInPartial = formData.use_partial_payments && formData.partial_payments.some(
+      p => p.payment_method && p.payment_method !== 'on_pickup'
+    );
     const partialSumValid = formData.use_partial_payments && formData.partial_payments.length > 0
       ? Math.abs(formData.partial_payments.reduce((s, p) => s + (p.amount ? parseFloat(parseCurrency(p.amount)) : 0), 0) - priceNum) < 0.01
       : false;
@@ -1247,6 +1250,15 @@ export const ServiceOrderForm: React.FC = () => {
     }
     if (!isWarranty && !hasPaymentSingle && !(formData.use_partial_payments && hasPaymentPartial && partialSumValid)) {
       customErrors.payment_method = 'Forma de pagamento é obrigatória.';
+    }
+    const requiresPaymentDate =
+      !isWarranty &&
+      (
+        (!formData.use_partial_payments && !!formData.payment_method && formData.payment_method !== 'on_pickup') ||
+        hasImmediatePaymentInPartial
+      );
+    if (requiresPaymentDate && !String(formData.payment_date || '').trim()) {
+      customErrors.payment_date = 'Data do pagamento é obrigatória.';
     }
     if (Object.keys(customErrors).length > 0) {
       const firstMsg = Object.values(customErrors)[0] || 'Verifique os campos obrigatórios.';
@@ -2343,10 +2355,11 @@ export const ServiceOrderForm: React.FC = () => {
                                 ? 'bg-slate-100 cursor-not-allowed'
                                 : ''
                             }
+                            error={errors.payment_date}
                           />
                         </div>
                         <p className="text-sm text-slate-600 max-w-md pb-2 leading-snug">
-                          Fluxo de caixa: em branco usa a data de cadastro da OS; preenchido, usa esta data.
+                          Obrigatória para pagamentos recebidos no ato (crédito, débito, dinheiro, PIX e permuta).
                         </p>
                       </div>
                     )}
@@ -2398,10 +2411,11 @@ export const ServiceOrderForm: React.FC = () => {
                           }}
                           disabled={isOtherStoreOrder || paymentAndPriceLocked}
                           className={(isOtherStoreOrder || paymentAndPriceLocked) ? 'bg-slate-100 cursor-not-allowed' : ''}
+                          error={errors.payment_date}
                         />
                       </div>
                       <p className="text-sm text-slate-600 max-w-md pb-2 leading-snug">
-                        Fluxo de caixa: em branco usa a data de cadastro da OS; preenchido, usa esta data.
+                        Obrigatória quando houver qualquer parcela recebida no ato.
                       </p>
                     </div>
                   )}
