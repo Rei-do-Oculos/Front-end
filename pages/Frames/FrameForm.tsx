@@ -114,15 +114,21 @@ export const FrameForm: React.FC = () => {
       if (isEditMode && id) {
         await updateFrame(id, formData);
         showSuccess('Armação atualizada!', 'A armação foi atualizada com sucesso.');
+        // Em edição, mantém redirecionamento para a listagem
+        setTimeout(() => {
+          navigate('/frames');
+        }, 1000);
       } else {
         await createFrame({ ...formData, store_id: selectedStore!.id });
         showSuccess('Armação criada!', 'A armação foi criada com sucesso.');
+        // Em criação, permanece na tela conforme solicitado
+        setFormData({
+          description: '',
+          code: '',
+          frame_type_id: 0,
+          gender: 'unissex',
+        });
       }
-
-      // Redirecionar após um pequeno delay para mostrar a notificação
-      setTimeout(() => {
-        navigate('/frames');
-      }, 1000);
     } catch (err: any) {
       console.error('Erro ao salvar armação:', err);
       const errorMessage = err.response?.data?.data?.errors 
