@@ -178,6 +178,16 @@ export const CashFlow: React.FC = () => {
     return String(osNumber).padStart(4, '0');
   };
 
+  const goToOrdersByPaymentMethod = (paymentMethod: 'credit_card' | 'debit_card' | 'cash' | 'pix' | 'permuta') => {
+    const params = new URLSearchParams();
+    const storeIdForNavigation = filterStore || (selectedStore?.id ? String(selectedStore.id) : '');
+    if (storeIdForNavigation) params.set('store_id', storeIdForNavigation);
+    if (filterDateFrom) params.set('date_from', filterDateFrom);
+    if (filterDateTo) params.set('date_to', filterDateTo);
+    params.set('payment_method', paymentMethod);
+    navigate(`/service-orders?${params.toString()}`);
+  };
+
   const formatDate = (dateString: string | null) => {
     if (!dateString) return '-';
     try {
@@ -423,23 +433,43 @@ export const CashFlow: React.FC = () => {
         </div>
       ) : (
         <>
-          {/* Totais por forma de pagamento: Cartão, Dinheiro, PIX, Permuta - compactos acima */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
-            <div className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm flex items-center gap-3">
+          {/* Totais por forma de pagamento: Crédito, Débito, Dinheiro, PIX e Permuta */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 mb-4">
+            <button
+              type="button"
+              onClick={() => goToOrdersByPaymentMethod('credit_card')}
+              className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm flex items-center gap-3 hover:shadow-md hover:border-blue-200 transition-all text-left"
+            >
               <div className="p-2 rounded-lg bg-blue-50 text-blue-600 shrink-0">
                 <CreditCard size={18} />
               </div>
               <div className="min-w-0">
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Cartão</p>
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Cartão Crédito</p>
                 <p className="text-lg font-black text-blue-600 truncate">
-                  {formatCurrency(
-                    ((dashboard?.revenue_by_payment_method?.credit_card ?? 0) +
-                      (dashboard?.revenue_by_payment_method?.debit_card ?? 0)) || 0
-                  )}
+                  {formatCurrency(dashboard?.revenue_by_payment_method?.credit_card ?? 0)}
                 </p>
               </div>
-            </div>
-            <div className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm flex items-center gap-3">
+            </button>
+            <button
+              type="button"
+              onClick={() => goToOrdersByPaymentMethod('debit_card')}
+              className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm flex items-center gap-3 hover:shadow-md hover:border-indigo-200 transition-all text-left"
+            >
+              <div className="p-2 rounded-lg bg-indigo-50 text-indigo-600 shrink-0">
+                <CreditCard size={18} />
+              </div>
+              <div className="min-w-0">
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Cartão Débito</p>
+                <p className="text-lg font-black text-indigo-600 truncate">
+                  {formatCurrency(dashboard?.revenue_by_payment_method?.debit_card ?? 0)}
+                </p>
+              </div>
+            </button>
+            <button
+              type="button"
+              onClick={() => goToOrdersByPaymentMethod('cash')}
+              className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm flex items-center gap-3 hover:shadow-md hover:border-green-200 transition-all text-left"
+            >
               <div className="p-2 rounded-lg bg-green-50 text-green-600 shrink-0">
                 <Banknote size={18} />
               </div>
@@ -449,8 +479,12 @@ export const CashFlow: React.FC = () => {
                   {formatCurrency(dashboard?.revenue_by_payment_method?.cash ?? 0)}
                 </p>
               </div>
-            </div>
-            <div className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm flex items-center gap-3">
+            </button>
+            <button
+              type="button"
+              onClick={() => goToOrdersByPaymentMethod('pix')}
+              className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm flex items-center gap-3 hover:shadow-md hover:border-red-200 transition-all text-left"
+            >
               <div 
                 className="p-2 rounded-lg shrink-0"
                 style={{ backgroundColor: 'var(--store-color-light)', color: 'var(--store-color)' }}
@@ -463,8 +497,12 @@ export const CashFlow: React.FC = () => {
                   {formatCurrency(dashboard?.revenue_by_payment_method?.pix ?? 0)}
                 </p>
               </div>
-            </div>
-            <div className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm flex items-center gap-3">
+            </button>
+            <button
+              type="button"
+              onClick={() => goToOrdersByPaymentMethod('permuta')}
+              className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm flex items-center gap-3 hover:shadow-md hover:border-amber-200 transition-all text-left"
+            >
               <div className="p-2 rounded-lg bg-amber-50 text-amber-600 shrink-0">
                 <RefreshCw size={18} />
               </div>
@@ -474,7 +512,7 @@ export const CashFlow: React.FC = () => {
                   {formatCurrency(dashboard?.revenue_by_payment_method?.permuta ?? 0)}
                 </p>
               </div>
-            </div>
+            </button>
           </div>
 
           {/* Cards Principais */}

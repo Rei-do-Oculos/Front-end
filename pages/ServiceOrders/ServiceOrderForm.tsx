@@ -34,6 +34,7 @@ import { formatIsoDatePtBr } from '../../utils/dateDisplay';
 import {
   buildPrescriptionLinesForEntryReceipt,
 } from '../../utils/entryReceiptPrescription';
+import { prescriptionGridFromServiceOrder } from '../../utils/prescriptionGridSource';
 import { styles } from '../../config/styles';
 
 // Função para formatar valor como moeda brasileira
@@ -907,6 +908,54 @@ export const ServiceOrderForm: React.FC = () => {
     const clientsList = Array.isArray(clients) ? clients : [];
     const framesList = Array.isArray(frames) ? frames : [];
     const laboratoriesList = Array.isArray(laboratories) ? laboratories : [];
+
+    // Primeira impressão após criar OS com laboratório: usar SEMPRE dados persistidos da API
+    if (createdOrderForFirstReceipt) {
+      const order = createdOrderForFirstReceipt;
+      const totalPrice =
+        typeof order.price === 'number' ? order.price : parseFloat(String(order.price)) || 0;
+      const payLines = receiptPaymentLinesFromOrder(order);
+      const items = buildReceiptItemsFromOrder(order).map((i) => ({
+        description: i.description,
+        quantity: i.quantity,
+      }));
+      const storeData = storesList.find((s) => String(s.id) === String(order.store_id));
+      const clientData = clientsList.find((c) => c.id === order.client_id) || order.client;
+      const prescriptionSource = prescriptionGridFromServiceOrder(order as any);
+      const prescriptionLines = buildPrescriptionLinesForEntryReceipt(prescriptionSource);
+
+      return {
+        osNumber: order.os_number,
+        date: new Date(order.created_at).toLocaleString('pt-BR'),
+        expectedPickupDate: order.expected_pickup_date || null,
+        store: {
+          name: storeData?.name || order.store?.name || 'Loja',
+          fancy_name: storeData?.fancy_name || order.store?.fancy_name || order.store?.name || 'Loja',
+          receipt_header: storeData?.receipt_header ?? order.store?.receipt_header ?? null,
+          logradouro: storeData?.logradouro || order.store?.logradouro || '',
+          numero: storeData?.numero || order.store?.numero || '',
+          telefone: storeData?.telefone ?? order.store?.telefone ?? null,
+        },
+        client: {
+          name: clientData?.name || order.client?.name || 'Cliente',
+          telefone: clientData?.phone || order.client?.phone || null,
+        },
+        items,
+        total: totalPrice,
+        paymentMethod: payLines.length > 0 ? null : (order.payment_method || null),
+        installments:
+          payLines.length > 0
+            ? null
+            : order.payment_method === 'credit_card' && order.installments
+              ? order.installments
+              : null,
+        payments: payLines.length > 0 ? payLines : undefined,
+        prescriptionLines,
+        doctorName: String(order.doctor_name ?? '').trim() || null,
+        doctorCrm: String(order.doctor_crm ?? '').trim() || null,
+        prescriptionDate: order.prescription_date || null,
+      };
+    }
     
     const storeData = storesList.find(s => String(s.id) === formData.store_id);
     const clientData = clientsList.find(c => String(c.id) === formData.client_id);
@@ -1319,6 +1368,7 @@ export const ServiceOrderForm: React.FC = () => {
         const createdOrder = await performSave(payload);
         const realOsNumber = createdOrder?.os_number ?? createdOrder?.id;
         if (realOsNumber) {
+          setCreatedOrderForFirstReceipt(createdOrder || null);
           setPendingPayload(null);
           setCreatedOsNumber(realOsNumber);
           setShowEntryReceiptModal(true);

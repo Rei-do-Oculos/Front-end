@@ -48,6 +48,40 @@ const toItemsArray = <T,>(value: T[] | Record<string, T> | null | undefined): T[
   return [];
 };
 
+function normalizePayments(p: unknown): Array<{ payment_method?: string | null }> {
+  if (!p) return [];
+  if (Array.isArray(p)) return p.filter(Boolean);
+  if (typeof p === 'object') return Object.values(p as Record<string, { payment_method?: string | null }>).filter(Boolean);
+  return [];
+}
+
+const PAYMENT_METHOD_LABELS: Record<string, string> = {
+  credit_card: 'Cartão de crédito',
+  debit_card: 'Cartão de débito',
+  cash: 'Dinheiro',
+  pix: 'PIX',
+  permuta: 'Permuta',
+  on_pickup: 'Na retirada',
+};
+
+function orderPaymentMethodLabel(order: ServiceOrder): string {
+  const methodsFromRows = normalizePayments((order as any).payments)
+    .map((p) => String(p.payment_method || '').trim())
+    .filter(Boolean);
+
+  if (methodsFromRows.length > 0) {
+    const unique = Array.from(new Set(methodsFromRows));
+    if (unique.length === 1) {
+      return PAYMENT_METHOD_LABELS[unique[0]] || unique[0];
+    }
+    return `Misto: ${unique.map((m) => PAYMENT_METHOD_LABELS[m] || m).join(' + ')}`;
+  }
+
+  const single = String(order.payment_method || '').trim();
+  if (!single) return '—';
+  return PAYMENT_METHOD_LABELS[single] || single;
+}
+
 export const ServiceOrderLabList: React.FC = () => {
   const navigate = useNavigate();
   const { showSuccess, showError } = useNotification();
@@ -968,13 +1002,14 @@ export const ServiceOrderLabList: React.FC = () => {
                   onSort={handleSort}
                   className="px-6 py-4"
                 />
+                <th className="px-6 py-4 text-center text-[10px] font-black uppercase text-slate-400 tracking-widest">Forma pgto</th>
                 <th className="px-6 py-4 text-center text-[10px] font-black uppercase text-slate-400 tracking-widest">Ações</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-50">
               {isLoading ? (
                 <tr>
-                  <td colSpan={10} className="px-6 py-12 text-center">
+                  <td colSpan={11} className="px-6 py-12 text-center">
                     <div className="flex items-center justify-center gap-3">
                       <Loader2 size={20} className="animate-spin" style={{ color: 'var(--store-color)' }} />
                       <span className="text-sm text-slate-500">Carregando ordens de serviço...</span>
@@ -983,7 +1018,7 @@ export const ServiceOrderLabList: React.FC = () => {
                 </tr>
               ) : (error || labListError) ? (
                 <tr>
-                  <td colSpan={10} className="px-6 py-12 text-center">
+                  <td colSpan={11} className="px-6 py-12 text-center">
                     <div className="border rounded-lg p-4" style={{ backgroundColor: 'var(--store-color-light)', borderColor: 'var(--store-color-opacity-20)' }}>
                       <p className="text-sm font-bold mb-1" style={{ color: 'var(--store-color-dark)' }}>Erro ao carregar ordens de serviço</p>
                       <p className="text-xs" style={{ color: 'var(--store-color)' }}>{(error || labListError)?.message || 'Erro desconhecido'}</p>
@@ -992,7 +1027,7 @@ export const ServiceOrderLabList: React.FC = () => {
                 </tr>
               ) : ordersList.length === 0 ? (
                 <tr>
-                  <td colSpan={10} className="px-6 py-12 text-center">
+                  <td colSpan={11} className="px-6 py-12 text-center">
                     <span className="text-sm text-slate-500">Nenhuma ordem de serviço do laboratório encontrada</span>
                   </td>
                 </tr>
@@ -1063,6 +1098,9 @@ export const ServiceOrderLabList: React.FC = () => {
                       </td>
                       <td className="px-6 py-4 text-center text-xs text-slate-500">
                         {formatDate(order.arrived_at)}
+                      </td>
+                      <td className="px-6 py-4 text-center">
+                        <span className="text-[11px] text-slate-500">{orderPaymentMethodLabel(order)}</span>
                       </td>
                       <td className="px-6 py-4">
                         <div className="flex items-center justify-center gap-2">

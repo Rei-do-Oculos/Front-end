@@ -239,6 +239,7 @@ export const ExpenseForm: React.FC = () => {
               value={formData.payment_method}
               onChange={(val) => handleFieldChange('payment_method', val || '')}
               options={PAYMENT_OPTIONS}
+              searchable
               placeholder="Selecione..."
             />
             <div>

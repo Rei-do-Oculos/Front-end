@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   DollarSign,
   Loader2,
@@ -11,6 +12,7 @@ import {
   ShoppingBag,
 } from 'lucide-react';
 import { Card, Button, Input, SingleSelect, MultiSelect, AccessDeniedCard } from '../../components/Common';
+import { useStore } from '../../contexts/StoreContext';
 import {
   financeService,
   OperationalFinanceApiResponse,
@@ -18,6 +20,8 @@ import {
 } from '../../services/api/finance';
 
 export const OperationalCashFlow: React.FC = () => {
+  const navigate = useNavigate();
+  const { selectedStore } = useStore();
   const [filterStore, setFilterStore] = useState<string>('');
   const [filterDateFrom, setFilterDateFrom] = useState<string>('');
   const [filterDateTo, setFilterDateTo] = useState<string>('');
@@ -137,6 +141,16 @@ export const OperationalCashFlow: React.FC = () => {
   const formatCurrency = (value: number) =>
     new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
 
+  const goToOrdersByPaymentMethod = (paymentMethod: 'credit_card' | 'debit_card' | 'cash' | 'pix' | 'permuta') => {
+    const params = new URLSearchParams();
+    const storeIdForNavigation = filterStore || (selectedStore?.id ? String(selectedStore.id) : '');
+    if (storeIdForNavigation) params.set('store_id', storeIdForNavigation);
+    if (filterDateFrom) params.set('date_from', filterDateFrom);
+    if (filterDateTo) params.set('date_to', filterDateTo);
+    params.set('payment_method', paymentMethod);
+    navigate(`/service-orders?${params.toString()}`);
+  };
+
   const storeOptions = useMemo(() => {
     const list = data?.stores ?? [];
     return [
@@ -238,19 +252,40 @@ export const OperationalCashFlow: React.FC = () => {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-            <div className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm flex items-center gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+            <button
+              type="button"
+              onClick={() => goToOrdersByPaymentMethod('credit_card')}
+              className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm flex items-center gap-3 hover:shadow-md hover:border-blue-200 transition-all text-left"
+            >
               <div className="p-2 rounded-lg bg-blue-50 text-blue-600 shrink-0">
                 <CreditCard size={18} />
               </div>
               <div className="min-w-0">
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Cartão</p>
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Cartão Crédito</p>
                 <p className="text-lg font-black text-blue-600 truncate">
-                  {formatCurrency((rpm?.credit_card ?? 0) + (rpm?.debit_card ?? 0))}
+                  {formatCurrency(rpm?.credit_card ?? 0)}
                 </p>
               </div>
-            </div>
-            <div className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm flex items-center gap-3">
+            </button>
+            <button
+              type="button"
+              onClick={() => goToOrdersByPaymentMethod('debit_card')}
+              className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm flex items-center gap-3 hover:shadow-md hover:border-indigo-200 transition-all text-left"
+            >
+              <div className="p-2 rounded-lg bg-indigo-50 text-indigo-600 shrink-0">
+                <CreditCard size={18} />
+              </div>
+              <div className="min-w-0">
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Cartão Débito</p>
+                <p className="text-lg font-black text-indigo-600 truncate">{formatCurrency(rpm?.debit_card ?? 0)}</p>
+              </div>
+            </button>
+            <button
+              type="button"
+              onClick={() => goToOrdersByPaymentMethod('cash')}
+              className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm flex items-center gap-3 hover:shadow-md hover:border-green-200 transition-all text-left"
+            >
               <div className="p-2 rounded-lg bg-green-50 text-green-600 shrink-0">
                 <Banknote size={18} />
               </div>
@@ -258,8 +293,12 @@ export const OperationalCashFlow: React.FC = () => {
                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Dinheiro</p>
                 <p className="text-lg font-black text-green-600 truncate">{formatCurrency(rpm?.cash ?? 0)}</p>
               </div>
-            </div>
-            <div className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm flex items-center gap-3">
+            </button>
+            <button
+              type="button"
+              onClick={() => goToOrdersByPaymentMethod('pix')}
+              className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm flex items-center gap-3 hover:shadow-md hover:border-red-200 transition-all text-left"
+            >
               <div
                 className="p-2 rounded-lg shrink-0"
                 style={{ backgroundColor: 'var(--store-color-light)', color: 'var(--store-color)' }}
@@ -272,8 +311,12 @@ export const OperationalCashFlow: React.FC = () => {
                   {formatCurrency(rpm?.pix ?? 0)}
                 </p>
               </div>
-            </div>
-            <div className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm flex items-center gap-3">
+            </button>
+            <button
+              type="button"
+              onClick={() => goToOrdersByPaymentMethod('permuta')}
+              className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm flex items-center gap-3 hover:shadow-md hover:border-amber-200 transition-all text-left"
+            >
               <div className="p-2 rounded-lg bg-amber-50 text-amber-600 shrink-0">
                 <Briefcase size={18} />
               </div>
@@ -281,7 +324,7 @@ export const OperationalCashFlow: React.FC = () => {
                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Permuta</p>
                 <p className="text-lg font-black text-amber-600 truncate">{formatCurrency(rpm?.permuta ?? 0)}</p>
               </div>
-            </div>
+            </button>
           </div>
         </>
       )}

@@ -816,6 +816,25 @@ export const SingleSelect: React.FC<{
     }
   }, [isOpen, searchable]);
 
+  useEffect(() => {
+    if (!isOpen) return;
+    const handlePointerDown = (event: MouseEvent | TouchEvent) => {
+      const target = event.target as Node | null;
+      if (!target) return;
+      const clickedButton = !!buttonRef.current?.contains(target);
+      const clickedDropdown = !!dropdownRef.current?.contains(target);
+      if (!clickedButton && !clickedDropdown) {
+        setIsOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handlePointerDown);
+    document.addEventListener('touchstart', handlePointerDown);
+    return () => {
+      document.removeEventListener('mousedown', handlePointerDown);
+      document.removeEventListener('touchstart', handlePointerDown);
+    };
+  }, [isOpen]);
+
   const selectedOption = options.find(opt => opt.value === value);
 
   // Quando onSearch existe, a busca é remota (API) - não filtrar localmente (permite buscar por CPF/telefone)
@@ -824,11 +843,6 @@ export const SingleSelect: React.FC<{
     : options;
 
   const dropdownContent = isOpen ? (
-    <>
-      <div
-        className="fixed inset-0 z-[100]"
-        onClick={() => setIsOpen(false)}
-      />
       <div
         ref={dropdownRef}
         className="fixed z-[110] bg-white border border-gray-100 rounded-lg shadow-lg max-h-72 overflow-auto"
@@ -868,7 +882,6 @@ export const SingleSelect: React.FC<{
           ))
         )}
       </div>
-    </>
   ) : null;
 
   const renderLabel = () => {

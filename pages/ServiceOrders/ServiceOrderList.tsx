@@ -15,7 +15,7 @@ import {
   canShowNfeOptionInReceiptModal,
   nfeEligibilitySnapshotFromServiceOrder,
 } from '../../utils/serviceOrderNfeEligibility';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { ReceiptModal } from '../../components/ReceiptModal';
 import { ReceiptData } from '../../components/ThermalReceipt';
 import { receiptPaymentLinesFromOrder } from '../../utils/receiptPaymentsFromOrder';
@@ -54,6 +54,14 @@ function countOrderPayments(order: ServiceOrder): number {
 }
 
 const PAID_AT_SALE_METHODS = new Set(['credit_card', 'debit_card', 'cash', 'pix', 'permuta']);
+const PAYMENT_METHOD_LABELS: Record<string, string> = {
+  credit_card: 'Cartão de crédito',
+  debit_card: 'Cartão de débito',
+  cash: 'Dinheiro',
+  pix: 'PIX',
+  permuta: 'Permuta',
+  on_pickup: 'Na retirada',
+};
 
 type PaymentBadgeResult = { label: string; variant: 'success' | 'warning' | 'info' | 'danger' };
 
@@ -84,8 +92,27 @@ function orderPaymentBadge(order: ServiceOrder): PaymentBadgeResult | null {
   return null;
 }
 
+function orderPaymentMethodLabel(order: ServiceOrder): string {
+  const methodsFromRows = normalizePayments((order as any).payments)
+    .map((p) => String(p.payment_method || '').trim())
+    .filter(Boolean);
+
+  if (methodsFromRows.length > 0) {
+    const unique = Array.from(new Set(methodsFromRows));
+    if (unique.length === 1) {
+      return PAYMENT_METHOD_LABELS[unique[0]] || unique[0];
+    }
+    return `Misto: ${unique.map((m) => PAYMENT_METHOD_LABELS[m] || m).join(' + ')}`;
+  }
+
+  const single = String(order.payment_method || '').trim();
+  if (!single) return '—';
+  return PAYMENT_METHOD_LABELS[single] || single;
+}
+
 export const ServiceOrderList: React.FC = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { user } = useAuth();
   const { showSuccess, showError } = useNotification();
   const { hasPermission, hasSuperAdminRole } = usePermission();
@@ -111,6 +138,7 @@ export const ServiceOrderList: React.FC = () => {
   const [filterDateTo, setFilterDateTo] = useState('');
   /** paid | on_pickup | '' — casos “—” na coluna Pagamento: use o filtro Garantia */
   const [filterPaymentSituation, setFilterPaymentSituation] = useState('');
+  const [filterPaymentMethod, setFilterPaymentMethod] = useState('');
   // Filtros aplicados - só atualizados ao clicar em "Aplicar Filtros"
   const [appliedFilters, setAppliedFilters] = useState<{
     searchTerm: string;
@@ -120,6 +148,7 @@ export const ServiceOrderList: React.FC = () => {
     filterDateFrom: string;
     filterDateTo: string;
     filterPaymentSituation: string;
+    filterPaymentMethod: string;
   }>({
     searchTerm: '',
     filterStore: '',
@@ -128,6 +157,7 @@ export const ServiceOrderList: React.FC = () => {
     filterDateFrom: '',
     filterDateTo: '',
     filterPaymentSituation: '',
+    filterPaymentMethod: '',
   });
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [sortBy, setSortBy] = useState<string | null>('created_at');
@@ -143,6 +173,7 @@ export const ServiceOrderList: React.FC = () => {
     filterDateFrom: appliedFilters.filterDateFrom,
     filterDateTo: appliedFilters.filterDateTo,
     filterPaymentSituation: appliedFilters.filterPaymentSituation,
+    filterPaymentMethod: appliedFilters.filterPaymentMethod,
   });
   const [orderToDelete, setOrderToDelete] = useState<ServiceOrder | null>(null);
   const [deleting, setDeleting] = useState(false);
@@ -161,8 +192,48 @@ export const ServiceOrderList: React.FC = () => {
     if (f.filterPaymentSituation === 'paid' || f.filterPaymentSituation === 'on_pickup') {
       params.payment_situation = f.filterPaymentSituation;
     }
+    if (f.filterPaymentMethod) {
+      params.payment_method = [f.filterPaymentMethod];
+    }
     return params;
   };
+
+  // Prefill via URL (ex.: vindo do Fluxo de Caixa)
+  useEffect(() => {
+    const qStore = searchParams.get('store_id') || '';
+    const qFrom = searchParams.get('date_from') || '';
+    const qTo = searchParams.get('date_to') || '';
+    const qMethod = searchParams.get('payment_method') || '';
+    if (!qStore && !qFrom && !qTo && !qMethod) return;
+
+    const next = {
+      searchTerm: '',
+      filterStore: qStore,
+      filterUser: '',
+      filterWarranty: '',
+      filterDateFrom: qFrom,
+      filterDateTo: qTo,
+      filterPaymentSituation: '',
+      filterPaymentMethod: qMethod,
+    };
+
+    setSearchTerm(next.searchTerm);
+    setFilterStore(next.filterStore);
+    setFilterUser(next.filterUser);
+    setFilterWarranty(next.filterWarranty);
+    setFilterDateFrom(next.filterDateFrom);
+    setFilterDateTo(next.filterDateTo);
+    setFilterPaymentSituation(next.filterPaymentSituation);
+    setFilterPaymentMethod(next.filterPaymentMethod);
+    setAppliedFilters(next);
+
+    const params = buildParamsFromFilters(next);
+    params.order_by = sortBy || 'created_at';
+    params.order_dir = sortDirection || 'desc';
+    params.per_page = perPage;
+    fetchServiceOrders(1, params);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
 
   // Carregar clientes para recibos
   useEffect(() => {
@@ -211,6 +282,7 @@ export const ServiceOrderList: React.FC = () => {
         filterDateFrom,
         filterDateTo,
         filterPaymentSituation,
+        filterPaymentMethod,
       };
       setAppliedFilters(next);
       const params = buildParamsFromFilters(next);
@@ -231,6 +303,7 @@ export const ServiceOrderList: React.FC = () => {
     setFilterDateFrom('');
     setFilterDateTo('');
     setFilterPaymentSituation('');
+    setFilterPaymentMethod('');
     const empty = {
       searchTerm: '',
       filterStore: '',
@@ -239,6 +312,7 @@ export const ServiceOrderList: React.FC = () => {
       filterDateFrom: '',
       filterDateTo: '',
       filterPaymentSituation: '',
+      filterPaymentMethod: '',
     };
     setAppliedFilters(empty);
     try {
@@ -458,7 +532,7 @@ export const ServiceOrderList: React.FC = () => {
             onChange={(e) => setFilterDateTo(e.target.value)}
           />
         </div>
-        <div className="col-span-full grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="col-span-full grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
           <SingleSelect
             label="Ótica"
             value={filterStore}
@@ -492,6 +566,20 @@ export const ServiceOrderList: React.FC = () => {
               { value: 'on_pickup', label: 'Retirada' },
             ]}
             placeholder="Todos"
+          />
+          <SingleSelect
+            label="Forma pgto"
+            value={filterPaymentMethod}
+            onChange={(val) => setFilterPaymentMethod(val)}
+            options={[
+              { value: 'credit_card', label: 'Cartão de crédito' },
+              { value: 'debit_card', label: 'Cartão de débito' },
+              { value: 'cash', label: 'Dinheiro' },
+              { value: 'pix', label: 'PIX' },
+              { value: 'permuta', label: 'Permuta' },
+              { value: 'on_pickup', label: 'Na retirada' },
+            ]}
+            placeholder="Todas"
           />
         </div>
       </FilterSection>
@@ -651,7 +739,10 @@ export const ServiceOrderList: React.FC = () => {
                       {(() => {
                         const pay = orderPaymentBadge(order);
                         return pay ? (
-                          <Badge variant={pay.variant}>{pay.label}</Badge>
+                          <div className="flex flex-col items-center gap-1">
+                            <Badge variant={pay.variant}>{pay.label}</Badge>
+                            <span className="text-[11px] text-slate-500">{orderPaymentMethodLabel(order)}</span>
+                          </div>
                         ) : (
                           <span className="text-xs text-slate-400">—</span>
                         );
