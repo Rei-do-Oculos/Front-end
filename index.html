@@ -14,13 +14,21 @@
     <link rel="apple-touch-icon" href="/icons/icon-192x192.png" />
     <title>Rei do Óculos - Gestão</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
+      /* Base um pouco maior: tudo em rem escala ~6% (text-sm, text-base, etc.) */
+      html {
+        font-size: 106.25%;
+      }
       body {
-        font-family: 'Inter', sans-serif;
+        font-family: 'Inter', system-ui, -apple-system, sans-serif;
+        font-weight: 500;
+        color: #0f172a;
         background-color: #f8f9fc;
         margin: 0;
         overflow: hidden;
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
       }
       #root:empty {
         display: flex;

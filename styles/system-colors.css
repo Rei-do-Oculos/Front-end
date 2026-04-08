@@ -3,6 +3,14 @@
  * Usa variáveis CSS definidas dinamicamente pelo Layout
  */
 
+/* ========== Tipografia global (complementa body em index.html) ==========
+   Ênfase explícita mais forte que o corpo (500). */
+#root strong,
+#root b {
+  font-weight: 700;
+  color: #020617;
+}
+
 /* Botões */
 .btn-primary {
   background-color: var(--store-color) !important;

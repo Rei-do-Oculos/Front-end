@@ -995,8 +995,8 @@ export const ServiceOrderLabList: React.FC = () => {
                   className="px-6 py-4"
                 />
                 <SortableHeader
-                  label="Chegou em"
-                  sortKey="arrived_at"
+                  label="Data de retirada"
+                  sortKey="expected_pickup_date"
                   currentSort={sortBy}
                   currentDirection={sortDirection}
                   onSort={handleSort}
@@ -1097,7 +1097,9 @@ export const ServiceOrderLabList: React.FC = () => {
                         {formatDate(order.sent_to_lab_at)}
                       </td>
                       <td className="px-6 py-4 text-center text-xs text-slate-500">
-                        {formatDate(order.arrived_at)}
+                        {formatDate(
+                          order.expected_pickup_date ?? (order as { expectedPickupDate?: string | null }).expectedPickupDate ?? null
+                        )}
                       </td>
                       <td className="px-6 py-4 text-center">
                         <span className="text-[11px] text-slate-500">{orderPaymentMethodLabel(order)}</span>
