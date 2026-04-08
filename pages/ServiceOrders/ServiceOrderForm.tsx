@@ -355,6 +355,7 @@ export const ServiceOrderForm: React.FC = () => {
       payment_method: string;
       amount: string;
       installments: string;
+      received_at?: string;
     }>,
   });
 
@@ -720,6 +721,7 @@ export const ServiceOrderForm: React.FC = () => {
                       payment_method: p.payment_method || '',
                       amount: formatFromNumber(p.amount),
                       installments: p.installments ? String(p.installments) : '1',
+                      received_at: p.received_at ? String(p.received_at).slice(0, 10) : (formOpenDayStr || ''),
                     }))
                   : [];
               })(),
@@ -1253,12 +1255,19 @@ export const ServiceOrderForm: React.FC = () => {
     }
     const requiresPaymentDate =
       !isWarranty &&
-      (
-        (!formData.use_partial_payments && !!formData.payment_method && formData.payment_method !== 'on_pickup') ||
-        hasImmediatePaymentInPartial
-      );
+      !formData.use_partial_payments &&
+      !!formData.payment_method &&
+      formData.payment_method !== 'on_pickup';
     if (requiresPaymentDate && !String(formData.payment_date || '').trim()) {
       customErrors.payment_date = 'Data do pagamento é obrigatória.';
+    }
+    if (formData.use_partial_payments) {
+      const hasMissingPerLineDate = formData.partial_payments.some(
+        (p) => p.payment_method && p.payment_method !== 'on_pickup' && !String(p.received_at || '').trim()
+      );
+      if (hasMissingPerLineDate) {
+        customErrors.payment_date = 'Informe a data em cada pagamento parcial recebido no ato.';
+      }
     }
     if (Object.keys(customErrors).length > 0) {
       const firstMsg = Object.values(customErrors)[0] || 'Verifique os campos obrigatórios.';
@@ -1316,7 +1325,7 @@ export const ServiceOrderForm: React.FC = () => {
       installments: formData.use_partial_payments ? null : (formData.payment_method === 'credit_card' && formData.installments 
         ? parseInt(formData.installments) 
         : null),
-      payment_date: isWarranty
+      payment_date: isWarranty || formData.use_partial_payments
         ? null
         : formData.payment_method === 'on_pickup'
           ? null
@@ -1344,6 +1353,7 @@ export const ServiceOrderForm: React.FC = () => {
               payment_method: p.payment_method as any,
               amount: parseFloat(parseCurrency(p.amount)),
               installments: p.payment_method === 'credit_card' && p.installments ? parseInt(p.installments) : null,
+              received_at: p.received_at ? String(p.received_at).trim() : null,
             }))
         : [],
     };
@@ -2272,6 +2282,7 @@ export const ServiceOrderForm: React.FC = () => {
                                 payment_method: '',
                                 amount: totalPrice > 0 ? totalPrice.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).replace('.', ',') : '',
                                 installments: '1',
+                                received_at: String(formData.payment_date || '').trim() || formOpenDayStr,
                               }]
                             : e.target.checked ? prev.partial_payments : [],
                         }));
@@ -2399,25 +2410,9 @@ export const ServiceOrderForm: React.FC = () => {
                 // Pagamentos parciais/mistos
                 <div className="space-y-4">
                   {!formData.warranty && (
-                    <div className="flex flex-wrap items-end gap-3 w-full max-w-full">
-                      <div className="w-48 shrink-0">
-                        <Input
-                          label="Data do pagamento"
-                          type="date"
-                          value={formData.payment_date}
-                          onChange={(e) => {
-                            if (isOtherStoreOrder || paymentAndPriceLocked) return;
-                            handleFieldChange('payment_date', e.target.value);
-                          }}
-                          disabled={isOtherStoreOrder || paymentAndPriceLocked}
-                          className={(isOtherStoreOrder || paymentAndPriceLocked) ? 'bg-slate-100 cursor-not-allowed' : ''}
-                          error={errors.payment_date}
-                        />
-                      </div>
-                      <p className="text-sm text-slate-600 max-w-md pb-2 leading-snug">
-                        Obrigatória quando houver qualquer parcela recebida no ato.
-                      </p>
-                    </div>
+                    <p className="text-sm text-slate-600 leading-snug">
+                      Em pagamento parcial, a data válida para o fluxo é a <strong>Data pgto</strong> de cada linha.
+                    </p>
                   )}
                   <div
                     className={`p-4 rounded-xl ${
@@ -2542,6 +2537,21 @@ export const ServiceOrderForm: React.FC = () => {
                               />
                             </div>
                           )}
+                          {payment.payment_method && payment.payment_method !== 'on_pickup' && (
+                            <div className="w-40">
+                              <Input
+                                label="Data pgto *"
+                                type="date"
+                                value={payment.received_at || ''}
+                                onChange={(e) => {
+                                  const newPayments = [...formData.partial_payments];
+                                  newPayments[index] = { ...newPayments[index], received_at: e.target.value };
+                                  setFormData({ ...formData, partial_payments: newPayments });
+                                }}
+                                disabled={isViewMode || isOtherStoreOrder || paymentAndPriceLocked}
+                              />
+                            </div>
+                          )}
                           {!isViewMode && !isOtherStoreOrder && !paymentAndPriceLocked && (
                             <button
                               type="button"
@@ -2583,14 +2593,6 @@ export const ServiceOrderForm: React.FC = () => {
                           </span>
                         </div>
                         {pickupAmount > 0 && (
-                          <div className="flex items-center justify-between px-3 py-2 bg-amber-50 border border-amber-200 rounded-lg">
-                            <span className="text-xs font-medium text-amber-800">Entra no caixa hoje:</span>
-                            <span className="text-xs font-bold text-amber-800">
-                              {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(paidToday)}
-                            </span>
-                          </div>
-                        )}
-                        {pickupAmount > 0 && (
                           <div className="flex items-center justify-between px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg">
                             <span className="text-xs font-medium text-slate-600">A receber na retirada:</span>
                             <span className="text-xs font-bold text-slate-600">
@@ -2622,6 +2624,7 @@ export const ServiceOrderForm: React.FC = () => {
                                 payment_method: '',
                                 amount: formattedRemaining,
                                 installments: '1',
+                                received_at: String(formData.payment_date || '').trim() || formOpenDayStr,
                               },
                             ],
                           });
