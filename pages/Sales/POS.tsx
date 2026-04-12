@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   Search, 
@@ -7,7 +7,6 @@ import {
   UserPlus, 
   Trash2, 
   Plus, 
-  Minus, 
   CreditCard, 
   Banknote, 
   QrCode, 
@@ -48,7 +47,6 @@ interface CartItem {
   id: number;
   description: string;
   code: string;
-  quantity: number;
 }
 
 type PaymentMethod = 'credit_card' | 'debit_card' | 'cash' | 'pix' | 'permuta' | 'parcial';
@@ -93,7 +91,7 @@ const parseCurrencyFormatted = (formatted: string): number => {
 
 export const POS: React.FC = () => {
   const navigate = useNavigate();
-  const { showSuccess, showError } = useNotification();
+  const { showSuccess, showError, showInfo } = useNotification();
   const { selectedStore, availableStores, setSelectedStore, storeColor, storeDisplayName, storeUnity, storeCnpj } = useStore();
   const { user, logout } = useAuth();
   const [storeDropdownOpen, setStoreDropdownOpen] = useState(false);
@@ -248,25 +246,23 @@ export const POS: React.FC = () => {
   }, []);
 
   const displayFrames = frames.slice(0, visibleProducts);
+  const cartFrameIds = useMemo(() => new Set(cart.map(c => c.id)), [cart]);
 
   const addToCart = (frame: Frame) => {
-    const existing = cart.find(item => item.id === frame.id);
-    if (existing) {
-      setCart(cart.map(item => (item.id === frame.id ? { ...item, quantity: item.quantity + 1 } : item)));
-    } else {
-      setCart([...cart, { id: frame.id, description: frame.description || '', code: frame.code || '', quantity: 1 }]);
+    if (cart.some(item => item.id === frame.id)) {
+      showInfo(
+        'Armação já nas compras',
+        'Cada armação é uma peça única. Para vender outra igual, cadastre outro registro de armação.'
+      );
+      return;
     }
+    setCart([
+      ...cart,
+      { id: frame.id, description: frame.description || '', code: frame.code || '' },
+    ]);
   };
 
   const removeFromCart = (id: number) => setCart(cart.filter(item => item.id !== id));
-
-  const updateQuantity = (id: number, delta: number) => {
-    setCart(
-      cart.map(item =>
-        item.id === id ? { ...item, quantity: Math.max(1, item.quantity + delta) } : item
-      )
-    );
-  };
 
   const selectClient = (client: Client) => {
     setSelectedClient(client);
@@ -335,12 +331,12 @@ export const POS: React.FC = () => {
   const prepareReceiptData = (osNumber: number, storeDataOverride?: FullStore | null): ReceiptData => {
     const storeData = storeDataOverride ?? fullStoreData;
     const totalPrice = parseCurrencyFormatted(formatCurrencyInput(totalValueRaw)) || 0;
-    const totalQty = Math.max(1, cart.reduce((s, i) => s + i.quantity, 0));
-    const pricePerUnit = totalPrice / totalQty;
+    const n = Math.max(1, cart.length);
+    const pricePerFrame = totalPrice / n;
     const items = cart.map(i => ({
       description: i.description,
-      quantity: i.quantity,
-      price: pricePerUnit,
+      quantity: 1,
+      price: pricePerFrame,
     }));
     const isPartial = paymentMethod === 'parcial';
     return {
@@ -648,11 +644,11 @@ export const POS: React.FC = () => {
         <div className="flex items-center gap-2 md:gap-4 w-full md:w-auto justify-between md:justify-start">
           <div className="flex items-center gap-2 md:gap-4">
             <div className="px-3 md:px-4 py-1.5 md:py-2 bg-white/20 rounded-lg md:rounded-xl border border-white/30">
-              <span className="text-white font-black text-sm md:text-lg tracking-wider">PDV</span>
+              <span className="text-white font-black text-base md:text-xl tracking-wider">PDV</span>
             </div>
             <button
               onClick={() => navigate('/')}
-              className="px-2 md:px-4 py-1.5 md:py-2 bg-white/20 hover:bg-white/30 border border-white/30 rounded-lg md:rounded-xl text-white font-semibold text-xs md:text-sm transition-all flex items-center gap-1 md:gap-2"
+              className="px-2 md:px-4 py-1.5 md:py-2 bg-white/20 hover:bg-white/30 border border-white/30 rounded-lg md:rounded-xl text-white font-bold text-sm md:text-base transition-all flex items-center gap-1 md:gap-2"
             >
               <Home size={14} className="md:w-4 md:h-4" /> <span className="hidden sm:inline">Dashboard</span>
             </button>
@@ -661,7 +657,7 @@ export const POS: React.FC = () => {
         {/* Centro: CNPJ - visível em md+ */}
         {storeCnpj && (
           <div className="hidden md:flex absolute left-1/2 -translate-x-1/2 items-center justify-center pointer-events-none">
-            <span className="text-xs md:text-sm font-medium text-white/90">CNPJ: {storeCnpj}</span>
+            <span className="text-sm md:text-base font-bold text-white drop-shadow-sm">CNPJ: {storeCnpj}</span>
           </div>
         )}
         {/* Direita: Loja → Data/Hora → Usuário */}
@@ -670,7 +666,7 @@ export const POS: React.FC = () => {
             <div className="relative" ref={storeDropdownRef}>
               <button
                 onClick={() => setStoreDropdownOpen(!storeDropdownOpen)}
-                className="px-2 md:px-3 py-1.5 md:py-2 bg-white/20 hover:bg-white/30 border border-white/30 rounded-lg text-white font-semibold text-xs flex items-center gap-1.5"
+                className="px-2 md:px-3 py-1.5 md:py-2 bg-white/20 hover:bg-white/30 border border-white/30 rounded-lg text-white font-bold text-sm flex items-center gap-1.5"
               >
                 <Store size={16} className="text-white shrink-0" />
                 <span className="max-w-[80px] truncate hidden sm:inline">{storeUnity || storeDisplayName || 'Loja'}</span>
@@ -706,19 +702,19 @@ export const POS: React.FC = () => {
           ) : availableStores.length === 1 && selectedStore ? (
             <div className="px-2 py-1.5 bg-white/20 border border-white/30 rounded-lg flex items-center gap-1.5">
               <Store size={16} className="text-white shrink-0" />
-              <span className="text-xs font-semibold text-white max-w-[100px] truncate hidden sm:inline">{storeUnity || storeDisplayName || selectedStore.fancy_name}</span>
+              <span className="text-sm font-bold text-white max-w-[120px] truncate hidden sm:inline">{storeUnity || storeDisplayName || selectedStore.fancy_name}</span>
             </div>
           ) : null}
           {/* Data/Hora (depois da loja) - compacto no mobile */}
-          <div className="flex items-center gap-1.5 sm:gap-2 text-[10px] sm:text-xs md:text-sm text-white">
+          <div className="flex items-center gap-1.5 sm:gap-2 text-xs sm:text-sm md:text-base text-white font-bold tabular-nums">
             <div className="flex items-center gap-2">
-              <Calendar size={16} className="text-white/80" />
-              <span className="font-bold">{currentDate}</span>
+              <Calendar size={18} className="text-white shrink-0" />
+              <span className="font-black tracking-tight">{currentDate}</span>
             </div>
-            <div className="w-px h-4 bg-white/30" />
+            <div className="w-px h-5 bg-white/40" />
             <div className="flex items-center gap-2">
-              <Clock size={16} className="text-white/80" />
-              <span className="font-black">{currentTime}</span>
+              <Clock size={18} className="text-white shrink-0" />
+              <span className="font-black tracking-tight">{currentTime}</span>
             </div>
           </div>
           <div className="relative" ref={userDropdownRef}>
@@ -762,11 +758,11 @@ export const POS: React.FC = () => {
       <div className="flex-1 min-h-0 flex flex-col lg:flex-row lg:items-start gap-3 sm:gap-4 md:gap-6 p-3 sm:p-4 md:p-6 overflow-y-auto overflow-x-hidden custom-scrollbar">
         <div className="flex-1 min-h-0 flex flex-col gap-3 md:gap-4 overflow-hidden min-w-0 lg:min-h-0">
           <div className="relative shrink-0">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={20} />
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" size={22} />
             <input
               type="text"
               placeholder="Pesquisar armação por nome ou código..."
-              className="w-full pl-12 pr-6 py-4 bg-slate-50 border-none rounded-xl text-sm font-medium focus:ring-4 focus:ring-[var(--store-color-opacity-20)] transition-all outline-none"
+              className="w-full pl-12 pr-6 py-4 bg-slate-50 border-none rounded-xl text-base sm:text-lg font-semibold text-slate-900 placeholder:text-slate-500 placeholder:font-semibold focus:ring-4 focus:ring-[var(--store-color-opacity-20)] transition-all outline-none"
               value={search}
               onChange={e => setSearch(e.target.value)}
             />
@@ -779,11 +775,17 @@ export const POS: React.FC = () => {
             ) : (
               <div className="flex-1 min-h-0 overflow-y-scroll overflow-x-hidden p-3 sm:p-4 pr-3 custom-scrollbar" style={{ scrollbarGutter: 'stable' }}>
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2 sm:gap-3 content-start">
-                  {displayFrames.map(frame => (
+                  {displayFrames.map(frame => {
+                    const inCart = cartFrameIds.has(frame.id);
+                    return (
                     <div key={frame.id} className="min-w-0">
                       <div
                         onClick={() => addToCart(frame)}
-                        className="bg-white p-2.5 sm:p-3 rounded-lg border border-slate-100 hover:border-[var(--store-color)] hover:shadow-md transition-all cursor-pointer group flex flex-col min-h-0"
+                        className={`p-2.5 sm:p-3 rounded-lg transition-all cursor-pointer group flex flex-col min-h-0 border-2 ${
+                          inCart
+                            ? 'bg-emerald-50/50 border-[var(--store-color)] shadow-sm'
+                            : 'bg-white border-slate-100 hover:border-[var(--store-color)] hover:shadow-md'
+                        }`}
                       >
                         <div className="flex items-start gap-1.5 mb-2">
                           <div
@@ -793,25 +795,31 @@ export const POS: React.FC = () => {
                             <Package size={14} />
                           </div>
                           {frame.frameType?.name && (
-                            <Badge variant="info" className="text-[8px] px-1 py-0 font-bold shrink-0 leading-tight">
+                            <Badge variant="info" className="text-[10px] px-1.5 py-0.5 font-black shrink-0 leading-tight">
                               {frame.frameType.name}
                             </Badge>
                           )}
                         </div>
-                        <h3 className="text-[11px] sm:text-xs font-bold text-slate-900 group-hover:text-[var(--store-color)] transition-colors line-clamp-2 leading-tight mb-1 min-h-[2.2em]">
+                        <h3 className="text-sm sm:text-[15px] font-black text-slate-900 group-hover:text-[var(--store-color)] transition-colors line-clamp-2 leading-snug mb-1 min-h-[2.5em]">
                           {frame.description || 'Sem nome'}
                         </h3>
                         {frame.code && (
-                          <p className="text-[9px] text-slate-400 font-semibold uppercase tracking-wide mb-2">Cód: {frame.code}</p>
+                          <p className="text-xs text-slate-600 font-bold uppercase tracking-wide mb-2">Cód: {frame.code}</p>
                         )}
-                        <div className="mt-auto flex justify-end">
-                          <div className="p-1.5 rounded-md shadow-sm" style={{ backgroundColor: storeColorCss }}>
-                            <Plus size={12} className="text-white" />
+                        <div className="mt-auto flex justify-between items-center gap-2">
+                          {inCart && (
+                            <span className="text-[10px] sm:text-xs font-black uppercase tracking-wide text-emerald-800">
+                              Nas compras
+                            </span>
+                          )}
+                          <div className="p-2 rounded-md shadow-sm ml-auto" style={{ backgroundColor: storeColorCss }}>
+                            <Plus size={14} className="text-white" strokeWidth={2.5} />
                           </div>
                         </div>
                       </div>
                     </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
             )}
@@ -819,10 +827,10 @@ export const POS: React.FC = () => {
               <div className="pt-4 pb-4 border-t border-slate-100 mt-4 shrink-0">
                 <button
                   onClick={() => setVisibleProducts(p => Math.min(p + 20, frames.length))}
-                  className="w-full py-3 text-white font-bold rounded-lg transition-all flex items-center justify-center gap-2"
+                  className="w-full py-3.5 text-base text-white font-black rounded-lg transition-all flex items-center justify-center gap-2"
                   style={{ backgroundColor: storeColorCss }}
                 >
-                  Ver Mais <Plus size={16} />
+                  Ver Mais <Plus size={18} strokeWidth={2.5} />
                 </button>
               </div>
             )}
@@ -836,13 +844,13 @@ export const POS: React.FC = () => {
               style={{ backgroundColor: `${storeColorCss}08` }}
             >
               <div className="flex items-center gap-2">
-                <div className="p-1.5 rounded-lg text-white" style={{ backgroundColor: storeColorCss }}>
-                  <ShoppingCart size={16} />
+                <div className="p-2 rounded-lg text-white" style={{ backgroundColor: storeColorCss }}>
+                  <ShoppingCart size={18} strokeWidth={2.5} />
                 </div>
-                <h2 className="text-base font-black tracking-tight">Compras</h2>
+                <h2 className="text-lg sm:text-xl font-black tracking-tight text-slate-900">Compras</h2>
               </div>
               <span
-                className="px-3 py-1 rounded-full text-[10px] font-black text-white"
+                className="px-3 py-1.5 rounded-full text-xs font-black text-white"
                 style={{ backgroundColor: storeColorCss }}
               >
                 {cart.length} ARMAÇÕES
@@ -851,33 +859,25 @@ export const POS: React.FC = () => {
             <div className="flex flex-col">
               <div className="p-3 md:p-4 space-y-2 md:space-y-3">
                 {cart.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center text-center opacity-30 py-6">
-                    <ShoppingCart size={36} className="mb-2" />
-                    <p className="text-xs font-bold uppercase tracking-widest">Compras Vazio</p>
-                    <p className="text-[10px] mt-0.5">Clique nas armações para adicionar</p>
+                  <div className="flex flex-col items-center justify-center text-center text-slate-500 py-6">
+                    <ShoppingCart size={40} className="mb-2 text-slate-400" strokeWidth={2} />
+                    <p className="text-sm font-black uppercase tracking-widest text-slate-700">Compras vazio</p>
+                    <p className="text-xs font-semibold mt-1 text-slate-600">Clique nas armações para adicionar</p>
                   </div>
                 ) : (
                   cart.map(item => (
-                    <div key={item.id} className="flex items-center gap-4 p-4 bg-slate-50/50 rounded-xl border border-slate-100 group">
+                    <div key={item.id} className="flex items-center gap-3 p-4 bg-slate-50/50 rounded-xl border border-slate-100 group">
                       <div className="flex-1 min-w-0">
-                        <p className="text-xs font-black text-slate-900 truncate">{item.description}</p>
-                        <p className="text-[10px] text-slate-400 font-bold mt-0.5">Cód: {item.code}</p>
-                      </div>
-                      <div className="flex items-center gap-2 bg-white px-2 py-1 rounded-lg border border-slate-200">
-                        <button onClick={() => updateQuantity(item.id, -1)} className="p-1 hover:text-[var(--store-color)] transition-colors">
-                          <Minus size={12} />
-                        </button>
-                        <span className="text-xs font-black w-4 text-center">{item.quantity}</span>
-                        <button onClick={() => updateQuantity(item.id, 1)} className="p-1 hover:text-[var(--store-color)] transition-colors">
-                          <Plus size={12} />
-                        </button>
+                        <p className="text-sm font-black text-slate-900 truncate">{item.description}</p>
+                        <p className="text-xs text-slate-600 font-bold mt-0.5">Cód: {item.code}</p>
                       </div>
                       <button
-                        title="Remover"
+                        type="button"
+                        title="Remover das compras"
                         onClick={() => removeFromCart(item.id)}
-                        className="p-2 text-slate-300 hover:text-[var(--store-color)] transition-colors shrink-0"
+                        className="p-2.5 rounded-lg border border-slate-200 bg-white text-slate-400 hover:text-red-600 hover:border-red-200 transition-colors shrink-0"
                       >
-                        <Trash2 size={16} />
+                        <Trash2 size={18} strokeWidth={2} />
                       </button>
                     </div>
                   ))
@@ -885,44 +885,44 @@ export const POS: React.FC = () => {
               </div>
               <div className="p-3 md:p-4 bg-slate-50 border-t border-slate-100 space-y-2.5 md:space-y-3 shrink-0">
               <div className="space-y-1.5">
-                <div className="flex items-center justify-between text-[10px] font-bold text-slate-500">
+                <div className="flex items-center justify-between text-xs font-black text-slate-700 uppercase tracking-wide">
                   <span>Cliente</span>
                   {!selectedClient && (
-                    <button onClick={() => setClientModalOpen(true)} className="flex items-center gap-1 hover:underline" style={{ color: storeColorCss }}>
-                      <UserPlus size={12} /> Buscar
+                    <button onClick={() => setClientModalOpen(true)} className="flex items-center gap-1.5 text-xs font-black hover:underline normal-case" style={{ color: storeColorCss }}>
+                      <UserPlus size={14} strokeWidth={2.5} /> Buscar
                     </button>
                   )}
                 </div>
                 {selectedClient ? (
                   <div className="p-3 bg-emerald-50 rounded-xl border-2 border-emerald-200 flex items-center justify-between">
                     <div className="min-w-0 flex-1">
-                      <p className="text-xs font-black text-emerald-900 truncate">{selectedClient.name}</p>
-                      <p className="text-[10px] text-emerald-600 truncate">{selectedClient.document}</p>
+                      <p className="text-sm font-black text-emerald-900 truncate">{selectedClient.name}</p>
+                      <p className="text-xs font-bold text-emerald-700 truncate">{selectedClient.document}</p>
                     </div>
                     <button onClick={removeClient} className="text-emerald-600 hover:text-red-600 shrink-0 ml-2">
                       <XCircle size={14} />
                     </button>
                   </div>
                 ) : (
-                  <div className="p-3 bg-white rounded-xl border border-slate-200 text-xs font-medium text-slate-400">
+                  <div className="p-3 bg-white rounded-xl border border-slate-200 text-sm font-semibold text-slate-700">
                     Consumidor Final (Venda Avulsa)
                   </div>
                 )}
               </div>
               <div className="space-y-1">
-                <label className="text-[10px] font-bold text-slate-500">Valor Total (R$)</label>
+                <label className="text-xs font-black text-slate-700 uppercase tracking-wide">Valor Total (R$)</label>
                 <Input
                   type="text"
                   inputMode="decimal"
                   placeholder="0,00"
                   value={totalValueRaw === '' ? '' : formatCurrencyInput(totalValueRaw)}
                   onChange={e => setTotalValueRaw(e.target.value.replace(/\D/g, ''))}
-                  className="!px-3 !py-2 !text-sm lg:!px-3 lg:!py-2"
+                  className="!px-3 !py-3 !text-base !font-semibold lg:!text-lg"
                 />
               </div>
               <div className="space-y-1 pt-2 border-t border-slate-200">
-                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wide">Forma de pagamento</p>
-                <div className="grid grid-cols-2 gap-1.5">
+                <p className="text-xs font-black text-slate-700 uppercase tracking-wide">Forma de pagamento</p>
+                <div className="grid grid-cols-2 gap-2">
                   {(
                     [
                       { key: 'credit_card' as const, icon: CreditCard, lines: ['Crédito'] as const },
@@ -948,17 +948,17 @@ export const POS: React.FC = () => {
                           ? 'Múltiplas formas (parcelas só no crédito)'
                           : lines.join(' ')
                       }
-                      className={`flex flex-row items-center justify-start gap-2 py-1.5 px-2 rounded-lg border transition-all text-left min-h-0 shadow-sm ${
+                      className={`flex flex-row items-center justify-start gap-2 py-2.5 px-2.5 rounded-xl border transition-all text-left min-h-[3rem] shadow-sm ${
                         paymentMethod === key ? 'text-white border-transparent' : 'bg-white border-slate-200 hover:border-[var(--store-color)]'
                       }`}
                       style={paymentMethod === key ? { backgroundColor: storeColorCss } : {}}
                     >
-                      <Icon size={15} className="shrink-0" strokeWidth={2} />
-                      <span className="text-[9px] font-bold leading-tight min-w-0 flex-1">
+                      <Icon size={18} className="shrink-0" strokeWidth={2.25} />
+                      <span className="text-xs font-black leading-tight min-w-0 flex-1">
                         {lines.map((line, i) => (
                           <span
                             key={line}
-                            className={i === 0 ? 'block' : 'block text-[8px] font-semibold opacity-90 leading-tight'}
+                            className={i === 0 ? 'block' : 'block text-[11px] font-bold opacity-95 leading-tight'}
                           >
                             {line}
                           </span>
@@ -969,11 +969,11 @@ export const POS: React.FC = () => {
                 </div>
                 {paymentMethod === 'credit_card' && (
                   <div className="space-y-0.5">
-                    <label className="text-[10px] font-bold text-slate-500">Parcelas</label>
+                    <label className="text-xs font-black text-slate-700">Parcelas</label>
                     <select
                       value={installments}
                       onChange={e => setInstallments(Number(e.target.value))}
-                      className="w-full px-2 py-1.5 bg-white border border-slate-200 rounded-md text-xs font-medium focus:ring-2 focus:ring-[var(--store-color)] focus:border-[var(--store-color)] outline-none transition-all"
+                      className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm font-bold focus:ring-2 focus:ring-[var(--store-color)] focus:border-[var(--store-color)] outline-none transition-all"
                     >
                       {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map(n => (
                         <option key={n} value={n}>{n}x</option>
@@ -984,14 +984,14 @@ export const POS: React.FC = () => {
                 {paymentMethod === 'parcial' && (
                   <div className="space-y-1.5">
                     <div className="flex items-center justify-between">
-                      <label className="text-[10px] font-bold text-slate-500">Pagamentos parciais</label>
+                      <label className="text-xs font-black text-slate-700">Pagamentos parciais</label>
                       <button
                         type="button"
                         onClick={() => {
                           setPartialPayments(p => [...p, { id: partialPaymentsId, method: 'credit_card', amountRaw: '', installments: 1 }]);
                           setPartialPaymentsId(i => i + 1);
                         }}
-                        className="text-[10px] font-bold flex items-center gap-1 hover:underline"
+                        className="text-xs font-black flex items-center gap-1 hover:underline"
                         style={{ color: storeColorCss }}
                         title="Adicionar forma de pagamento"
                       >
@@ -1016,7 +1016,7 @@ export const POS: React.FC = () => {
                                 )
                               )
                             }
-                            className="flex-1 min-w-0 px-2 py-1.5 text-xs font-medium border-0 rounded bg-slate-50 focus:ring-2 focus:ring-[var(--store-color)]"
+                            className="flex-1 min-w-0 px-2 py-2 text-sm font-bold border-0 rounded bg-slate-50 focus:ring-2 focus:ring-[var(--store-color)]"
                             title={paymentMethodLabel(row.method)}
                           >
                             <option value="credit_card">Cartão crédito</option>
@@ -1031,13 +1031,13 @@ export const POS: React.FC = () => {
                             placeholder="Valor"
                             value={row.amountRaw === '' ? '' : formatCurrencyInput(row.amountRaw)}
                             onChange={e => setPartialPayments(prev => prev.map(r => r.id === row.id ? { ...r, amountRaw: e.target.value.replace(/\D/g, '') } : r))}
-                            className="w-20 px-2 py-1.5 text-xs font-medium border rounded bg-slate-50 focus:ring-2 focus:ring-[var(--store-color)]"
+                            className="w-24 px-2 py-2 text-sm font-semibold border rounded bg-slate-50 focus:ring-2 focus:ring-[var(--store-color)]"
                           />
                           {row.method === 'credit_card' && (
                             <select
                               value={row.installments}
                               onChange={e => setPartialPayments(prev => prev.map(r => r.id === row.id ? { ...r, installments: Number(e.target.value) } : r))}
-                              className="w-12 px-1 py-1.5 text-xs font-medium border-0 rounded bg-slate-50"
+                              className="w-14 px-1 py-2 text-sm font-bold border-0 rounded bg-slate-50"
                               title="Parcelas"
                             >
                               {[1,2,3,4,5,6,7,8,9,10,11,12].map(n => <option key={n} value={n}>{n}x</option>)}
@@ -1060,7 +1060,7 @@ export const POS: React.FC = () => {
                       const sum = partialPayments.reduce((s, r) => s + (parseCurrencyFormatted(formatCurrencyInput(r.amountRaw)) || 0), 0);
                       const diff = Math.abs(total - sum) > 0.009;
                       return total > 0 && diff ? (
-                        <p className="text-[10px] font-bold text-amber-600">Soma dos valores deve ser R$ {total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                        <p className="text-xs font-bold text-amber-700">Soma dos valores deve ser R$ {total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
                       ) : null;
                     })()}
                   </div>
@@ -1068,7 +1068,7 @@ export const POS: React.FC = () => {
               </div>
               <Button
                 onClick={handleFinishSale}
-                className="w-full py-2.5 text-sm font-bold"
+                className="w-full py-3.5 text-base font-black"
                 style={{ backgroundColor: storeColorCss }}
                 disabled={
                   cart.length === 0 || !paymentMethod ||
@@ -1193,9 +1193,13 @@ export const POS: React.FC = () => {
                 <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Armações ({cart.length})</p>
                 <div className="space-y-2 max-h-60 overflow-y-auto">
                   {cart.map(item => (
-                    <div key={item.id} className="p-3 bg-slate-50 rounded-xl flex items-center justify-between">
-                      <p className="text-sm font-bold text-slate-900 truncate">{item.description}</p>
-                      <span className="text-xs font-bold">Qtd: {item.quantity}</span>
+                    <div key={item.id} className="p-3 bg-slate-50 rounded-xl flex items-center justify-between gap-2">
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-bold text-slate-900 truncate">{item.description}</p>
+                        {item.code ? (
+                          <p className="text-xs font-semibold text-slate-500 mt-0.5">Cód: {item.code}</p>
+                        ) : null}
+                      </div>
                     </div>
                   ))}
                 </div>

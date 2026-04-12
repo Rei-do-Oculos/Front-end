@@ -98,6 +98,7 @@ export const EntryReceipt = forwardRef<HTMLDivElement, EntryReceiptProps>(
 
     const showPrescriptionLines =
       includePrescriptionDetails && prescriptionLines.length > 0;
+    const prescriptionDatePtBr = formatIsoDatePtBr(prescriptionDate);
 
     return (
       <div
@@ -208,9 +209,9 @@ export const EntryReceipt = forwardRef<HTMLDivElement, EntryReceiptProps>(
             <div style={{ fontWeight: 900, marginBottom: '4px', fontSize: '12px' }}>Médico:</div>
             <div style={{ fontWeight: 800, fontSize: '11px' }}>{doctorName}</div>
             <div style={{ fontWeight: 800, fontSize: '11px' }}>CRM-{doctorCrm}</div>
-            {hasText(prescriptionDate) ? (
+            {prescriptionDatePtBr ? (
               <div style={{ fontWeight: 800, fontSize: '11px' }}>
-                Receita: {new Date(`${prescriptionDate}T00:00:00`).toLocaleDateString('pt-BR')}
+                Receita: {prescriptionDatePtBr}
               </div>
             ) : null}
           </div>

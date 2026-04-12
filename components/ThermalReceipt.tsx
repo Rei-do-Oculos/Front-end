@@ -150,6 +150,7 @@ export const ThermalReceipt = forwardRef<HTMLDivElement, ThermalReceiptProps>(
       const q = Number(item.quantity);
       return sum + (Number.isFinite(q) && q > 0 ? q : 0);
     }, 0);
+    const prescriptionDatePtBr = formatIsoDatePtBr(prescriptionDate);
 
     return (
       <div
@@ -299,9 +300,9 @@ export const ThermalReceipt = forwardRef<HTMLDivElement, ThermalReceiptProps>(
               <div style={{ fontWeight: 900, marginBottom: '4px' }}>Médico:</div>
               <div style={{ fontWeight: 900 }}>{doctorName}</div>
               <div style={{ fontWeight: heavy }}>CRM-{doctorCrm}</div>
-              {hasText(prescriptionDate) ? (
+              {prescriptionDatePtBr ? (
                 <div style={{ fontWeight: heavy }}>
-                  Receita: {new Date(`${prescriptionDate}T00:00:00`).toLocaleDateString('pt-BR')}
+                  Receita: {prescriptionDatePtBr}
                 </div>
               ) : null}
             </div>

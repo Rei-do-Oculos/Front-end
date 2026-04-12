@@ -30,7 +30,7 @@ import { NFeSection } from '../../components/NFeSection';
 import { invoicesService } from '../../services/api/invoices';
 import { serviceOrdersService } from '../../services/api/serviceOrders';
 import type { ServiceOrder } from '../../services/api/serviceOrders';
-import { formatIsoDatePtBr } from '../../utils/dateDisplay';
+import { formatIsoDatePtBr, toHtmlDateInputValue } from '../../utils/dateDisplay';
 import {
   buildPrescriptionLinesForEntryReceipt,
 } from '../../utils/entryReceiptPrescription';
@@ -674,7 +674,7 @@ export const ServiceOrderForm: React.FC = () => {
               addition: order.addition || '',
               doctor_name: order.doctor_name || '',
               doctor_crm: order.doctor_crm ? String(order.doctor_crm).replace(/\D/g, '') : '',
-              prescription_date: order.prescription_date || '',
+              prescription_date: toHtmlDateInputValue(order.prescription_date),
               far_dnp: order.far_dnp || '',
               near_dnp: order.near_dnp || '',
               // Armação
@@ -1227,10 +1227,12 @@ export const ServiceOrderForm: React.FC = () => {
     const isWarranty = !!formData.warranty;
 
     const customErrors: Record<string, string> = {};
-    if (hasLab && !hasLabProducts) {
-      customErrors.laboratory_lenses = 'Se laboratório selecionado, informe ao menos um produto de laboratório.';
-    } else if (!hasFrames && !(hasLab && hasLabProducts)) {
-      customErrors.frames = 'Selecione ao menos uma armação OU um laboratório com produto de laboratório.';
+    // OS comum: laboratório e produtos de laboratório obrigatórios (venda só de armações: PDV).
+    if (!hasLab) {
+      customErrors.laboratory_ids = 'Selecione ao menos um laboratório. Para venda somente de armações, use o PDV.';
+    }
+    if (!hasLabProducts) {
+      customErrors.laboratory_lenses = 'Selecione ao menos um produto de laboratório. Para venda somente de armações, use o PDV.';
     }
     if (hasLab && hasLabProducts && !String(formData.expected_pickup_date || '').trim()) {
       customErrors.expected_pickup_date = 'Informe a data de retirada (previsão no recibo para o cliente).';
@@ -1947,7 +1949,7 @@ export const ServiceOrderForm: React.FC = () => {
             </div>
           </div>
 
-          {/* Armações (ou laboratório com produtos) */}
+          {/* Armações (opcional na OS; laboratório + lentes de laboratório são obrigatórios — só armação: PDV) */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
             <MultiSelect
               label="Armações"
@@ -2014,11 +2016,15 @@ export const ServiceOrderForm: React.FC = () => {
                         send_to_lab: vals.length > 0,
                       };
                     });
+                    if (errors.laboratory_ids) {
+                      setErrors({ ...errors, laboratory_ids: '' });
+                    }
                   }}
                   options={laboratorySelectOptions}
                   placeholder="Selecione os laboratórios..."
                   searchable
                   disabled={isViewMode}
+                  error={errors.laboratory_ids}
                 />
                 {formData.laboratory_ids.length > 0 && formData.laboratory_lenses.length > 0 && (() => {
                   const selectedLenses = formData.laboratory_lenses
