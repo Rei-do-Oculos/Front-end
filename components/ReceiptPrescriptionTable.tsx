@@ -49,6 +49,16 @@ function fmtAxis(v: unknown): string {
   return `${s}º`;
 }
 
+/** Formata grau óptico: garante sinal + em valores positivos. */
+function fmtDiopter(v: unknown): string {
+  const s = strCell(v);
+  if (!s) return '';
+  if (s.startsWith('+') || s.startsWith('-')) return s;
+  const n = parseFloat(s.replace(',', '.'));
+  if (isNaN(n) || n === 0) return s;
+  return `+${s}`;
+}
+
 export const ReceiptPrescriptionTable: React.FC<ReceiptPrescriptionTableProps> = ({
   src,
   variant,
@@ -70,7 +80,7 @@ export const ReceiptPrescriptionTable: React.FC<ReceiptPrescriptionTableProps> =
   };
   const td: React.CSSProperties = {
     border: '1px solid #000',
-    padding: '2px 2px',
+    padding: isThermal ? '3px 2px' : '4px 2px',
     textAlign: 'center',
     fontWeight: 700,
     fontSize: fs.cell,
@@ -78,27 +88,31 @@ export const ReceiptPrescriptionTable: React.FC<ReceiptPrescriptionTableProps> =
   };
   const tdLabel: React.CSSProperties = {
     ...td,
-    textAlign: 'left',
+    textAlign: 'center',
     fontWeight: 800,
     whiteSpace: 'nowrap',
   };
+  const groupCellWidth = isThermal ? '14px' : '16px';
+  const groupLetterSize = isThermal ? 7 : 9;
 
-  const row = (
-    label: string,
-    esf: unknown,
-    cil: unknown,
-    eixo: unknown,
-    dnp: string,
-    altura = ''
-  ) => (
-    <tr key={label}>
-      <td style={tdLabel}>{label}</td>
-      <td style={td}>{strCell(esf)}</td>
-      <td style={td}>{strCell(cil)}</td>
-      <td style={td}>{fmtAxis(eixo)}</td>
-      <td style={td}>{dnp}</td>
-      <td style={td}>{altura}</td>
-    </tr>
+  const GroupCell = ({ label, rows }: { label: string; rows: number }) => (
+    <td
+      rowSpan={rows}
+      style={{
+        border: '1px solid #000',
+        textAlign: 'center',
+        verticalAlign: 'middle',
+        fontWeight: 900,
+        fontSize: groupLetterSize,
+        lineHeight: 1.6,
+        width: groupCellWidth,
+        padding: '2px 1px',
+      }}
+    >
+      {label.split('').map((ch, i) => (
+        <div key={i} style={{ lineHeight: 1.5 }}>{ch}</div>
+      ))}
+    </td>
   );
 
   const add = strCell(src.addition);
@@ -123,6 +137,8 @@ export const ReceiptPrescriptionTable: React.FC<ReceiptPrescriptionTableProps> =
     );
   }
 
+  if (!hasCells) return null;
+
   return (
     <div style={{ marginBottom: isThermal ? '6px' : '8px', width: '100%' }}>
       <div
@@ -146,7 +162,8 @@ export const ReceiptPrescriptionTable: React.FC<ReceiptPrescriptionTableProps> =
       >
         <thead>
           <tr>
-            <th style={{ ...th, width: isThermal ? '22%' : '20%' }} />
+            <th style={{ ...th, width: groupCellWidth, padding: '2px 1px' }} />
+            <th style={{ ...th, width: isThermal ? '22px' : '26px' }} />
             <th style={th}>Esférico</th>
             <th style={th}>Cilíndrico</th>
             <th style={th}>Eixo</th>
@@ -155,22 +172,61 @@ export const ReceiptPrescriptionTable: React.FC<ReceiptPrescriptionTableProps> =
           </tr>
         </thead>
         <tbody>
-          {row('Longe OD', src.far_od_spherical, src.far_od_cylindrical, src.far_od_axis, farOdDnp)}
-          {row('Longe OE', src.far_oe_spherical, src.far_oe_cylindrical, src.far_oe_axis, farOeDnp)}
-          {row('Perto OD', src.near_od_spherical, src.near_od_cylindrical, src.near_od_axis, nearOdDnp)}
-          {row('Perto OE', src.near_oe_spherical, src.near_oe_cylindrical, src.near_oe_axis, nearOeDnp)}
+          {/* LONGE OD */}
+          <tr>
+            <GroupCell label="LONGE" rows={2} />
+            <td style={tdLabel}>OD</td>
+            <td style={td}>{fmtDiopter(src.far_od_spherical)}</td>
+            <td style={td}>{fmtDiopter(src.far_od_cylindrical)}</td>
+            <td style={td}>{fmtAxis(src.far_od_axis)}</td>
+            <td style={td}>{farOdDnp}</td>
+            <td style={td}></td>
+          </tr>
+          {/* LONGE OE */}
+          <tr>
+            <td style={tdLabel}>OE</td>
+            <td style={td}>{fmtDiopter(src.far_oe_spherical)}</td>
+            <td style={td}>{fmtDiopter(src.far_oe_cylindrical)}</td>
+            <td style={td}>{fmtAxis(src.far_oe_axis)}</td>
+            <td style={td}>{farOeDnp}</td>
+            <td style={td}></td>
+          </tr>
+          {/* PERTO OD */}
+          <tr>
+            <GroupCell label="PERTO" rows={2} />
+            <td style={tdLabel}>OD</td>
+            <td style={td}>{fmtDiopter(src.near_od_spherical)}</td>
+            <td style={td}>{fmtDiopter(src.near_od_cylindrical)}</td>
+            <td style={td}>{fmtAxis(src.near_od_axis)}</td>
+            <td style={td}>{nearOdDnp}</td>
+            <td style={td}></td>
+          </tr>
+          {/* PERTO OE */}
+          <tr>
+            <td style={tdLabel}>OE</td>
+            <td style={td}>{fmtDiopter(src.near_oe_spherical)}</td>
+            <td style={td}>{fmtDiopter(src.near_oe_cylindrical)}</td>
+            <td style={td}>{fmtAxis(src.near_oe_axis)}</td>
+            <td style={td}>{nearOeDnp}</td>
+            <td style={td}></td>
+          </tr>
         </tbody>
       </table>
       {add ? (
         <div
           style={{
-            marginTop: '6px',
+            marginTop: '4px',
             fontSize: fs.add,
             fontWeight: 800,
             textAlign: 'left',
           }}
         >
           Adição: {add}
+        </div>
+      ) : null}
+      {isThermal ? (
+        <div style={{ fontSize: 6, fontWeight: 700, marginTop: '2px', color: '#000' }}>
+          * DNP vem antes da coluna Altura
         </div>
       ) : null}
     </div>

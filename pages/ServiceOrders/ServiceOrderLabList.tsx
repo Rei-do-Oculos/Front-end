@@ -28,7 +28,7 @@ import { EntryReceiptModal } from '../../components/EntryReceiptModal';
 import { EntryReceiptData } from '../../components/EntryReceipt';
 import { parseMoneyBrInput } from '../../utils/formatters';
 import {
-  buildPrescriptionLinesForEntryReceipt,
+  buildPrescriptionLinesExcludingRxTable,
 } from '../../utils/entryReceiptPrescription';
 import { ClientWhatsAppAvatar } from '../../components/ClientWhatsAppAvatar';
 
@@ -652,6 +652,23 @@ export const ServiceOrderLabList: React.FC = () => {
         name: clientData?.name || 'Cliente',
         document: clientData?.document || null,
       },
+      prescription: {
+        far_od_spherical: order.far_od_spherical,
+        far_od_cylindrical: order.far_od_cylindrical,
+        far_od_axis: order.far_od_axis,
+        far_oe_spherical: order.far_oe_spherical,
+        far_oe_cylindrical: order.far_oe_cylindrical,
+        far_oe_axis: order.far_oe_axis,
+        near_od_spherical: order.near_od_spherical,
+        near_od_cylindrical: order.near_od_cylindrical,
+        near_od_axis: order.near_od_axis,
+        near_oe_spherical: order.near_oe_spherical,
+        near_oe_cylindrical: order.near_oe_cylindrical,
+        near_oe_axis: order.near_oe_axis,
+        addition: order.addition,
+        far_dnp: order.far_dnp,
+        near_dnp: order.near_dnp,
+      },
       items,
       total: totalPrice,
       paymentMethod: payLines.length > 0 ? null : (order.payment_method || null),
@@ -748,7 +765,7 @@ export const ServiceOrderLabList: React.FC = () => {
       notes: order.notes,
       lenses: toItemsArray(order.lenses as any).map((l: { name?: string }) => ({ name: l.name })),
     };
-    const prescriptionLines = buildPrescriptionLinesForEntryReceipt(entryReceiptSrc);
+    const prescriptionLines = buildPrescriptionLinesExcludingRxTable(entryReceiptSrc);
 
     const entryDoctorName = String(order.doctor_name ?? '').trim();
     const entryDoctorCrm = String(order.doctor_crm ?? '').trim();
@@ -758,6 +775,7 @@ export const ServiceOrderLabList: React.FC = () => {
       osNumber: order.os_number,
       date: new Date().toLocaleString('pt-BR'),
       expectedPickupDate: order.expected_pickup_date || null,
+      prescription: entryReceiptSrc,
       prescriptionLines,
       ...(entryDoctorName && entryDoctorCrm ? { doctorName: entryDoctorName, doctorCrm: entryDoctorCrm, ...(entryPrescriptionDate ? { prescriptionDate: entryPrescriptionDate } : {}) } : {}),
       store: {

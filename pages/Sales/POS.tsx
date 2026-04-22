@@ -115,6 +115,7 @@ export const POS: React.FC = () => {
   const [clientModalOpen, setClientModalOpen] = useState(false);
   const [createClientModalOpen, setCreateClientModalOpen] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod | null>(null);
+  const [isWarrantySale, setIsWarrantySale] = useState(false);
   const [installments, setInstallments] = useState<number>(1);
   const [partialPayments, setPartialPayments] = useState<PartialPaymentRow[]>([]);
   const [partialPaymentsId, setPartialPaymentsId] = useState(0);
@@ -338,7 +339,7 @@ export const POS: React.FC = () => {
       quantity: 1,
       price: pricePerFrame,
     }));
-    const isPartial = paymentMethod === 'parcial';
+    const isPartial = !isWarrantySale && paymentMethod === 'parcial';
     return {
       osNumber,
       date: new Date().toLocaleString('pt-BR'),
@@ -365,8 +366,8 @@ export const POS: React.FC = () => {
         : { name: 'Consumidor Final', document: null },
       items,
       total: totalPrice,
-      paymentMethod: isPartial ? null : (paymentMethod ?? null),
-      installments: isPartial ? null : paymentMethod === 'credit_card' ? installments : null,
+      paymentMethod: isWarrantySale ? null : (isPartial ? null : (paymentMethod ?? null)),
+      installments: isWarrantySale ? null : (isPartial ? null : paymentMethod === 'credit_card' ? installments : null),
       payments: isPartial && partialPayments.length > 0
         ? partialPayments
             .filter(p => (parseCurrencyFormatted(formatCurrencyInput(p.amountRaw)) || 0) > 0)
@@ -384,7 +385,7 @@ export const POS: React.FC = () => {
       showError('Compras vazio', 'Adicione armações a compras antes de finalizar.');
       return;
     }
-    if (!paymentMethod) {
+    if (!isWarrantySale && !paymentMethod) {
       showError('Forma de pagamento', 'Selecione uma forma de pagamento.');
       return;
     }
@@ -408,9 +409,9 @@ export const POS: React.FC = () => {
       }
 
       const price = parseCurrencyFormatted(formatCurrencyInput(totalValueRaw)) || 0;
-      const isPartial = paymentMethod === 'parcial';
-      const paymentMethodApi = isPartial ? (partialPayments[0]?.method ?? 'cash') : (paymentMethod || 'cash');
-      const paymentsPayload = price > 0
+      const isPartial = !isWarrantySale && paymentMethod === 'parcial';
+      const paymentMethodApi = isWarrantySale ? null : (isPartial ? (partialPayments[0]?.method ?? 'cash') : (paymentMethod || 'cash'));
+      const paymentsPayload = !isWarrantySale && price > 0
         ? isPartial
           ? partialPayments
               .filter(p => (parseCurrencyFormatted(formatCurrencyInput(p.amountRaw)) || 0) > 0)
@@ -432,9 +433,10 @@ export const POS: React.FC = () => {
         user_id: userId,
         laboratory_id: null,
         frames: [...new Set(cart.map(item => item.id))],
-        price,
+        price: isWarrantySale ? 0 : price,
         payment_method: paymentMethodApi,
         payments: paymentsPayload,
+        warranty: isWarrantySale ? 1 : null,
       };
 
       const created = await serviceOrdersService.create(payload as any);
@@ -610,6 +612,7 @@ export const POS: React.FC = () => {
     setCart([]);
     setSelectedClient(null);
     setPaymentMethod(null);
+    setIsWarrantySale(false);
     setInstallments(1);
     setPartialPayments([]);
     setTotalValueRaw('');
@@ -910,18 +913,47 @@ export const POS: React.FC = () => {
                 )}
               </div>
               <div className="space-y-1">
-                <label className="text-xs font-black text-slate-700 uppercase tracking-wide">Valor Total (R$)</label>
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-black text-slate-700 uppercase tracking-wide">Valor Total (R$)</label>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const next = !isWarrantySale;
+                      setIsWarrantySale(next);
+                      if (next) {
+                        setPaymentMethod(null);
+                        setInstallments(1);
+                        setPartialPayments([]);
+                        setTotalValueRaw('');
+                      }
+                    }}
+                    className={`px-2.5 py-1 rounded-full text-[11px] font-black uppercase tracking-wide border transition-all ${
+                      isWarrantySale
+                        ? 'bg-emerald-50 text-emerald-700 border-emerald-300'
+                        : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300'
+                    }`}
+                    title="Ative para gerar OS de garantia no PDV sem valor e sem pagamento"
+                  >
+                    {isWarrantySale ? 'Garantia ativa' : 'Marcar garantia'}
+                  </button>
+                </div>
                 <Input
                   type="text"
                   inputMode="decimal"
-                  placeholder="0,00"
+                  placeholder={isWarrantySale ? 'Dispensado em garantia' : '0,00'}
                   value={totalValueRaw === '' ? '' : formatCurrencyInput(totalValueRaw)}
                   onChange={e => setTotalValueRaw(e.target.value.replace(/\D/g, ''))}
                   className="!px-3 !py-3 !text-base !font-semibold lg:!text-lg"
+                  disabled={isWarrantySale}
                 />
               </div>
               <div className="space-y-1 pt-2 border-t border-slate-200">
                 <p className="text-xs font-black text-slate-700 uppercase tracking-wide">Forma de pagamento</p>
+                {isWarrantySale ? (
+                  <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-lg text-xs font-bold text-emerald-800">
+                    OS de garantia: forma de pagamento não é obrigatória no PDV.
+                  </div>
+                ) : (
                 <div className="grid grid-cols-2 gap-2">
                   {(
                     [
@@ -967,6 +999,7 @@ export const POS: React.FC = () => {
                     </button>
                   ))}
                 </div>
+                )}
                 {paymentMethod === 'credit_card' && (
                   <div className="space-y-0.5">
                     <label className="text-xs font-black text-slate-700">Parcelas</label>
@@ -1071,7 +1104,7 @@ export const POS: React.FC = () => {
                 className="w-full py-3.5 text-base font-black"
                 style={{ backgroundColor: storeColorCss }}
                 disabled={
-                  cart.length === 0 || !paymentMethod ||
+                  cart.length === 0 || (!isWarrantySale && !paymentMethod) ||
                   (paymentMethod === 'parcial' && (partialPayments.length === 0 || partialPayments.some(r => (parseCurrencyFormatted(formatCurrencyInput(r.amountRaw)) || 0) <= 0) || Math.abs((parseCurrencyFormatted(formatCurrencyInput(totalValueRaw)) || 0) - partialPayments.reduce((s, r) => s + (parseCurrencyFormatted(formatCurrencyInput(r.amountRaw)) || 0), 0)) > 0.01))
                 }
               >
@@ -1208,7 +1241,9 @@ export const POS: React.FC = () => {
                 <div className="flex justify-between text-sm">
                   <span className="text-slate-600">Forma de Pagamento:</span>
                   <span className="font-bold text-slate-900 text-right">
-                    {paymentMethod === 'parcial'
+                    {isWarrantySale
+                      ? 'Garantia (sem pagamento)'
+                      : paymentMethod === 'parcial'
                       ? 'Parcial (múltiplas)'
                       : paymentMethod === 'credit_card'
                         ? `Cartão crédito${installments > 1 ? ` (${installments}x)` : ''}`
@@ -1237,7 +1272,7 @@ export const POS: React.FC = () => {
                 <div className="flex justify-between text-sm">
                   <span className="text-slate-600">Valor total:</span>
                   <span className="font-bold text-slate-900">
-                    R$ {(parseCurrencyFormatted(formatCurrencyInput(totalValueRaw)) || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                    R$ {(isWarrantySale ? 0 : (parseCurrencyFormatted(formatCurrencyInput(totalValueRaw)) || 0)).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                     {paymentMethod === 'credit_card' && installments > 1 && (
                       <span className="block text-xs font-normal text-slate-500 mt-0.5">
                         {installments}x de R$ {((parseCurrencyFormatted(formatCurrencyInput(totalValueRaw)) || 0) / installments).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}

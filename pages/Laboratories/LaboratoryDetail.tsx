@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { 
   ArrowLeft, 
@@ -21,7 +21,7 @@ import {
   Calendar,
   FileDown
 } from 'lucide-react';
-import { Card, Button, Badge, Modal, Pagination, SortableHeader, SortDirection, MultiSelect } from '../../components/Common';
+import { Card, Button, Badge, Modal, Pagination, SortableHeader, SortDirection, MultiSelect, useApplyFiltersOnEnter } from '../../components/Common';
 import { useLaboratories } from '../../services/hooks/useLaboratories';
 import { laboratoriesService } from '../../services/api/laboratories';
 import { storesService } from '../../services/api/stores';
@@ -212,6 +212,9 @@ export const LaboratoryDetail: React.FC = () => {
   const handleHistoryApplyFilters = async () => {
     await loadHistory(1);
   };
+
+  const historyFiltersRef = useRef<HTMLDivElement>(null);
+  useApplyFiltersOnEnter(handleHistoryApplyFilters, historyFiltersRef, activeTab === 'history');
 
   const handleHistoryClearFilters = async () => {
     setHistoryDateFrom('');
@@ -791,7 +794,11 @@ export const LaboratoryDetail: React.FC = () => {
 
                 {/* Filtros */}
                 <Card className="border-none shadow-lg">
-                  <div className="flex flex-wrap items-end gap-4">
+                  <div
+                    ref={historyFiltersRef}
+                    data-filter-panel-root
+                    className="flex flex-wrap items-end gap-4"
+                  >
                     <div className="flex-1 min-w-[150px]">
                       <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">
                         Data Início

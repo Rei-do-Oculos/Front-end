@@ -41,7 +41,7 @@ const buildLogoUrl = (logoPath: string | null | undefined): string | null => {
   const path = logoPath.startsWith('storage/') ? logoPath : `storage/${logoPath}`;
   return import.meta.env.DEV ? `/${path}` : `${API_BASE}/${path}`;
 };
-import { Card, Button, Badge, Input, SingleSelect, MultiSelect } from '../../components/Common';
+import { Card, Button, Badge, Input, SingleSelect, MultiSelect, useApplyFiltersOnEnter } from '../../components/Common';
 import { useFinance } from '../../services/hooks/useFinance';
 import { useStores } from '../../services/hooks/useStores';
 import { useStore } from '../../contexts/StoreContext';
@@ -144,6 +144,9 @@ export const CashFlow: React.FC = () => {
   const handleApplyFilters = () => {
     loadData();
   };
+
+  const filtersGridRef = React.useRef<HTMLDivElement>(null);
+  useApplyFiltersOnEnter(handleApplyFilters, filtersGridRef, true);
 
   const handleClearFilters = () => {
     setFilterStore('');
@@ -394,7 +397,11 @@ export const CashFlow: React.FC = () => {
           <Filter size={18} style={{ color: 'var(--store-color)' }} />
           <h3 className="text-sm font-bold text-slate-900">Filtros</h3>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+        <div
+          ref={filtersGridRef}
+          data-filter-panel-root
+          className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4"
+        >
           <SingleSelect
             label="Loja"
             options={storeOptions}

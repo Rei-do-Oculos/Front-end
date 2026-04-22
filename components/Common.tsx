@@ -522,6 +522,8 @@ export const MultiSelect: React.FC<{
   const dropdownRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
 
+  const wasOpenRef = useRef(false);
+
   const toggleOption = (optionValue: string) => {
     if (value.includes(optionValue)) {
       onChange(value.filter(v => v !== optionValue));
@@ -559,6 +561,13 @@ export const MultiSelect: React.FC<{
         window.removeEventListener('scroll', handleScroll, true);
       };
     }
+  }, [isOpen]);
+
+  useEffect(() => {
+    if (wasOpenRef.current && !isOpen) {
+      queueMicrotask(() => buttonRef.current?.focus({ preventScroll: true }));
+    }
+    wasOpenRef.current = isOpen;
   }, [isOpen]);
 
   const filteredOptions =
@@ -649,11 +658,12 @@ export const MultiSelect: React.FC<{
   };
 
   return (
-    <div className="space-y-1.5 lg:space-y-2 w-full relative">
+    <div className="space-y-1.5 lg:space-y-2 w-full relative" data-filter-enter-apply-root>
       {label && renderLabel()}
       <div className="relative">
         <div
           ref={buttonRef}
+          tabIndex={disabled ? -1 : 0}
           onClick={() => !disabled && !isOpen && setIsOpen(true)}
           className={`w-full px-4 py-3 lg:px-5 lg:py-3.5 ${styles.input.default} bg-gray-50 border-2 text-sm font-medium transition-all outline-none text-left flex items-center justify-between min-h-[48px] ${disabled ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'} ${isOpen ? 'bg-white ring-2' : ''} ${error ? 'border-red-500' : 'border-slate-200'}`}
           style={{
@@ -781,6 +791,7 @@ export const SingleSelect: React.FC<{
     onChange(value === optionValue ? '' : optionValue);
     setIsOpen(false);
     setSearch('');
+    queueMicrotask(() => buttonRef.current?.focus({ preventScroll: true }));
   };
  
   const removeOption = () => {
@@ -898,11 +909,12 @@ export const SingleSelect: React.FC<{
   };
 
   return (
-    <div className="space-y-1.5 lg:space-y-2 w-full relative">
+    <div className="space-y-1.5 lg:space-y-2 w-full relative" data-filter-enter-apply-root>
       {label && renderLabel()}
       <div className="relative">
         <div
           ref={buttonRef}
+          tabIndex={disabled ? -1 : 0}
           onClick={() => !disabled && setIsOpen(!isOpen)}
           className={`w-full px-4 py-3 lg:px-5 lg:py-3.5 ${styles.input.default} bg-gray-50 border-2 text-sm font-medium transition-all outline-none text-left flex items-center justify-between min-h-[48px] ${disabled ? 'cursor-not-allowed' : 'cursor-pointer'} ${isOpen ? 'bg-white ring-2' : ''} ${error ? 'border-red-500' : 'border-slate-200'}`}
           style={{
@@ -1212,8 +1224,81 @@ export const Modal: React.FC<ModalProps> = ({
   return typeof document !== 'undefined' ? createPortal(modalContent, document.body) : null;
 };
 
+/**
+ * Enter deve aplicar filtros (mesmo efeito do botão). `loose` = foco em document.body
+ * após fechar lista do select no portal (evento não passa pelo painel).
+ */
+export function shouldApplyFiltersOnEnterKey(target: HTMLElement, loose: boolean): boolean {
+  if (!loose) {
+    if (target.closest('[data-no-submit-on-enter]')) return false;
+    if (target.tagName === 'TEXTAREA' || target.isContentEditable) return false;
+    if (target.tagName === 'BUTTON') return false;
+    if (target.tagName === 'A' && (target as HTMLAnchorElement).href) return false;
+
+    if (target.tagName === 'INPUT') {
+      const type = ((target as HTMLInputElement).type || 'text').toLowerCase();
+      if (['button', 'submit', 'reset', 'checkbox', 'radio', 'file', 'hidden'].includes(type)) return false;
+      return true;
+    }
+    if (target.tagName === 'SELECT') return true;
+    if (target.closest('[data-filter-enter-apply-root]')) return true;
+    return false;
+  }
+  return true;
+}
+
+/**
+ * Listener em document (capture) para Enter aplicar filtros mesmo quando o foco sai do painel
+ * (ex.: após escolher opção no dropdown portado).
+ */
+export function useApplyFiltersOnEnter(
+  onApply: (() => void) | undefined,
+  containerRef: React.RefObject<HTMLElement | null>,
+  enabled: boolean
+) {
+  useEffect(() => {
+    if (!enabled || !onApply) return;
+
+    const handler = (e: KeyboardEvent) => {
+      if (e.key !== 'Enter' || e.isComposing) return;
+
+      const root = containerRef.current;
+      if (!root?.isConnected) return;
+
+      const target = e.target as HTMLElement;
+      const loose = target === document.body || target === document.documentElement;
+
+      if (!loose && !root.contains(target)) return;
+
+      if (loose) {
+        const ae = document.activeElement as HTMLElement | null;
+        if (
+          ae &&
+          ae !== document.body &&
+          ae !== document.documentElement &&
+          ae.closest('[role="dialog"]') &&
+          !root.contains(ae)
+        ) {
+          return;
+        }
+      }
+
+      if (!shouldApplyFiltersOnEnterKey(target, loose)) return;
+
+      e.preventDefault();
+      e.stopPropagation();
+      onApply();
+    };
+
+    document.addEventListener('keydown', handler, true);
+    return () => document.removeEventListener('keydown', handler, true);
+  }, [enabled, onApply, containerRef]);
+}
+
 export const FilterSection: React.FC<{ children: React.ReactNode; onApply?: () => void; onClear?: () => void }> = ({ children, onApply, onClear }) => {
   const [isOpen, setIsOpen] = useState(false);
+  const panelRef = useRef<HTMLDivElement>(null);
+  useApplyFiltersOnEnter(onApply, panelRef, isOpen);
 
   return (
     <div className="mb-6 space-y-4">
@@ -1234,7 +1319,11 @@ export const FilterSection: React.FC<{ children: React.ReactNode; onApply?: () =
       </button>
 
       {isOpen && (
-        <div className={`bg-slate-50/50 border border-slate-100 ${styles.card.large} p-6 lg:p-8 animate-in slide-in-from-top-4 duration-300`}>
+        <div
+          ref={panelRef}
+          data-filter-panel-root
+          className={`bg-slate-50/50 border border-slate-100 ${styles.card.large} p-6 lg:p-8 animate-in slide-in-from-top-4 duration-300`}
+        >
           <div className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
               {React.Children.toArray(children).slice(0, 4)}

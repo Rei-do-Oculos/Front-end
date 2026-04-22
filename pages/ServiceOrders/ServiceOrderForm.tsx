@@ -32,7 +32,7 @@ import { serviceOrdersService } from '../../services/api/serviceOrders';
 import type { ServiceOrder } from '../../services/api/serviceOrders';
 import { formatIsoDatePtBr, toHtmlDateInputValue } from '../../utils/dateDisplay';
 import {
-  buildPrescriptionLinesForEntryReceipt,
+  buildPrescriptionLinesExcludingRxTable,
 } from '../../utils/entryReceiptPrescription';
 import { prescriptionGridFromServiceOrder } from '../../utils/prescriptionGridSource';
 import { styles } from '../../config/styles';
@@ -809,6 +809,23 @@ export const ServiceOrderForm: React.FC = () => {
           name: clientData?.name || order.client?.name || 'Cliente',
           document: clientData?.document || order.client?.document || null,
         },
+        prescription: {
+          far_od_spherical: order.far_od_spherical,
+          far_od_cylindrical: order.far_od_cylindrical,
+          far_od_axis: order.far_od_axis,
+          far_oe_spherical: order.far_oe_spherical,
+          far_oe_cylindrical: order.far_oe_cylindrical,
+          far_oe_axis: order.far_oe_axis,
+          near_od_spherical: order.near_od_spherical,
+          near_od_cylindrical: order.near_od_cylindrical,
+          near_od_axis: order.near_od_axis,
+          near_oe_spherical: order.near_oe_spherical,
+          near_oe_cylindrical: order.near_oe_cylindrical,
+          near_oe_axis: order.near_oe_axis,
+          addition: order.addition,
+          far_dnp: order.far_dnp,
+          near_dnp: order.near_dnp,
+        },
         items,
         total: totalPrice,
         paymentMethod: payLines.length > 0 ? null : (order.payment_method || null),
@@ -886,6 +903,23 @@ export const ServiceOrderForm: React.FC = () => {
         name: clientData?.name || 'Cliente',
         document: clientData?.document || null,
       },
+      prescription: {
+        far_od_spherical: formData.far_od_spherical,
+        far_od_cylindrical: formData.far_od_cylindrical,
+        far_od_axis: formData.far_od_axis,
+        far_oe_spherical: formData.far_oe_spherical,
+        far_oe_cylindrical: formData.far_oe_cylindrical,
+        far_oe_axis: formData.far_oe_axis,
+        near_od_spherical: formData.near_od_spherical,
+        near_od_cylindrical: formData.near_od_cylindrical,
+        near_od_axis: formData.near_od_axis,
+        near_oe_spherical: formData.near_oe_spherical,
+        near_oe_cylindrical: formData.near_oe_cylindrical,
+        near_oe_axis: formData.near_oe_axis,
+        addition: formData.addition,
+        far_dnp: formData.far_dnp,
+        near_dnp: formData.near_dnp,
+      },
       items,
       total: totalPrice,
       paymentMethod: formData.use_partial_payments ? null : (formData.payment_method || null),
@@ -924,7 +958,7 @@ export const ServiceOrderForm: React.FC = () => {
       const storeData = storesList.find((s) => String(s.id) === String(order.store_id));
       const clientData = clientsList.find((c) => c.id === order.client_id) || order.client;
       const prescriptionSource = prescriptionGridFromServiceOrder(order as any);
-      const prescriptionLines = buildPrescriptionLinesForEntryReceipt(prescriptionSource);
+      const prescriptionLines = buildPrescriptionLinesExcludingRxTable(prescriptionSource);
 
       return {
         osNumber: order.os_number,
@@ -952,6 +986,7 @@ export const ServiceOrderForm: React.FC = () => {
               ? order.installments
               : null,
         payments: payLines.length > 0 ? payLines : undefined,
+        prescription: prescriptionSource,
         prescriptionLines,
         doctorName: String(order.doctor_name ?? '').trim() || null,
         doctorCrm: String(order.doctor_crm ?? '').trim() || null,
@@ -1068,7 +1103,7 @@ export const ServiceOrderForm: React.FC = () => {
       notes: formData.notes,
       lenses: stockLensMeta,
     };
-    const prescriptionLines = buildPrescriptionLinesForEntryReceipt(entryReceiptSrc);
+    const prescriptionLines = buildPrescriptionLinesExcludingRxTable(entryReceiptSrc);
 
     const entryDoctorName = String(formData.doctor_name ?? '').trim();
     const entryDoctorCrm = String(formData.doctor_crm ?? '').trim();
@@ -1078,6 +1113,7 @@ export const ServiceOrderForm: React.FC = () => {
       osNumber,
       date: new Date().toLocaleString('pt-BR'),
       expectedPickupDate: formData.expected_pickup_date || null,
+      prescription: entryReceiptSrc,
       prescriptionLines,
       ...(entryDoctorName && entryDoctorCrm ? { doctorName: entryDoctorName, doctorCrm: entryDoctorCrm, ...(entryPrescriptionDate ? { prescriptionDate: entryPrescriptionDate } : {}) } : {}),
       store: {

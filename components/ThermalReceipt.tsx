@@ -1,6 +1,8 @@
 import React, { forwardRef } from 'react';
 import { formatIsoDatePtBr } from '../utils/dateDisplay';
 import { storeReceiptHeader, storeReceiptSubtitleLine } from '../utils/storeReceiptHeader';
+import { ReceiptPrescriptionTable } from './ReceiptPrescriptionTable';
+import type { EntryReceiptPrescriptionSource } from '../utils/entryReceiptPrescription';
 
 export interface ReceiptStore {
   name: string;
@@ -49,6 +51,8 @@ export interface ReceiptData {
   doctorName?: string | null;
   doctorCrm?: string | null;
   prescriptionDate?: string | null;
+  /** Dados de receita/prescrição para exibir a tabela de graus */
+  prescription?: EntryReceiptPrescriptionSource | null;
   items: ReceiptItem[];
   total: number;
   paymentMethod?: string | null;
@@ -124,6 +128,7 @@ export const ThermalReceipt = forwardRef<HTMLDivElement, ThermalReceiptProps>(
       doctorName,
       doctorCrm,
       prescriptionDate,
+      prescription,
       items,
       total,
       paymentMethod,
@@ -277,6 +282,14 @@ export const ThermalReceipt = forwardRef<HTMLDivElement, ThermalReceiptProps>(
             Nenhum item
           </div>
         )}
+
+        {/* Tabela de Receita (graus) */}
+        {prescription ? (
+          <>
+            <div style={{ borderTop: '1px dashed #000', margin: '8px 0' }} />
+            <ReceiptPrescriptionTable src={prescription} variant="thermal" />
+          </>
+        ) : null}
 
         {/* Separador */}
         <div style={{ borderTop: '1px solid #000', margin: '8px 0' }} />

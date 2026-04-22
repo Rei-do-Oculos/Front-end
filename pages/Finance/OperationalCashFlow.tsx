@@ -11,7 +11,7 @@ import {
   Briefcase,
   ShoppingBag,
 } from 'lucide-react';
-import { Card, Button, Input, SingleSelect, MultiSelect, AccessDeniedCard } from '../../components/Common';
+import { Card, Button, Input, SingleSelect, MultiSelect, AccessDeniedCard, useApplyFiltersOnEnter } from '../../components/Common';
 import { useStore } from '../../contexts/StoreContext';
 import {
   financeService,
@@ -117,6 +117,9 @@ export const OperationalCashFlow: React.FC = () => {
     loadData();
   };
 
+  const filtersGridRef = React.useRef<HTMLDivElement>(null);
+  useApplyFiltersOnEnter(handleApplyFilters, filtersGridRef, true);
+
   const handleClearFilters = () => {
     setFilterStore('');
     setFilterPaymentMethods([]);
@@ -194,7 +197,11 @@ export const OperationalCashFlow: React.FC = () => {
           <Filter size={18} style={{ color: 'var(--store-color)' }} />
           <h3 className="text-sm font-bold text-slate-900">Filtros</h3>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+        <div
+          ref={filtersGridRef}
+          data-filter-panel-root
+          className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4"
+        >
           <SingleSelect label="Loja" options={storeOptions} value={filterStore} onChange={setFilterStore} />
           <Input
             label="Data inicial"

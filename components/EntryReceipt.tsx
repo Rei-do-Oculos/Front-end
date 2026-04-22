@@ -1,6 +1,8 @@
 import React, { forwardRef } from 'react';
 import { formatIsoDatePtBr } from '../utils/dateDisplay';
 import { storeReceiptHeader } from '../utils/storeReceiptHeader';
+import { ReceiptPrescriptionTable } from './ReceiptPrescriptionTable';
+import type { EntryReceiptPrescriptionSource } from '../utils/entryReceiptPrescription';
 
 export interface EntryReceiptStore {
   name: string;
@@ -38,7 +40,9 @@ export interface EntryReceiptData {
   installments?: number | null;
   /** Pagamento parcial/misto: forma + valor por linha */
   payments?: EntryReceiptPaymentLine[];
-  /** Receita/medidas — impresso só na 1ª via (ver `includePrescriptionDetails` no componente) */
+  /** Dados da receita para tabela de graus (LONGE/PERTO) */
+  prescription?: EntryReceiptPrescriptionSource | null;
+  /** Linhas extras de receita que ficam fora da tabela (ex: garantia, lentes, notas) */
   prescriptionLines?: Array<{ label: string; value: string }>;
   /** Após totais, antes do pagamento — quando nome e CRM preenchidos */
   doctorName?: string | null;
@@ -90,12 +94,14 @@ export const EntryReceipt = forwardRef<HTMLDivElement, EntryReceiptProps>(
       paymentMethod,
       installments,
       payments,
+      prescription,
       prescriptionLines = [],
       doctorName,
       doctorCrm,
       prescriptionDate,
     } = data;
 
+    const hasPrescriptionTable = includePrescriptionDetails && Boolean(prescription);
     const showPrescriptionLines =
       includePrescriptionDetails && prescriptionLines.length > 0;
     const prescriptionDatePtBr = formatIsoDatePtBr(prescriptionDate);
@@ -160,21 +166,30 @@ export const EntryReceipt = forwardRef<HTMLDivElement, EntryReceiptProps>(
         </div>
 
         {/* Receita e lentes — somente 1ª via */}
-        {showPrescriptionLines ? (
+        {(hasPrescriptionTable || showPrescriptionLines) ? (
           <>
             <div style={{ borderTop: '1px dashed #000', margin: '8px 0' }} />
             <div style={{ marginBottom: '8px', fontWeight: 800 }}>
-              <div style={{ marginBottom: '6px', fontWeight: 900, fontSize: '12px' }}>
-                Receita e lentes:
-              </div>
-              {prescriptionLines.map((line, index) => (
-                <div
-                  key={`${line.label}-${index}`}
-                  style={{ fontWeight: 700, fontSize: '11px', marginBottom: '3px', lineHeight: 1.35 }}
-                >
-                  <strong>{line.label}:</strong> {line.value}
-                </div>
-              ))}
+              {hasPrescriptionTable && prescription ? (
+                <ReceiptPrescriptionTable src={prescription} variant="entry" />
+              ) : null}
+              {showPrescriptionLines ? (
+                <>
+                  {!hasPrescriptionTable && (
+                    <div style={{ marginBottom: '6px', fontWeight: 900, fontSize: '12px' }}>
+                      Receita e lentes:
+                    </div>
+                  )}
+                  {prescriptionLines.map((line, index) => (
+                    <div
+                      key={`${line.label}-${index}`}
+                      style={{ fontWeight: 700, fontSize: '11px', marginBottom: '3px', lineHeight: 1.35 }}
+                    >
+                      <strong>{line.label}:</strong> {line.value}
+                    </div>
+                  ))}
+                </>
+              ) : null}
             </div>
           </>
         ) : null}
