@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
+import { useBackToList } from '../../hooks/useBackToList';
 import { ArrowLeft, Loader2, Plus, Trash2, AlertTriangle, CheckCircle } from 'lucide-react';
 import { Card, Button, SingleSelect } from '../../components/Common';
 import { useServiceOrders } from '../../services/hooks/useServiceOrders';
@@ -10,7 +11,7 @@ import { persistedPaymentsFromServiceOrder } from '../../utils/receiptPaymentsFr
 
 export const ServiceOrderChangePayment: React.FC = () => {
   const { id } = useParams<{ id: string }>();
-  const navigate = useNavigate();
+  const { goBackToList } = useBackToList();
   const { showSuccess, showError } = useNotification();
   const { getServiceOrder, completeWithPayment } = useServiceOrders({ autoFetch: false });
   
@@ -59,19 +60,19 @@ export const ServiceOrderChangePayment: React.FC = () => {
           }
         } else {
           showError('Ordem de serviço não encontrada');
-          navigate('/service-orders/lab');
+          goBackToList('/service-orders/lab');
         }
       } catch (err: any) {
         console.error('Erro ao carregar OS:', err);
         showError(err.message || 'Erro ao carregar ordem de serviço');
-        navigate('/service-orders/lab');
+        goBackToList('/service-orders/lab');
       } finally {
         setLoading(false);
       }
     };
 
     loadOrder();
-  }, [id, getServiceOrder, showError, navigate]);
+  }, [id, getServiceOrder, showError, goBackToList]);
 
   const formatCurrencyInput = (value: string): string => {
     const numbers = value.replace(/\D/g, '');
@@ -148,7 +149,7 @@ export const ServiceOrderChangePayment: React.FC = () => {
 
       if (result?.success) {
         showSuccess('OS finalizada com sucesso!');
-        navigate('/service-orders/lab');
+        goBackToList('/service-orders/lab');
       } else {
         showError(result?.message || 'Erro ao finalizar OS');
       }
@@ -186,7 +187,7 @@ export const ServiceOrderChangePayment: React.FC = () => {
         <div className="mb-6">
           <Button
             variant="outline"
-            onClick={() => navigate('/service-orders/lab')}
+            onClick={() => goBackToList('/service-orders/lab')}
             className="mb-4"
           >
             <ArrowLeft size={16} /> Voltar
@@ -543,7 +544,7 @@ export const ServiceOrderChangePayment: React.FC = () => {
           <div className="flex items-center justify-end gap-3 pt-6 mt-6 border-t border-slate-200">
             <Button
               variant="outline"
-              onClick={() => navigate('/service-orders/lab')}
+              onClick={() => goBackToList('/service-orders/lab')}
               disabled={processing}
             >
               Cancelar

@@ -10,6 +10,7 @@ import { Store } from '../../services/api/stores';
 import { useNotification } from '../../hooks/useNotification';
 import { receiptPaymentLinesFromOrder } from '../../utils/receiptPaymentsFromOrder';
 import { buildReceiptItemsFromOrder } from '../../utils/receiptItemsFromOrder';
+import { laboratoryNameForReceipt } from '../../utils/laboratoryReceiptName';
 
 function prepareReceiptData(order: ServiceOrder, storeData: Store | null): ReceiptData {
   const store = order.store as any;
@@ -24,12 +25,14 @@ function prepareReceiptData(order: ServiceOrder, storeData: Store | null): Recei
   const doctorName = String(order.doctor_name ?? '').trim();
   const doctorCrm = String(order.doctor_crm ?? '').trim();
   const prescriptionDate = order.prescription_date || null;
+  const receiptLaboratoryName = laboratoryNameForReceipt(order);
 
   return {
     osNumber: order.os_number,
     date: new Date(order.created_at).toLocaleString('pt-BR'),
     expectedPickupDate: order.expected_pickup_date || null,
     seller: order.user?.name || 'Vendedor',
+    ...(receiptLaboratoryName ? { laboratoryName: receiptLaboratoryName } : {}),
     ...(doctorName && doctorCrm ? { doctorName, doctorCrm, ...(prescriptionDate ? { prescriptionDate } : {}) } : {}),
     store: {
       name: storeFromApi?.name || store?.name || 'Loja',
@@ -66,6 +69,7 @@ function prepareReceiptData(order: ServiceOrder, storeData: Store | null): Recei
       addition: order.addition,
       far_dnp: order.far_dnp,
       near_dnp: order.near_dnp,
+      notes: order.notes,
     },
     items,
     total: totalPrice,

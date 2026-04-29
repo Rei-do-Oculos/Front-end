@@ -7,6 +7,7 @@ import { useNotification } from '../../hooks/useNotification';
 import { useAuth } from '../../services/hooks/useAuth';
 import { getEffectiveUserPermissions } from '../../utils/menuPermissions';
 import type { TrashItem } from '../../services/api/trash';
+import { useBackToList } from '../../hooks/useBackToList';
 
 const detailDataExcludeKeys = ['created_at', 'updated_at', 'deleted_at'];
 
@@ -42,6 +43,7 @@ export const TrashDetail: React.FC = () => {
   const { model, id } = useParams<{ model: string; id: string }>();
   const location = useLocation();
   const navigate = useNavigate();
+  const { goBackToList } = useBackToList();
   const { showSuccess, showError } = useNotification();
   const { user } = useAuth();
   const { restoreItem } = useTrash({ autoFetch: false });
@@ -62,7 +64,7 @@ export const TrashDetail: React.FC = () => {
     try {
       await restoreItem(item.model, item.id);
       showSuccess('Item restaurado!', `"${item.name}" foi restaurado com sucesso.`);
-      navigate('/trash', { replace: true });
+      goBackToList('/trash');
     } catch (err: any) {
       showError('Erro ao restaurar item', err.message || 'Não foi possível restaurar o item');
     } finally {
@@ -76,7 +78,7 @@ export const TrashDetail: React.FC = () => {
         <h1 className="text-3xl font-black text-slate-950 tracking-tight">Detalhes do item</h1>
         <Card className="p-8 text-center">
           <p className="text-slate-600 mb-4">Item não encontrado ou acessado diretamente sem contexto.</p>
-          <Button variant="outline" onClick={() => navigate('/trash')}>
+          <Button variant="outline" onClick={() => goBackToList('/trash')}>
             <ArrowLeft size={16} /> Voltar para a Lixeira
           </Button>
         </Card>
@@ -92,7 +94,7 @@ export const TrashDetail: React.FC = () => {
         <div className="flex items-center gap-4">
           <Button
             variant="ghost"
-            onClick={() => navigate('/trash')}
+            onClick={() => goBackToList('/trash')}
             className="p-2 rounded-xl"
           >
             <ArrowLeft size={20} />
@@ -133,7 +135,7 @@ export const TrashDetail: React.FC = () => {
         </div>
 
         <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-100">
-          <Button variant="outline" onClick={() => navigate('/trash')} disabled={restoring}>
+          <Button variant="outline" onClick={() => goBackToList('/trash')} disabled={restoring}>
             Voltar
           </Button>
           {canRestore && (

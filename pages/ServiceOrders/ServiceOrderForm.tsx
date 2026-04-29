@@ -35,7 +35,9 @@ import {
   buildPrescriptionLinesExcludingRxTable,
 } from '../../utils/entryReceiptPrescription';
 import { prescriptionGridFromServiceOrder } from '../../utils/prescriptionGridSource';
+import { laboratoryNameForReceipt, laboratoryNameFromFormSelection } from '../../utils/laboratoryReceiptName';
 import { styles } from '../../config/styles';
+import { useBackToList } from '../../hooks/useBackToList';
 
 // Função para formatar valor como moeda brasileira
 const formatCurrency = (value: string): string => {
@@ -203,6 +205,7 @@ const filterDoctorCrmInput = (value: string): string => {
 export const ServiceOrderForm: React.FC = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { goBackToList } = useBackToList();
   const location = window.location.pathname;
   const [searchParams] = useSearchParams();
   const { showSuccess, showError } = useNotification();
@@ -785,12 +788,14 @@ export const ServiceOrderForm: React.FC = () => {
       const doctorName = String(order.doctor_name ?? '').trim();
       const doctorCrm = String(order.doctor_crm ?? '').trim();
       const prescriptionDate = order.prescription_date || null;
+      const receiptLabFromOrder = laboratoryNameForReceipt(order);
 
       return {
         osNumber: order.os_number,
         date: new Date(order.created_at).toLocaleString('pt-BR'),
         expectedPickupDate: order.expected_pickup_date || null,
         seller: order.user?.name || user?.name || 'Vendedor',
+        ...(receiptLabFromOrder ? { laboratoryName: receiptLabFromOrder } : {}),
         ...(doctorName && doctorCrm ? { doctorName, doctorCrm, ...(prescriptionDate ? { prescriptionDate } : {}) } : {}),
         store: {
           name: storeData?.name || order.store?.name || 'Loja',
@@ -825,6 +830,7 @@ export const ServiceOrderForm: React.FC = () => {
           addition: order.addition,
           far_dnp: order.far_dnp,
           near_dnp: order.near_dnp,
+          notes: order.notes,
         },
         items,
         total: totalPrice,
@@ -879,12 +885,15 @@ export const ServiceOrderForm: React.FC = () => {
     const doctorName = String(formData.doctor_name ?? '').trim();
     const doctorCrm = String(formData.doctor_crm ?? '').trim();
     const prescriptionDate = formData.prescription_date || null;
+    const laboratoriesListForReceipt = Array.isArray(laboratories) ? laboratories : [];
+    const receiptPreviewLabNm = laboratoryNameFromFormSelection(formData.laboratory_ids, laboratoriesListForReceipt);
 
     return {
       osNumber,
       date: new Date().toLocaleString('pt-BR'),
       expectedPickupDate: formData.expected_pickup_date || null,
       seller: user?.name || 'Vendedor',
+      ...(receiptPreviewLabNm ? { laboratoryName: receiptPreviewLabNm } : {}),
       ...(doctorName && doctorCrm ? { doctorName, doctorCrm, ...(prescriptionDate ? { prescriptionDate } : {}) } : {}),
       store: {
         name: storeData?.name || 'Loja',
@@ -919,6 +928,7 @@ export const ServiceOrderForm: React.FC = () => {
         addition: formData.addition,
         far_dnp: formData.far_dnp,
         near_dnp: formData.near_dnp,
+        notes: formData.notes,
       },
       items,
       total: totalPrice,
@@ -959,11 +969,13 @@ export const ServiceOrderForm: React.FC = () => {
       const clientData = clientsList.find((c) => c.id === order.client_id) || order.client;
       const prescriptionSource = prescriptionGridFromServiceOrder(order as any);
       const prescriptionLines = buildPrescriptionLinesExcludingRxTable(prescriptionSource);
+      const entryLabFromOrder = laboratoryNameForReceipt(order);
 
       return {
         osNumber: order.os_number,
         date: new Date(order.created_at).toLocaleString('pt-BR'),
         expectedPickupDate: order.expected_pickup_date || null,
+        ...(entryLabFromOrder ? { laboratoryName: entryLabFromOrder } : {}),
         store: {
           name: storeData?.name || order.store?.name || 'Loja',
           fancy_name: storeData?.fancy_name || order.store?.fancy_name || order.store?.name || 'Loja',
@@ -1108,6 +1120,7 @@ export const ServiceOrderForm: React.FC = () => {
     const entryDoctorName = String(formData.doctor_name ?? '').trim();
     const entryDoctorCrm = String(formData.doctor_crm ?? '').trim();
     const entryPrescriptionDate = formData.prescription_date || null;
+    const entryPreviewLabNm = laboratoryNameFromFormSelection(formData.laboratory_ids, laboratoriesList);
 
     return {
       osNumber,
@@ -1115,6 +1128,7 @@ export const ServiceOrderForm: React.FC = () => {
       expectedPickupDate: formData.expected_pickup_date || null,
       prescription: entryReceiptSrc,
       prescriptionLines,
+      ...(entryPreviewLabNm ? { laboratoryName: entryPreviewLabNm } : {}),
       ...(entryDoctorName && entryDoctorCrm ? { doctorName: entryDoctorName, doctorCrm: entryDoctorCrm, ...(entryPrescriptionDate ? { prescriptionDate: entryPrescriptionDate } : {}) } : {}),
       store: {
         name: storeData?.name || 'Loja',
@@ -1175,7 +1189,7 @@ export const ServiceOrderForm: React.FC = () => {
       setCreatedOrderForFirstReceipt(null);
       setCreatedOsNumber(null);
       setPendingPayload(null);
-      navigate('/service-orders');
+      goBackToList('/service-orders');
       return;
     }
 
@@ -1186,7 +1200,7 @@ export const ServiceOrderForm: React.FC = () => {
       setShowReceiptModal(false);
       setPendingPayload(null);
       setCreatedOsNumber(null);
-      navigate('/service-orders');
+      goBackToList('/service-orders');
       return;
     }
 
@@ -1196,7 +1210,7 @@ export const ServiceOrderForm: React.FC = () => {
       setShowReceiptModal(false);
       setPendingPayload(null);
       setCreatedOsNumber(null);
-      navigate('/service-orders');
+      goBackToList('/service-orders');
     } catch {
       // Erro já tratado em performSave
     } finally {
@@ -1447,7 +1461,7 @@ export const ServiceOrderForm: React.FC = () => {
     setSaving(true);
     try {
       await performSave(payload);
-      navigate('/service-orders');
+      goBackToList('/service-orders');
     } catch {
       // Erro já tratado em performSave
     } finally {
@@ -1573,7 +1587,7 @@ export const ServiceOrderForm: React.FC = () => {
       await deleteServiceOrder(String(loadedOrder.id));
       showSuccess('Ordem de serviço excluída com sucesso!');
       setDeleteModalOpen(false);
-      navigate('/service-orders');
+      goBackToList('/service-orders');
     } catch (err: any) {
       showError(err.message || 'Erro ao excluir ordem de serviço');
     } finally {
@@ -1595,7 +1609,7 @@ export const ServiceOrderForm: React.FC = () => {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div className="flex items-center gap-4">
           <button
-            onClick={() => navigate('/service-orders')}
+            onClick={() => goBackToList('/service-orders')}
             className="p-2 text-slate-400 hover:text-slate-900 hover:bg-white rounded-xl border border-transparent hover:border-slate-100 transition-all"
           >
             <ArrowLeft size={20} />
@@ -1632,7 +1646,7 @@ export const ServiceOrderForm: React.FC = () => {
           <Button
             type="button"
             variant="outline"
-            onClick={() => navigate('/service-orders')}
+            onClick={() => goBackToList('/service-orders')}
           >
             <ArrowLeft size={18} /> Voltar
           </Button>
@@ -2706,7 +2720,7 @@ export const ServiceOrderForm: React.FC = () => {
               <Button
                 type="button"
                 variant="outline"
-                onClick={() => navigate('/service-orders')}
+                onClick={() => goBackToList('/service-orders')}
                 disabled={saving}
               >
                 <ArrowLeft size={18} /> Voltar

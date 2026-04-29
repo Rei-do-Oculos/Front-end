@@ -9,6 +9,8 @@ import { useStore } from '../../contexts/StoreContext';
 import { usePermission } from '../../services/hooks/usePermission';
 import { useNotification } from '../../hooks/useNotification';
 import { useActiveFilters } from '../../hooks/useActiveFilters';
+import { useBackToList } from '../../hooks/useBackToList';
+import { useListUrlState } from '../../hooks/useListUrlState';
 import { maskCpfInput, maskPhoneInput } from '../../utils/formatters';
 import { whatsappHrefFromPhone } from '../../utils/whatsappLink';
 
@@ -21,21 +23,33 @@ export const ClientList: React.FC = () => {
     autoFetch: false,
   });
   const { stores: storesForFilter, fetchStores: fetchStoresForFilter } = useStores({ autoFetch: false });
+  const { buildReturnTo } = useBackToList();
+  const { getString, getNumber, setUrlState } = useListUrlState();
 
-  const [searchName, setSearchName] = useState('');
-  const [searchDocument, setSearchDocument] = useState('');
-  const [searchPhone, setSearchPhone] = useState('');
-  const [dateFrom, setDateFrom] = useState('');
-  const [dateTo, setDateTo] = useState('');
-  const [selectedStores, setSelectedStores] = useState<string[]>([]);
-  const [appliedFilters, setAppliedFilters] = useState<{ searchName: string; searchDocument: string; searchPhone: string; dateFrom: string; dateTo: string; selectedStores: string[] }>({ searchName: '', searchDocument: '', searchPhone: '', dateFrom: '', dateTo: '', selectedStores: [] });
+  const [searchName, setSearchName] = useState(() => getString('search_name'));
+  const [searchDocument, setSearchDocument] = useState(() => getString('search_document'));
+  const [searchPhone, setSearchPhone] = useState(() => getString('search_phone'));
+  const [dateFrom, setDateFrom] = useState(() => getString('date_from'));
+  const [dateTo, setDateTo] = useState(() => getString('date_to'));
+  const [selectedStores, setSelectedStores] = useState<string[]>(
+    () => getString('stores').split(',').filter(Boolean),
+  );
+  const [appliedFilters, setAppliedFilters] = useState<{ searchName: string; searchDocument: string; searchPhone: string; dateFrom: string; dateTo: string; selectedStores: string[] }>({
+    searchName: getString('search_name'),
+    searchDocument: getString('search_document'),
+    searchPhone: getString('search_phone'),
+    dateFrom: getString('date_from'),
+    dateTo: getString('date_to'),
+    selectedStores: getString('stores').split(',').filter(Boolean),
+  });
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [clientToDelete, setClientToDelete] = useState<Client | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [migrating, setMigrating] = useState<number | null>(null);
-  const [sortBy, setSortBy] = useState<string | null>('id');
-  const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
-  const [perPage, setPerPage] = useState<number>(15);
+  const [sortBy, setSortBy] = useState<string | null>(() => getString('sort_by', 'id'));
+  const [sortDirection, setSortDirection] = useState<SortDirection>(() => (getString('sort_dir', 'desc') as SortDirection));
+  const [perPage, setPerPage] = useState<number>(() => getNumber('per_page', 15));
+  const [currentPage, setCurrentPage] = useState<number>(() => getNumber('page', 1));
   
   // Calcular quantidade de filtros ativos usando hook padronizado
   const activeFilters = useActiveFilters({
@@ -69,39 +83,43 @@ export const ClientList: React.FC = () => {
   useEffect(() => {
     const loadClients = async () => {
       try {
-        await fetchClients(1, buildParams(appliedFilters));
+        await fetchClients(currentPage, buildParams(appliedFilters));
       } catch (err) {
         console.error('[ClientList] Erro ao carregar clientes:', err);
       }
     };
     loadClients();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [perPage, selectedStore?.id, appliedFilters, sortBy, sortDirection]);
+  }, [perPage, selectedStore?.id, appliedFilters, sortBy, sortDirection, currentPage, fetchClients]);
+
+  useEffect(() => {
+    setUrlState({
+      search_name: appliedFilters.searchName,
+      search_document: appliedFilters.searchDocument,
+      search_phone: appliedFilters.searchPhone,
+      date_from: appliedFilters.dateFrom,
+      date_to: appliedFilters.dateTo,
+      stores: appliedFilters.selectedStores,
+      sort_by: sortBy || 'id',
+      sort_dir: sortDirection || 'desc',
+      per_page: perPage,
+      page: currentPage,
+    });
+  }, [appliedFilters, sortBy, sortDirection, perPage, currentPage, setUrlState]);
 
   const handleSort = (key: string, direction: SortDirection) => {
     const newDirection = direction || 'asc';
     setSortBy(key);
     setSortDirection(newDirection);
-    const params = buildParams(appliedFilters);
-    params.order_by = key;
-    params.order_dir = newDirection;
-    fetchClients(pagination?.currentPage || 1, params);
   };
 
-  const handleApplyFilters = async () => {
+  const handleApplyFilters = () => {
     const next = { searchName, searchDocument, searchPhone, dateFrom, dateTo, selectedStores: [...selectedStores] };
     setAppliedFilters(next);
-    try {
-      const params = buildParams(next);
-      params.order_by = sortBy || 'id';
-      params.order_dir = sortDirection || 'desc';
-      await fetchClients(1, params);
-    } catch (err) {
-      console.error('Erro ao aplicar filtros:', err);
-    }
+    setCurrentPage(1);
   };
 
-  const handleClearFilters = async () => {
+  const handleClearFilters = () => {
     setSearchName('');
     setSearchDocument('');
     setSearchPhone('');
@@ -109,22 +127,12 @@ export const ClientList: React.FC = () => {
     setDateTo('');
     setSelectedStores([]);
     setAppliedFilters({ searchName: '', searchDocument: '', searchPhone: '', dateFrom: '', dateTo: '', selectedStores: [] });
-    try {
-      await fetchClients(1, { order_by: sortBy || 'id', order_dir: sortDirection || 'desc', per_page: perPage });
-    } catch (err) {
-      console.error('Erro ao limpar filtros:', err);
-    }
+    setCurrentPage(1);
   };
 
-  const handlePerPageChange = async (newPerPage: number) => {
+  const handlePerPageChange = (newPerPage: number) => {
     setPerPage(newPerPage);
-    try {
-      const params = buildParams(appliedFilters);
-      params.per_page = newPerPage;
-      await fetchClients(1, params);
-    } catch (err) {
-      console.error('Erro ao alterar itens por página:', err);
-    }
+    setCurrentPage(1);
   };
 
   const handleDeleteClick = (client: Client) => {
@@ -265,7 +273,7 @@ export const ClientList: React.FC = () => {
           <p className="text-gray-500 text-sm sm:text-base font-medium mt-1">Gerencie sua base de clientes e histórico de compras.</p>
         </div>
         {hasPermission('clients.create') && (
-          <Button onClick={() => navigate('/clients/create')}>
+          <Button onClick={() => navigate('/clients/create', { state: { returnTo: buildReturnTo() } })}>
             <Plus size={18} /> Novo Cliente
           </Button>
         )}
@@ -536,7 +544,7 @@ export const ClientList: React.FC = () => {
                           {hasPermission('clients.read') && (
                             <button 
                               title="Ver histórico"
-                              onClick={() => navigate(`/clients/${client.id}`)}
+                              onClick={() => navigate(`/clients/${client.id}`, { state: { returnTo: buildReturnTo() } })}
                               className="p-2 text-slate-400 hover:text-slate-900 hover:bg-white rounded-xl shadow-sm border border-transparent hover:border-slate-100 transition-all"
                             >
                               <Eye size={16} />
@@ -545,7 +553,7 @@ export const ClientList: React.FC = () => {
                           {hasPermission('clients.update') && (
                             <button 
                               title="Editar cliente"
-                              onClick={() => navigate(`/clients/${client.id}/edit`)}
+                              onClick={() => navigate(`/clients/${client.id}/edit`, { state: { returnTo: buildReturnTo() } })}
                               className="p-2 text-slate-400 hover:bg-white rounded-xl shadow-sm border border-transparent hover:border-slate-100 transition-all"
                               onMouseEnter={(e) => {
                                 e.currentTarget.style.color = 'var(--store-color-dark)';
@@ -605,8 +613,7 @@ export const ClientList: React.FC = () => {
             perPage={perPage}
             onPerPageChange={handlePerPageChange}
             onPageChange={(page) => {
-              const params = buildParams(appliedFilters);
-              fetchClients(page, params);
+              setCurrentPage(page);
             }}
             itemName="clientes"
           />

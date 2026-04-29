@@ -3,6 +3,7 @@ import { formatIsoDatePtBr } from '../utils/dateDisplay';
 import { storeReceiptHeader } from '../utils/storeReceiptHeader';
 import { ReceiptPrescriptionTable } from './ReceiptPrescriptionTable';
 import type { EntryReceiptPrescriptionSource } from '../utils/entryReceiptPrescription';
+import { hasReceiptPrescriptionGridData } from '../utils/prescriptionGridSource';
 
 export interface EntryReceiptStore {
   name: string;
@@ -48,6 +49,8 @@ export interface EntryReceiptData {
   doctorName?: string | null;
   doctorCrm?: string | null;
   prescriptionDate?: string | null;
+  /** OS com laboratório: somente o nome (sem valores). */
+  laboratoryName?: string | null;
 }
 
 interface EntryReceiptProps {
@@ -99,11 +102,13 @@ export const EntryReceipt = forwardRef<HTMLDivElement, EntryReceiptProps>(
       doctorName,
       doctorCrm,
       prescriptionDate,
+      laboratoryName,
     } = data;
 
     const hasPrescriptionTable = includePrescriptionDetails && Boolean(prescription);
+    const prescriptionLinesWithoutObs = prescriptionLines.filter((l) => l.label !== 'Observações');
     const showPrescriptionLines =
-      includePrescriptionDetails && prescriptionLines.length > 0;
+      includePrescriptionDetails && prescriptionLinesWithoutObs.length > 0;
     const prescriptionDatePtBr = formatIsoDatePtBr(prescriptionDate);
 
     return (
@@ -165,13 +170,39 @@ export const EntryReceipt = forwardRef<HTMLDivElement, EntryReceiptProps>(
           )}
         </div>
 
+        {hasText(laboratoryName) ? (
+          <div style={{ marginBottom: '8px', fontWeight: 800, textAlign: 'center' }}>
+            <div style={{ fontWeight: 900, fontSize: '12px', marginBottom: '2px' }}>Laboratório</div>
+            <div style={{ fontWeight: 800, fontSize: '12px' }}>{laboratoryName}</div>
+          </div>
+        ) : null}
+
         {/* Receita e lentes — somente 1ª via */}
-        {(hasPrescriptionTable || showPrescriptionLines) ? (
+        {(hasPrescriptionTable || showPrescriptionLines || (includePrescriptionDetails && hasText(prescription?.notes))) ? (
           <>
             <div style={{ borderTop: '1px dashed #000', margin: '8px 0' }} />
             <div style={{ marginBottom: '8px', fontWeight: 800 }}>
               {hasPrescriptionTable && prescription ? (
-                <ReceiptPrescriptionTable src={prescription} variant="entry" />
+                <>
+                  {hasReceiptPrescriptionGridData(prescription) ? (
+                    <ReceiptPrescriptionTable src={prescription} variant="entry" />
+                  ) : null}
+                  {includePrescriptionDetails && hasText(prescription.notes) ? (
+                    <div
+                      style={{
+                        fontWeight: 700,
+                        fontSize: '11px',
+                        marginTop: hasReceiptPrescriptionGridData(prescription) ? '6px' : 0,
+                        marginBottom: '3px',
+                        lineHeight: 1.35,
+                        whiteSpace: 'pre-wrap',
+                        wordBreak: 'break-word',
+                      }}
+                    >
+                      <strong>Observações:</strong> {String(prescription.notes).trim()}
+                    </div>
+                  ) : null}
+                </>
               ) : null}
               {showPrescriptionLines ? (
                 <>
@@ -180,7 +211,7 @@ export const EntryReceipt = forwardRef<HTMLDivElement, EntryReceiptProps>(
                       Receita e lentes:
                     </div>
                   )}
-                  {prescriptionLines.map((line, index) => (
+                  {prescriptionLinesWithoutObs.map((line, index) => (
                     <div
                       key={`${line.label}-${index}`}
                       style={{ fontWeight: 700, fontSize: '11px', marginBottom: '3px', lineHeight: 1.35 }}

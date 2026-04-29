@@ -14,6 +14,7 @@ import { ReceiptModal } from '../../components/ReceiptModal';
 import { ReceiptData } from '../../components/ThermalReceipt';
 import { receiptPaymentLinesFromOrder } from '../../utils/receiptPaymentsFromOrder';
 import { buildReceiptItemsFromOrder } from '../../utils/receiptItemsFromOrder';
+import { laboratoryNameForReceipt } from '../../utils/laboratoryReceiptName';
 import { useAuth } from '../../services/hooks/useAuth';
 import { userHasAccessToStore } from '../../utils/storeAccess';
 import {
@@ -342,12 +343,14 @@ export const Inadimplencias: React.FC = () => {
     const doctorName = String(order.doctor_name ?? '').trim();
     const doctorCrm = String(order.doctor_crm ?? '').trim();
     const prescriptionDate = order.prescription_date || null;
+    const receiptLaboratoryName = laboratoryNameForReceipt(order);
 
     return {
       osNumber: order.os_number,
       date: new Date().toLocaleString('pt-BR'),
       expectedPickupDate: order.expected_pickup_date || null,
       seller: user?.name || order.user?.name || 'Vendedor',
+      ...(receiptLaboratoryName ? { laboratoryName: receiptLaboratoryName } : {}),
       ...(doctorName && doctorCrm ? { doctorName, doctorCrm, ...(prescriptionDate ? { prescriptionDate } : {}) } : {}),
       store: {
         name: storeData?.name || 'Loja',
@@ -384,6 +387,7 @@ export const Inadimplencias: React.FC = () => {
         addition: order.addition,
         far_dnp: order.far_dnp,
         near_dnp: order.near_dnp,
+        notes: order.notes,
       },
       items,
       total: totalPrice,

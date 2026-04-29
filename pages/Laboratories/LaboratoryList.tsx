@@ -8,9 +8,13 @@ import { usePermission } from '../../services/hooks/usePermission';
 import { useActiveFilters } from '../../hooks/useActiveFilters';
 import { useNavigate } from 'react-router-dom';
 import { useStore } from '../../contexts/StoreContext';
+import { useBackToList } from '../../hooks/useBackToList';
+import { useListUrlState } from '../../hooks/useListUrlState';
 
 export const LaboratoryList: React.FC = () => {
   const navigate = useNavigate();
+  const { buildReturnTo } = useBackToList();
+  const { getString, getNumber, setUrlState } = useListUrlState();
   const { showSuccess, showError } = useNotification();
   const { hasPermission } = usePermission();
   const { selectedStore } = useStore();
@@ -18,12 +22,13 @@ export const LaboratoryList: React.FC = () => {
     autoFetch: false,
   });
 
-  const [searchName, setSearchName] = useState('');
-  const [appliedSearchName, setAppliedSearchName] = useState('');
+  const [searchName, setSearchName] = useState(() => getString('search'));
+  const [appliedSearchName, setAppliedSearchName] = useState(() => getString('search'));
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
-  const [sortBy, setSortBy] = useState<string | null>('id');
-  const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
-  const [perPage, setPerPage] = useState<number>(15);
+  const [sortBy, setSortBy] = useState<string | null>(() => getString('sort_by', 'id'));
+  const [sortDirection, setSortDirection] = useState<SortDirection>(() => getString('sort_dir', 'desc') as SortDirection);
+  const [perPage, setPerPage] = useState<number>(() => getNumber('per_page', 15));
+  const [currentPage, setCurrentPage] = useState<number>(() => getNumber('page', 1));
   
   const activeFilters = useActiveFilters({ searchName: appliedSearchName });
   const [laboratoryToDelete, setLaboratoryToDelete] = useState<Laboratory | null>(null);
@@ -37,45 +42,43 @@ export const LaboratoryList: React.FC = () => {
       try {
         const params: any = { order_by: sortBy || 'id', order_dir: sortDirection || 'desc', per_page: perPage };
         if (appliedSearchName) params.search = appliedSearchName;
-        await fetchLaboratories(1, params);
+        await fetchLaboratories(currentPage, params);
     } catch (_err) {}
     };
     loadLaboratories();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [perPage, selectedStore?.id, appliedSearchName, sortBy, sortDirection]);
+  }, [perPage, selectedStore?.id, appliedSearchName, sortBy, sortDirection, currentPage, fetchLaboratories, reset]);
+
+  useEffect(() => {
+    setUrlState({
+      search: appliedSearchName,
+      sort_by: sortBy || 'id',
+      sort_dir: sortDirection || 'desc',
+      per_page: perPage,
+      page: currentPage,
+    });
+  }, [appliedSearchName, sortBy, sortDirection, perPage, currentPage, setUrlState]);
 
   const handleSort = (key: string, direction: SortDirection) => {
     setSortBy(key);
     setSortDirection(direction || 'asc');
-    const params: any = { order_by: key, order_dir: direction || 'asc', per_page: perPage };
-    if (appliedSearchName) params.search = appliedSearchName;
-    fetchLaboratories(pagination?.currentPage || 1, params);
+    setCurrentPage(1);
   };
 
-  const handleApplyFilters = async () => {
+  const handleApplyFilters = () => {
     setAppliedSearchName(searchName);
-    try {
-      const params: any = { order_by: sortBy || 'id', order_dir: sortDirection || 'desc', per_page: perPage };
-      if (searchName) params.search = searchName;
-      await fetchLaboratories(1, params);
-    } catch (_err) {}
+    setCurrentPage(1);
   };
 
-  const handleClearFilters = async () => {
+  const handleClearFilters = () => {
     setSearchName('');
     setAppliedSearchName('');
-    try {
-      await fetchLaboratories(1, { order_by: sortBy || 'id', order_dir: sortDirection || 'desc', per_page: perPage });
-    } catch (_err) {}
+    setCurrentPage(1);
   };
 
-  const handlePerPageChange = async (newPerPage: number) => {
+  const handlePerPageChange = (newPerPage: number) => {
     setPerPage(newPerPage);
-    try {
-      const params: any = { order_by: sortBy || 'id', order_dir: sortDirection || 'desc', per_page: newPerPage };
-      if (appliedSearchName) params.search = appliedSearchName;
-      await fetchLaboratories(1, params);
-    } catch (_err) {}
+    setCurrentPage(1);
   };
 
   const handleDeleteClick = (laboratory: Laboratory) => {
@@ -183,7 +186,7 @@ export const LaboratoryList: React.FC = () => {
           </div>
         </div>
         {hasPermission('laboratories.create') && (
-          <Button onClick={() => navigate('/laboratories/create')}>
+          <Button onClick={() => navigate('/laboratories/create', { state: { returnTo: buildReturnTo() } })}>
             <Plus size={18} /> Novo Laboratório
           </Button>
         )}
@@ -314,7 +317,7 @@ export const LaboratoryList: React.FC = () => {
                         <div>
                           <p 
                             className="text-sm font-bold text-slate-900 transition-colors cursor-pointer"
-                            onClick={() => navigate(`/laboratories/${laboratory.id}`)}
+                            onClick={() => navigate(`/laboratories/${laboratory.id}`, { state: { returnTo: buildReturnTo() } })}
                             onMouseEnter={(e) => {
                               e.currentTarget.style.color = 'var(--store-color-dark)';
                             }}
@@ -362,7 +365,7 @@ export const LaboratoryList: React.FC = () => {
                         {hasPermission('laboratories.read') && (
                           <button 
                             title="Ver detalhes"
-                            onClick={() => navigate(`/laboratories/${laboratory.id}`)}
+                            onClick={() => navigate(`/laboratories/${laboratory.id}`, { state: { returnTo: buildReturnTo() } })}
                             className="p-2 text-slate-400 hover:bg-white rounded-xl shadow-sm border border-transparent hover:border-slate-100 transition-all"
                             onMouseEnter={(e) => {
                               e.currentTarget.style.color = 'var(--store-color-dark)';
@@ -377,7 +380,7 @@ export const LaboratoryList: React.FC = () => {
                         {hasPermission('laboratories.update') && (
                           <button 
                             title="Editar laboratório"
-                            onClick={() => navigate(`/laboratories/${laboratory.id}/edit`)}
+                            onClick={() => navigate(`/laboratories/${laboratory.id}/edit`, { state: { returnTo: buildReturnTo() } })}
                             className="p-2 text-slate-400 hover:bg-white rounded-xl shadow-sm border border-transparent hover:border-slate-100 transition-all"
                             onMouseEnter={(e) => {
                               e.currentTarget.style.color = 'var(--store-color-dark)';
@@ -419,9 +422,7 @@ export const LaboratoryList: React.FC = () => {
             perPage={perPage}
             onPerPageChange={handlePerPageChange}
             onPageChange={(page) => {
-              const params: any = { order_by: sortBy || 'id', order_dir: sortDirection || 'desc', per_page: perPage };
-              if (appliedSearchName) params.search = appliedSearchName;
-              fetchLaboratories(page, params);
+              setCurrentPage(page);
             }}
             itemName="laboratórios"
           />

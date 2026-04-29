@@ -29,6 +29,7 @@ import { ServiceOrder } from '../../services/api/serviceOrders';
 import { clientPrescriptionsService } from '../../services/api/clientPrescriptions';
 import { ClientWhatsAppAvatar } from '../../components/ClientWhatsAppAvatar';
 import { serviceOrdersService } from '../../services/api/serviceOrders';
+import { useBackToList } from '../../hooks/useBackToList';
 
 // Interface estendida para incluir dados do relacionamento
 interface ClientWithRelationships extends Client {
@@ -630,6 +631,7 @@ export const ClientHistory: React.FC = () => {
   const navigate = useNavigate();
   const { hasPermission } = usePermission();
   const { getHistory } = useClients({ autoFetch: false });
+  const { goBackToList } = useBackToList();
 
   const [client, setClient] = useState<ClientWithRelationships | null>(null);
   const [orders, setOrders] = useState<ServiceOrder[]>([]);
@@ -796,7 +798,7 @@ export const ClientHistory: React.FC = () => {
     return (
       <div className="flex flex-col items-center justify-center min-h-[400px] gap-4">
         <p className="text-red-500">{error || 'Cliente não encontrado'}</p>
-        <Button variant="outline" onClick={() => navigate('/clients')}>
+        <Button variant="outline" onClick={() => goBackToList('/clients')}>
           <ArrowLeft size={18} /> Voltar
         </Button>
       </div>
@@ -809,7 +811,7 @@ export const ClientHistory: React.FC = () => {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div className="flex items-center gap-4">
           <button 
-            onClick={() => navigate('/clients')}
+            onClick={() => goBackToList('/clients')}
             className="w-12 h-12 rounded-2xl bg-white border border-slate-100 flex items-center justify-center text-slate-400 transition-all shadow-sm"
             onMouseEnter={(e) => {
               e.currentTarget.style.color = 'var(--store-color-dark)';

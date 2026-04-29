@@ -25,6 +25,8 @@ import { invoicesService, type Invoice as ApiInvoice } from '../../services/api/
 import { invoiceToNFCeData, buildReciboHtml } from '../../utils/nfceCupom';
 import { useStore } from '../../contexts/StoreContext';
 import { ClientWhatsAppAvatar } from '../../components/ClientWhatsAppAvatar';
+import { useBackToList } from '../../hooks/useBackToList';
+import { useListUrlState } from '../../hooks/useListUrlState';
 
 const statusToLabel: Record<string, string> = {
   authorized: 'Autorizada',
@@ -86,6 +88,8 @@ function mapApiInvoiceToRow(inv: ApiInvoice) {
 
 export const InvoiceList: React.FC = () => {
   const navigate = useNavigate();
+  const { buildReturnTo } = useBackToList();
+  const { getString, getNumber, setUrlState } = useListUrlState();
   const { showSuccess, showError } = useNotification();
   const { hasSuperAdminRole } = usePermission();
   const { selectedStore } = useStore();
@@ -101,25 +105,25 @@ export const InvoiceList: React.FC = () => {
   });
   const [loading, setLoading] = useState(true);
   // Filtros em edição (valores nos inputs)
-  const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState('');
-  const [tipoFilter, setTipoFilter] = useState('');
-  const [storeFilter, setStoreFilter] = useState('');
-  const [dateFromFilter, setDateFromFilter] = useState('');
-  const [dateToFilter, setDateToFilter] = useState('');
+  const [searchTerm, setSearchTerm] = useState(() => getString('search'));
+  const [statusFilter, setStatusFilter] = useState(() => getString('status'));
+  const [tipoFilter, setTipoFilter] = useState(() => getString('tipo'));
+  const [storeFilter, setStoreFilter] = useState(() => getString('store_id'));
+  const [dateFromFilter, setDateFromFilter] = useState(() => getString('date_from'));
+  const [dateToFilter, setDateToFilter] = useState(() => getString('date_to'));
   // Filtros aplicados (só atualizados ao clicar em "Aplicar Filtros")
   const [appliedFilters, setAppliedFilters] = useState({
-    searchTerm: '',
-    statusFilter: '',
-    tipoFilter: '',
-    storeFilter: '',
-    dateFromFilter: '',
-    dateToFilter: '',
+    searchTerm: getString('search'),
+    statusFilter: getString('status'),
+    tipoFilter: getString('tipo'),
+    storeFilter: getString('store_id'),
+    dateFromFilter: getString('date_from'),
+    dateToFilter: getString('date_to'),
   });
-  const [sortBy, setSortBy] = useState<string | null>('created_at');
-  const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
-  const [currentPage, setCurrentPage] = useState(1);
-  const [perPage, setPerPage] = useState(15);
+  const [sortBy, setSortBy] = useState<string | null>(() => getString('sort_by', 'created_at'));
+  const [sortDirection, setSortDirection] = useState<SortDirection>(() => getString('sort_dir', 'desc') as SortDirection);
+  const [currentPage, setCurrentPage] = useState(() => getNumber('page', 1));
+  const [perPage, setPerPage] = useState(() => getNumber('per_page', 15));
 
   const { plucks: storesPlucks } = usePlucks({ service: storesService, autoFetch: true });
   const safeStoresPlucks = Array.isArray(storesPlucks) ? storesPlucks : [];
@@ -195,6 +199,21 @@ export const InvoiceList: React.FC = () => {
   useEffect(() => {
     fetchStats();
   }, [fetchStats]);
+
+  useEffect(() => {
+    setUrlState({
+      search: appliedFilters.searchTerm,
+      status: appliedFilters.statusFilter,
+      tipo: appliedFilters.tipoFilter,
+      store_id: appliedFilters.storeFilter,
+      date_from: appliedFilters.dateFromFilter,
+      date_to: appliedFilters.dateToFilter,
+      sort_by: sortBy || 'created_at',
+      sort_dir: sortDirection,
+      page: currentPage,
+      per_page: perPage,
+    });
+  }, [appliedFilters, sortBy, sortDirection, currentPage, perPage, setUrlState]);
 
   const getStatusVariant = (status: string) => {
     switch (status) {
@@ -637,7 +656,7 @@ export const InvoiceList: React.FC = () => {
                     </td>
                     <td className="px-6 py-4">
                       <button
-                        onClick={() => navigate(`/service-orders/${invoice.serviceOrderId}`)}
+                        onClick={() => navigate(`/service-orders/${invoice.serviceOrderId}`, { state: { returnTo: buildReturnTo() } })}
                         className="text-sm font-bold text-red-600 hover:text-red-700 hover:underline transition-colors"
                       >
                         OS #{invoice.osNumber}
@@ -683,7 +702,7 @@ export const InvoiceList: React.FC = () => {
                       <div className="flex items-center justify-center gap-2">
                         <button
                           title="Visualizar NF-e"
-                          onClick={() => navigate(`/invoices/${invoice.id}`)}
+                          onClick={() => navigate(`/invoices/${invoice.id}`, { state: { returnTo: buildReturnTo() } })}
                           className="p-2 text-slate-400 hover:text-slate-900 hover:bg-white rounded-xl shadow-sm border border-transparent hover:border-slate-100 transition-all"
                         >
                           <Eye size={16} />

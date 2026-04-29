@@ -3,6 +3,7 @@ import { formatIsoDatePtBr } from '../utils/dateDisplay';
 import { storeReceiptHeader, storeReceiptSubtitleLine } from '../utils/storeReceiptHeader';
 import { ReceiptPrescriptionTable } from './ReceiptPrescriptionTable';
 import type { EntryReceiptPrescriptionSource } from '../utils/entryReceiptPrescription';
+import { hasReceiptPrescriptionGridData } from '../utils/prescriptionGridSource';
 
 export interface ReceiptStore {
   name: string;
@@ -58,6 +59,8 @@ export interface ReceiptData {
   paymentMethod?: string | null;
   installments?: number | null;
   payments?: ReceiptPayment[];
+  /** Exibido em OS com laboratório: somente o nome (sem valores de custo). */
+  laboratoryName?: string | null;
 }
 
 // Labels para formas de pagamento
@@ -134,6 +137,7 @@ export const ThermalReceipt = forwardRef<HTMLDivElement, ThermalReceiptProps>(
       paymentMethod,
       installments,
       payments,
+      laboratoryName,
     } = data;
     const cnpjDigits = (store.cnpj || '').replace(/\D/g, '');
     const addressLine = [store.logradouro, store.numero]
@@ -223,6 +227,16 @@ export const ThermalReceipt = forwardRef<HTMLDivElement, ThermalReceiptProps>(
           )}
         </div>
 
+        {hasText(laboratoryName) ? (
+          <>
+            <div style={{ borderTop: '1px dashed #000', margin: '8px 0' }} />
+            <div style={{ marginBottom: '8px', fontWeight: heavy, textAlign: 'center' }}>
+              <div style={{ fontWeight: 900, fontSize: '11px', marginBottom: '2px' }}>Laboratório</div>
+              <div style={{ fontWeight: heavy, fontSize: '12px' }}>{laboratoryName}</div>
+            </div>
+          </>
+        ) : null}
+
         {/* Separador */}
         <div style={{ borderTop: '1px dashed #000', margin: '8px 0' }} />
 
@@ -283,11 +297,28 @@ export const ThermalReceipt = forwardRef<HTMLDivElement, ThermalReceiptProps>(
           </div>
         )}
 
-        {/* Tabela de Receita (graus) */}
-        {prescription ? (
+        {/* Receita (grade) + observações — recibo térmico ignora apenas `prescription`; notes vem dentro do objeto */}
+        {prescription &&
+        (hasReceiptPrescriptionGridData(prescription) || hasText(prescription.notes)) ? (
           <>
             <div style={{ borderTop: '1px dashed #000', margin: '8px 0' }} />
-            <ReceiptPrescriptionTable src={prescription} variant="thermal" />
+            {hasReceiptPrescriptionGridData(prescription) ? (
+              <ReceiptPrescriptionTable src={prescription} variant="thermal" />
+            ) : null}
+            {hasText(prescription.notes) ? (
+              <div
+                style={{
+                  fontWeight: heavy,
+                  fontSize: '11px',
+                  lineHeight: 1.35,
+                  whiteSpace: 'pre-wrap',
+                  wordBreak: 'break-word',
+                }}
+              >
+                <span style={{ fontWeight: 900 }}>Observações:</span>{' '}
+                {String(prescription.notes).trim()}
+              </div>
+            ) : null}
           </>
         ) : null}
 

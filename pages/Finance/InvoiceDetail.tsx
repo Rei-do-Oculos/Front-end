@@ -29,6 +29,7 @@ import { userHasAccessToStore } from '../../utils/storeAccess';
 import { invoicesService, type Invoice } from '../../services/api/invoices';
 import { invoiceToNFCeData, buildReciboHtml } from '../../utils/nfceCupom';
 import { ClientWhatsAppAvatar } from '../../components/ClientWhatsAppAvatar';
+import { useBackToList } from '../../hooks/useBackToList';
 
 /** Obtém tipo da nota pela chave (pos 20-21: 55=NF-e, 65=NFC-e). */
 function getInvoiceType(accessKey: string | null | undefined): 'NFC-e' | 'NF-e' {
@@ -116,6 +117,7 @@ function mapInvoiceToDisplay(inv: Invoice) {
 export const InvoiceDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { goBackToList, buildReturnTo } = useBackToList();
   const { user } = useAuth();
   const { hasPermission } = usePermission();
   const { showSuccess, showError } = useNotification();
@@ -258,7 +260,7 @@ export const InvoiceDetail: React.FC = () => {
       const newInvoice = await invoicesService.gerarDevolucao(invoice.id, true);
       showSuccess('Nota de devolução', 'Emitida com sucesso.');
       setInvoice(await invoicesService.getById(String(invoice.id)));
-      navigate(`/invoices/${newInvoice.id}`);
+      navigate(`/invoices/${newInvoice.id}`, { state: { returnTo: buildReturnTo() } });
     } catch (e: any) {
       showError('Nota de devolução', e.message || 'Erro ao gerar.');
     } finally {
@@ -320,7 +322,7 @@ export const InvoiceDetail: React.FC = () => {
   if (error || !invoice) {
     return (
       <div className="space-y-6">
-        <Button variant="outline" onClick={() => navigate('/invoices')}>
+        <Button variant="outline" onClick={() => goBackToList('/invoices')}>
           <ArrowLeft size={18} /> Voltar
         </Button>
         <Card className="p-8 text-center">
@@ -369,7 +371,7 @@ export const InvoiceDetail: React.FC = () => {
     <div className="space-y-8 animate-in fade-in duration-700">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 print:hidden">
         <div className="flex items-center gap-4">
-          <Button variant="outline" onClick={() => navigate('/invoices')} className="border-slate-200 text-slate-600 bg-white">
+          <Button variant="outline" onClick={() => goBackToList('/invoices')} className="border-slate-200 text-slate-600 bg-white">
             <ArrowLeft size={18} /> Voltar
           </Button>
           <div>
@@ -445,7 +447,7 @@ export const InvoiceDetail: React.FC = () => {
                 <Button
                   variant="outline"
                   className="border-slate-200 text-slate-600"
-                  onClick={() => navigate(`/invoices/${invoice.devolucao_invoice!.id}`)}
+                  onClick={() => navigate(`/invoices/${invoice.devolucao_invoice!.id}`, { state: { returnTo: buildReturnTo() } })}
                 >
                   <Eye size={18} /> Ver nota de devolução
                 </Button>
@@ -463,7 +465,7 @@ export const InvoiceDetail: React.FC = () => {
               <Button
                 variant="outline"
                 className="border-slate-200 text-slate-600"
-                onClick={() => navigate(`/invoices/${invoice.original_invoice_id!}`)}
+                onClick={() => navigate(`/invoices/${invoice.original_invoice_id!}`, { state: { returnTo: buildReturnTo() } })}
               >
                 <Eye size={18} /> Ver nota original
               </Button>
@@ -559,7 +561,7 @@ export const InvoiceDetail: React.FC = () => {
                 <div className="flex-1">
                   <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">OS Relacionada</p>
                   <button
-                    onClick={() => navigate(`/service-orders/${invoice.service_order_id}`)}
+                    onClick={() => navigate(`/service-orders/${invoice.service_order_id}`, { state: { returnTo: buildReturnTo() } })}
                     className="text-sm font-bold text-red-600 hover:text-red-700 hover:underline mt-1"
                   >
                     OS #{d.osNumber}

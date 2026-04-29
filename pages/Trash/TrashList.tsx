@@ -8,6 +8,8 @@ import { useActiveFilters } from '../../hooks/useActiveFilters';
 import { useAuth } from '../../services/hooks/useAuth';
 import { getEffectiveUserPermissions } from '../../utils/menuPermissions';
 import type { TrashItem } from '../../services/api/trash';
+import { useBackToList } from '../../hooks/useBackToList';
+import { useListUrlState } from '../../hooks/useListUrlState';
 
 const MODELS = [
   { value: '', label: 'Todos os Módulos' },
@@ -21,6 +23,8 @@ const MODELS = [
 
 export const TrashList: React.FC = () => {
   const navigate = useNavigate();
+  const { buildReturnTo } = useBackToList();
+  const { getString, getNumber, setUrlState } = useListUrlState();
   const { showSuccess, showError } = useNotification();
   const { user } = useAuth();
   const { items: itemsFromHook, loading, error, pagination, fetchItems, restoreItem } = useTrash({
@@ -30,12 +34,13 @@ export const TrashList: React.FC = () => {
   // Garantir que items seja sempre um array
   const items = Array.isArray(itemsFromHook) ? itemsFromHook : [];
 
-  const [search, setSearch] = useState('');
-  const [selectedModel, setSelectedModel] = useState('');
-  const [appliedFilters, setAppliedFilters] = useState({ search: '', selectedModel: '' });
-  const [sortBy, setSortBy] = useState<string | null>('deleted_at');
-  const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
-  const [perPage, setPerPage] = useState<number>(15);
+  const [search, setSearch] = useState(() => getString('search'));
+  const [selectedModel, setSelectedModel] = useState(() => getString('model'));
+  const [appliedFilters, setAppliedFilters] = useState({ search: getString('search'), selectedModel: getString('model') });
+  const [sortBy, setSortBy] = useState<string | null>(() => getString('sort_by', 'deleted_at'));
+  const [sortDirection, setSortDirection] = useState<SortDirection>(() => getString('sort_dir', 'desc') as SortDirection);
+  const [perPage, setPerPage] = useState<number>(() => getNumber('per_page', 15));
+  const [currentPage, setCurrentPage] = useState<number>(() => getNumber('page', 1));
   const [restoreConfirmItem, setRestoreConfirmItem] = useState<TrashItem | null>(null);
   const [restoring, setRestoring] = useState(false);
 
@@ -54,48 +59,42 @@ export const TrashList: React.FC = () => {
     const params: any = { order_by: sortBy || 'deleted_at', order_dir: sortDirection || 'desc', per_page: perPage };
     if (appliedFilters.search) params.search = appliedFilters.search;
     if (appliedFilters.selectedModel) params.model = appliedFilters.selectedModel;
-    fetchItems(1, params);
+    fetchItems(currentPage, params);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [perPage, appliedFilters, sortBy, sortDirection]);
+  }, [perPage, appliedFilters, sortBy, sortDirection, currentPage, fetchItems]);
+
+  useEffect(() => {
+    setUrlState({
+      search: appliedFilters.search,
+      model: appliedFilters.selectedModel,
+      sort_by: sortBy || 'deleted_at',
+      sort_dir: sortDirection || 'desc',
+      per_page: perPage,
+      page: currentPage,
+    });
+  }, [appliedFilters, sortBy, sortDirection, perPage, currentPage, setUrlState]);
 
   const handleSort = (key: string, direction: SortDirection) => {
     setSortBy(key);
     setSortDirection(direction || 'asc');
-    const params: any = { order_by: key, order_dir: direction || 'asc', per_page: perPage };
-    if (appliedFilters.search) params.search = appliedFilters.search;
-    if (appliedFilters.selectedModel) params.model = appliedFilters.selectedModel;
-    fetchItems(pagination?.currentPage || 1, params);
+    setCurrentPage(1);
   };
 
-  const handleApplyFilters = async () => {
+  const handleApplyFilters = () => {
     setAppliedFilters({ search, selectedModel });
-    try {
-      const params: any = { order_by: sortBy || 'deleted_at', order_dir: sortDirection || 'desc', per_page: perPage };
-      if (search) params.search = search;
-      if (selectedModel) params.model = selectedModel;
-      await fetchItems(1, params);
-    } catch (err) {
-      console.error('Erro ao aplicar filtros:', err);
-    }
+    setCurrentPage(1);
   };
 
-  const handleClearFilters = async () => {
+  const handleClearFilters = () => {
     setSearch('');
     setSelectedModel('');
     setAppliedFilters({ search: '', selectedModel: '' });
-    try {
-      await fetchItems(1, { order_by: sortBy || 'deleted_at', order_dir: sortDirection || 'desc', per_page: perPage });
-    } catch (err) {
-      console.error('Erro ao limpar filtros:', err);
-    }
+    setCurrentPage(1);
   };
 
-  const handlePerPageChange = async (newPerPage: number) => {
+  const handlePerPageChange = (newPerPage: number) => {
     setPerPage(newPerPage);
-    const params: any = { order_by: sortBy || 'deleted_at', order_dir: sortDirection || 'desc', per_page: newPerPage };
-    if (appliedFilters.search) params.search = appliedFilters.search;
-    if (appliedFilters.selectedModel) params.model = appliedFilters.selectedModel;
-    await fetchItems(1, params);
+    setCurrentPage(1);
   };
 
   const handleRestoreConfirm = async () => {
@@ -265,7 +264,7 @@ export const TrashList: React.FC = () => {
                       <div className="flex items-center justify-center gap-2">
                         <button
                           title="Ver detalhes"
-                          onClick={() => navigate(`/trash/item/${item.model}/${item.id}`, { state: { item } })}
+                          onClick={() => navigate(`/trash/item/${item.model}/${item.id}`, { state: { item, returnTo: buildReturnTo() } })}
                           className="p-2 text-slate-600 hover:bg-slate-100 rounded-xl shadow-sm border border-transparent hover:border-slate-200 transition-all"
                         >
                           <Eye size={16} />
@@ -294,10 +293,7 @@ export const TrashList: React.FC = () => {
             perPage={perPage}
             onPerPageChange={handlePerPageChange}
             onPageChange={(page) => {
-              const params: any = { per_page: perPage, order_by: sortBy || 'deleted_at', order_dir: sortDirection || 'desc' };
-              if (appliedFilters.search) params.search = appliedFilters.search;
-              if (appliedFilters.selectedModel) params.model = appliedFilters.selectedModel;
-              fetchItems(page, params);
+              setCurrentPage(page);
             }}
             itemName="itens"
           />

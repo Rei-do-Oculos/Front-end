@@ -19,10 +19,13 @@ import {
   nfeEligibilitySnapshotFromServiceOrder,
 } from '../../utils/serviceOrderNfeEligibility';
 import { useNavigate } from 'react-router-dom';
+import { useBackToList } from '../../hooks/useBackToList';
+import { useListUrlState } from '../../hooks/useListUrlState';
 import { ReceiptModal } from '../../components/ReceiptModal';
 import { ReceiptData } from '../../components/ThermalReceipt';
 import { receiptPaymentLinesFromOrder } from '../../utils/receiptPaymentsFromOrder';
 import { buildReceiptItemsFromOrder } from '../../utils/receiptItemsFromOrder';
+import { laboratoryNameForReceipt } from '../../utils/laboratoryReceiptName';
 import { invoicesService } from '../../services/api/invoices';
 import { EntryReceiptModal } from '../../components/EntryReceiptModal';
 import { EntryReceiptData } from '../../components/EntryReceipt';
@@ -84,6 +87,8 @@ function orderPaymentMethodLabel(order: ServiceOrder): string {
 
 export const ServiceOrderLabList: React.FC = () => {
   const navigate = useNavigate();
+  const { buildReturnTo } = useBackToList();
+  const { getString, getNumber, setUrlState } = useListUrlState();
   const { showSuccess, showError } = useNotification();
   const { hasPermission } = usePermission();
   const { availableStores, selectedStore } = useStore();
@@ -111,24 +116,25 @@ export const ServiceOrderLabList: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [labListError, setLabListError] = useState<Error & { response?: { status?: number } } | null>(null);
 
-  const [searchTerm, setSearchTerm] = useState('');
-  const [filterStore, setFilterStore] = useState('');
-  const [filterLab, setFilterLab] = useState('');
-  const [filterStatus, setFilterStatus] = useState('');
-  const [filterDateFrom, setFilterDateFrom] = useState('');
-  const [filterDateTo, setFilterDateTo] = useState('');
+  const [searchTerm, setSearchTerm] = useState(() => getString('search'));
+  const [filterStore, setFilterStore] = useState(() => getString('store_id'));
+  const [filterLab, setFilterLab] = useState(() => getString('laboratory_id'));
+  const [filterStatus, setFilterStatus] = useState(() => getString('status'));
+  const [filterDateFrom, setFilterDateFrom] = useState(() => getString('date_from'));
+  const [filterDateTo, setFilterDateTo] = useState(() => getString('date_to'));
   const [appliedFilters, setAppliedFilters] = useState({
-    searchTerm: '',
-    filterStore: '',
-    filterLab: '',
-    filterStatus: '',
-    filterDateFrom: '',
-    filterDateTo: '',
+    searchTerm: getString('search'),
+    filterStore: getString('store_id'),
+    filterLab: getString('laboratory_id'),
+    filterStatus: getString('status'),
+    filterDateFrom: getString('date_from'),
+    filterDateTo: getString('date_to'),
   });
   const [actionModalOpen, setActionModalOpen] = useState(false);
-  const [sortBy, setSortBy] = useState<string | null>('id');
-  const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
-  const [perPage, setPerPage] = useState<number>(15);
+  const [sortBy, setSortBy] = useState<string | null>(() => getString('sort_by', 'id'));
+  const [sortDirection, setSortDirection] = useState<SortDirection>(() => getString('sort_dir', 'desc') as SortDirection);
+  const [perPage, setPerPage] = useState<number>(() => getNumber('per_page', 15));
+  const [currentPage, setCurrentPage] = useState<number>(() => getNumber('page', 1));
   
   const activeFilters = useActiveFilters({
     searchTerm: appliedFilters.searchTerm,
@@ -218,22 +224,33 @@ export const ServiceOrderLabList: React.FC = () => {
     params.order_by = sortBy || 'id';
     params.order_dir = sortDirection || 'desc';
     params.per_page = perPage;
-    loadOrders(1, params);
+    loadOrders(currentPage, params);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [appliedFilters, sortBy, sortDirection, perPage, selectedStore?.id]);
+  }, [appliedFilters, sortBy, sortDirection, perPage, currentPage, selectedStore?.id]);
+
+  useEffect(() => {
+    setUrlState({
+      search: appliedFilters.searchTerm,
+      store_id: appliedFilters.filterStore,
+      laboratory_id: appliedFilters.filterLab,
+      status: appliedFilters.filterStatus,
+      date_from: appliedFilters.filterDateFrom,
+      date_to: appliedFilters.filterDateTo,
+      sort_by: sortBy || 'id',
+      sort_dir: sortDirection || 'desc',
+      per_page: perPage,
+      page: currentPage,
+    });
+  }, [appliedFilters, sortBy, sortDirection, perPage, currentPage, setUrlState]);
 
   const handleSort = (key: string, direction: SortDirection) => {
     const newDirection = direction || 'asc';
     setSortBy(key);
     setSortDirection(newDirection);
-    const params = buildFilterParams(appliedFilters);
-    params.order_by = key;
-    params.order_dir = newDirection;
-    params.per_page = perPage;
-    loadOrders(pagination?.currentPage || 1, params);
+    setCurrentPage(1);
   };
 
-  const handleApplyFilters = async () => {
+  const handleApplyFilters = () => {
     const next = {
       searchTerm,
       filterStore,
@@ -243,14 +260,10 @@ export const ServiceOrderLabList: React.FC = () => {
       filterDateTo,
     };
     setAppliedFilters(next);
-    const params = buildFilterParams(next);
-    params.order_by = sortBy || 'id';
-    params.order_dir = sortDirection || 'desc';
-    params.per_page = perPage;
-    await loadOrders(1, params);
+    setCurrentPage(1);
   };
 
-  const handleClearFilters = async () => {
+  const handleClearFilters = () => {
     setSearchTerm('');
     setFilterStore('');
     setFilterLab('');
@@ -265,26 +278,26 @@ export const ServiceOrderLabList: React.FC = () => {
       filterDateFrom: '',
       filterDateTo: '',
     });
-    await loadOrders(1, {
-      order_by: sortBy || 'id',
-      order_dir: sortDirection || 'desc',
-      per_page: perPage,
-    });
+    setCurrentPage(1);
   };
 
-  const handlePerPageChange = async (newPerPage: number) => {
+  const handlePerPageChange = (newPerPage: number) => {
     setPerPage(newPerPage);
+    setCurrentPage(1);
+  };
+
+  const buildReloadParams = useCallback(() => {
     const params = buildFilterParams(appliedFilters);
-    params.per_page = newPerPage;
     params.order_by = sortBy || 'id';
     params.order_dir = sortDirection || 'desc';
-    await loadOrders(1, params);
-  };
+    params.per_page = perPage;
+    return params;
+  }, [appliedFilters, buildFilterParams, sortBy, sortDirection, perPage]);
 
   const handleActionClick = (order: ServiceOrder, action: 'send' | 'arrived' | 'completed') => {
     // Finalizar só com 100% recebido: pagamento único ou parcial sem parcela "na retirada"
     if (action === 'completed' && hasPickupPaymentPending(nfeEligibilitySnapshotFromServiceOrder(order))) {
-      navigate(`/service-orders/${order.id}/change-payment`);
+      navigate(`/service-orders/${order.id}/change-payment`, { state: { returnTo: buildReturnTo() } });
       return;
     }
     
@@ -393,11 +406,7 @@ export const ServiceOrderLabList: React.FC = () => {
         setOrderToAction(null);
         setActionType(null);
         // Recarregar lista
-        await loadOrders(pagination?.currentPage || 1, {
-          per_page: perPage,
-          order_by: sortBy || 'id',
-          order_dir: sortDirection || 'desc',
-        });
+        await loadOrders(currentPage, buildReloadParams());
       } else {
         showError(result?.message || 'Erro ao finalizar OS');
       }
@@ -451,11 +460,7 @@ export const ServiceOrderLabList: React.FC = () => {
         setOrderToAction(null);
         setActionType(null);
         // Recarregar lista
-        await loadOrders(pagination?.currentPage || 1, {
-          per_page: perPage,
-          order_by: sortBy || 'id',
-          order_dir: sortDirection || 'desc',
-        });
+        await loadOrders(currentPage, buildReloadParams());
       } else {
         showError(result?.message || 'Erro ao processar ação');
       }
@@ -512,11 +517,7 @@ export const ServiceOrderLabList: React.FC = () => {
         setOrderToAction(null);
         setActionType(null);
         // Recarregar lista
-        await loadOrders(pagination?.currentPage || 1, {
-          per_page: perPage,
-          order_by: sortBy || 'id',
-          order_dir: sortDirection || 'desc',
-        });
+        await loadOrders(currentPage, buildReloadParams());
       } else {
         showError(result?.message || 'Erro ao reverter ação');
       }
@@ -626,12 +627,14 @@ export const ServiceOrderLabList: React.FC = () => {
     const doctorName = String(order.doctor_name ?? '').trim();
     const doctorCrm = String(order.doctor_crm ?? '').trim();
     const prescriptionDate = order.prescription_date || null;
+    const receiptLaboratoryName = laboratoryNameForReceipt(order);
 
     return {
       osNumber: order.os_number,
       date: new Date().toLocaleString('pt-BR'),
       expectedPickupDate: order.expected_pickup_date || null,
       seller: user?.name || order.user?.name || 'Vendedor',
+      ...(receiptLaboratoryName ? { laboratoryName: receiptLaboratoryName } : {}),
       ...(doctorName && doctorCrm ? { doctorName, doctorCrm, ...(prescriptionDate ? { prescriptionDate } : {}) } : {}),
       store: {
         name: storeData?.name || order.store?.name || 'Loja',
@@ -668,6 +671,7 @@ export const ServiceOrderLabList: React.FC = () => {
         addition: order.addition,
         far_dnp: order.far_dnp,
         near_dnp: order.near_dnp,
+        notes: order.notes,
       },
       items,
       total: totalPrice,
@@ -770,6 +774,7 @@ export const ServiceOrderLabList: React.FC = () => {
     const entryDoctorName = String(order.doctor_name ?? '').trim();
     const entryDoctorCrm = String(order.doctor_crm ?? '').trim();
     const entryPrescriptionDate = order.prescription_date || null;
+    const entryLaboratoryName = laboratoryNameForReceipt(order);
 
     return {
       osNumber: order.os_number,
@@ -777,6 +782,7 @@ export const ServiceOrderLabList: React.FC = () => {
       expectedPickupDate: order.expected_pickup_date || null,
       prescription: entryReceiptSrc,
       prescriptionLines,
+      ...(entryLaboratoryName ? { laboratoryName: entryLaboratoryName } : {}),
       ...(entryDoctorName && entryDoctorCrm ? { doctorName: entryDoctorName, doctorCrm: entryDoctorCrm, ...(entryPrescriptionDate ? { prescriptionDate: entryPrescriptionDate } : {}) } : {}),
       store: {
         name: storeData?.name || order.store?.name || 'Loja',
@@ -1070,7 +1076,7 @@ export const ServiceOrderLabList: React.FC = () => {
                           <div>
                             <p 
                               className="text-sm font-bold text-slate-900 transition-colors cursor-pointer"
-                              onClick={() => order.client_id && navigate(`/clients/${order.client_id}`)}
+                              onClick={() => order.client_id && navigate(`/clients/${order.client_id}`, { state: { returnTo: buildReturnTo() } })}
                               onMouseEnter={(e) => {
                                 e.currentTarget.style.color = 'var(--store-color-dark)';
                               }}
@@ -1127,7 +1133,7 @@ export const ServiceOrderLabList: React.FC = () => {
                           {hasPermission('service-orders-lab.list') && (
                             <button 
                               title="Visualizar OS"
-                              onClick={() => navigate(`/service-orders/${order.id}`)}
+                              onClick={() => navigate(`/service-orders/${order.id}`, { state: { returnTo: buildReturnTo() } })}
                               className="p-2 text-slate-400 hover:bg-white rounded-xl shadow-sm border border-transparent hover:border-slate-100 transition-all"
                               onMouseEnter={(e) => {
                                 e.currentTarget.style.color = 'var(--store-color-dark)';
@@ -1192,11 +1198,7 @@ export const ServiceOrderLabList: React.FC = () => {
             perPage={perPage}
             onPerPageChange={handlePerPageChange}
             onPageChange={(page) => {
-              const params = buildFilterParams(appliedFilters);
-              params.order_by = sortBy || 'id';
-              params.order_dir = sortDirection || 'desc';
-              params.per_page = perPage;
-              loadOrders(page, params);
+              setCurrentPage(page);
             }}
             itemName="ordens de serviço"
           />

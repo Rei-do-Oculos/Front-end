@@ -33,6 +33,7 @@ import { ServiceOrder } from '../../services/api/serviceOrders';
 import { useNotification } from '../../hooks/useNotification';
 import { usePermission } from '../../services/hooks/usePermission';
 import { generateLaboratoryReportPdf } from '../../utils/laboratoryReportPdf';
+import { useBackToList } from '../../hooks/useBackToList';
 
 const API_BASE = import.meta.env.DEV ? 'http://localhost:8080' : (import.meta.env.VITE_API_URL || '').replace(/\/api(\/.*)?$/, '') || window.location.origin;
 const buildLogoUrl = (logoPath: string | null | undefined): string | null => {
@@ -69,6 +70,7 @@ function laboratoryProductsQuantityForOrder(order: ServiceOrder): number {
 export const LaboratoryDetail: React.FC = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { goBackToList, buildReturnTo } = useBackToList();
   const { showSuccess, showError } = useNotification();
   const { hasPermission } = usePermission();
   const { selectedStore, storeColor, storeLogo } = useStore();
@@ -347,7 +349,7 @@ export const LaboratoryDetail: React.FC = () => {
     return (
       <div className="flex flex-col items-center justify-center min-h-[400px] gap-4">
         <p className="text-red-500">{error || 'Laboratório não encontrado'}</p>
-        <Button variant="outline" onClick={() => navigate('/laboratories')}>
+        <Button variant="outline" onClick={() => goBackToList('/laboratories')}>
           <ArrowLeft size={18} /> Voltar
         </Button>
       </div>
@@ -360,7 +362,7 @@ export const LaboratoryDetail: React.FC = () => {
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
         <div className="flex items-center gap-6">
           <button 
-            onClick={() => navigate('/laboratories')}
+            onClick={() => goBackToList('/laboratories')}
             className="w-12 h-12 rounded-2xl bg-white border border-slate-100 flex items-center justify-center text-slate-400 transition-all shadow-sm"
             onMouseEnter={(e) => {
               e.currentTarget.style.color = 'var(--store-color-dark)';
@@ -389,7 +391,7 @@ export const LaboratoryDetail: React.FC = () => {
         </div>
         <div className="flex gap-3">
           {hasPermission('laboratories.update') && (
-            <Button variant="outline" className="rounded-2xl border-slate-200" onClick={() => navigate(`/laboratories/${id}/edit`)}>
+            <Button variant="outline" className="rounded-2xl border-slate-200" onClick={() => navigate(`/laboratories/${id}/edit`, { state: { returnTo: buildReturnTo() } })}>
               <Edit size={18} /> Editar Laboratório
             </Button>
           )}
@@ -939,7 +941,7 @@ export const LaboratoryDetail: React.FC = () => {
                               <td className="px-6 py-4">
                                 <p 
                                   className="text-sm font-bold text-slate-900 cursor-pointer hover:opacity-80"
-                                  onClick={() => order.client_id && navigate(`/clients/${order.client_id}`)}
+                                  onClick={() => order.client_id && navigate(`/clients/${order.client_id}`, { state: { returnTo: buildReturnTo() } })}
                                 >
                                   {order.client?.name || '-'}
                                 </p>
@@ -980,7 +982,7 @@ export const LaboratoryDetail: React.FC = () => {
                                 <div className="flex items-center justify-center">
                                   <button 
                                     title="Visualizar OS"
-                                    onClick={() => navigate(`/service-orders/${order.id}`)}
+                                    onClick={() => navigate(`/service-orders/${order.id}`, { state: { returnTo: buildReturnTo() } })}
                                     className="p-2 text-slate-400 hover:bg-white rounded-xl shadow-sm border border-transparent hover:border-slate-100 transition-all"
                                     onMouseEnter={(e) => {
                                       e.currentTarget.style.color = 'var(--store-color-dark)';

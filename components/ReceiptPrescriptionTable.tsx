@@ -70,8 +70,11 @@ export const ReceiptPrescriptionTable: React.FC<ReceiptPrescriptionTableProps> =
     ? { title: 10, cell: 7, add: 8 }
     : { title: 12, cell: 9, add: 10 };
 
+  const borderColor = '#000';
+  const cellBorder = `1px solid ${borderColor}`;
+
   const th: React.CSSProperties = {
-    border: '1px solid #000',
+    border: cellBorder,
     padding: '2px 1px',
     textAlign: 'center',
     fontWeight: 900,
@@ -79,7 +82,7 @@ export const ReceiptPrescriptionTable: React.FC<ReceiptPrescriptionTableProps> =
     lineHeight: 1.2,
   };
   const td: React.CSSProperties = {
-    border: '1px solid #000',
+    border: cellBorder,
     padding: isThermal ? '3px 2px' : '4px 2px',
     textAlign: 'center',
     fontWeight: 700,
@@ -99,7 +102,7 @@ export const ReceiptPrescriptionTable: React.FC<ReceiptPrescriptionTableProps> =
     <td
       rowSpan={rows}
       style={{
-        border: '1px solid #000',
+        border: cellBorder,
         textAlign: 'center',
         verticalAlign: 'middle',
         fontWeight: 900,
@@ -140,7 +143,14 @@ export const ReceiptPrescriptionTable: React.FC<ReceiptPrescriptionTableProps> =
   if (!hasCells) return null;
 
   return (
-    <div style={{ marginBottom: isThermal ? '6px' : '8px', width: '100%' }}>
+    <div
+      style={{
+        marginBottom: isThermal ? '6px' : '8px',
+        width: '100%',
+        printColorAdjust: 'exact',
+        WebkitPrintColorAdjust: 'exact',
+      }}
+    >
       <div
         style={{
           textAlign: 'center',
@@ -156,8 +166,10 @@ export const ReceiptPrescriptionTable: React.FC<ReceiptPrescriptionTableProps> =
         style={{
           width: '100%',
           borderCollapse: 'collapse',
+          border: cellBorder,
           tableLayout: 'fixed',
           fontFamily: 'inherit',
+          boxSizing: 'border-box' as React.CSSProperties['boxSizing'],
         }}
       >
         <thead>
@@ -167,8 +179,7 @@ export const ReceiptPrescriptionTable: React.FC<ReceiptPrescriptionTableProps> =
             <th style={th}>Esférico</th>
             <th style={th}>Cilíndrico</th>
             <th style={th}>Eixo</th>
-            <th style={th}>DNP *</th>
-            <th style={th}>Altura</th>
+            <th style={th}>DNP</th>
           </tr>
         </thead>
         <tbody>
@@ -180,7 +191,6 @@ export const ReceiptPrescriptionTable: React.FC<ReceiptPrescriptionTableProps> =
             <td style={td}>{fmtDiopter(src.far_od_cylindrical)}</td>
             <td style={td}>{fmtAxis(src.far_od_axis)}</td>
             <td style={td}>{farOdDnp}</td>
-            <td style={td}></td>
           </tr>
           {/* LONGE OE */}
           <tr>
@@ -189,7 +199,6 @@ export const ReceiptPrescriptionTable: React.FC<ReceiptPrescriptionTableProps> =
             <td style={td}>{fmtDiopter(src.far_oe_cylindrical)}</td>
             <td style={td}>{fmtAxis(src.far_oe_axis)}</td>
             <td style={td}>{farOeDnp}</td>
-            <td style={td}></td>
           </tr>
           {/* PERTO OD */}
           <tr>
@@ -199,7 +208,6 @@ export const ReceiptPrescriptionTable: React.FC<ReceiptPrescriptionTableProps> =
             <td style={td}>{fmtDiopter(src.near_od_cylindrical)}</td>
             <td style={td}>{fmtAxis(src.near_od_axis)}</td>
             <td style={td}>{nearOdDnp}</td>
-            <td style={td}></td>
           </tr>
           {/* PERTO OE */}
           <tr>
@@ -208,7 +216,6 @@ export const ReceiptPrescriptionTable: React.FC<ReceiptPrescriptionTableProps> =
             <td style={td}>{fmtDiopter(src.near_oe_cylindrical)}</td>
             <td style={td}>{fmtAxis(src.near_oe_axis)}</td>
             <td style={td}>{nearOeDnp}</td>
-            <td style={td}></td>
           </tr>
         </tbody>
       </table>
@@ -222,11 +229,6 @@ export const ReceiptPrescriptionTable: React.FC<ReceiptPrescriptionTableProps> =
           }}
         >
           Adição: {add}
-        </div>
-      ) : null}
-      {isThermal ? (
-        <div style={{ fontSize: 6, fontWeight: 700, marginTop: '2px', color: '#000' }}>
-          * DNP vem antes da coluna Altura
         </div>
       ) : null}
     </div>

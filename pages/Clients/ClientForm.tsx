@@ -8,6 +8,7 @@ import { useStore } from '../../contexts/StoreContext';
 import { usePermission } from '../../services/hooks/usePermission';
 import { useNotification } from '../../hooks/useNotification';
 import { normalizeEmail, normalizeToTitleCase } from '../../utils/formatters';
+import { useBackToList } from '../../hooks/useBackToList';
 
 export const ClientForm: React.FC = () => {
   const { id } = useParams();
@@ -15,6 +16,7 @@ export const ClientForm: React.FC = () => {
   const { selectedStore, availableStores } = useStore();
   const { hasPermission } = usePermission();
   const { showSuccess, showError } = useNotification();
+  const { goBackToList, buildReturnTo } = useBackToList();
   const isEditMode = !!id;
   
   const { getClient, createClient, updateClient, deleteClient, loading } = useClients({
@@ -80,7 +82,7 @@ export const ClientForm: React.FC = () => {
 
         // Após atualizar, permanecer no fluxo atual: voltar para a lista
         setTimeout(() => {
-          navigate('/clients');
+          goBackToList('/clients');
         }, 1000);
       } else {
         // Sempre incluir a loja logada ao criar o cliente
@@ -102,7 +104,7 @@ export const ClientForm: React.FC = () => {
 
         // Após criar, ir para a aba de visualização (histórico) do cliente recém-criado
         setTimeout(() => {
-          navigate(`/clients/${created.id}`);
+          navigate(`/clients/${created.id}`, { state: { returnTo: buildReturnTo() } });
         }, 1000);
       }
     } catch (err: any) {
@@ -128,7 +130,7 @@ export const ClientForm: React.FC = () => {
       setDeleteModalOpen(false);
       
       setTimeout(() => {
-        navigate('/clients');
+        goBackToList('/clients');
       }, 1000);
     } catch (err: any) {
       console.error('Erro ao excluir cliente:', err);
@@ -207,7 +209,7 @@ export const ClientForm: React.FC = () => {
               <Trash2 size={18} /> Excluir
             </Button>
           )}
-          <Button variant="secondary" onClick={() => navigate('/clients')}>
+          <Button variant="secondary" onClick={() => goBackToList('/clients')}>
             <ArrowLeft size={18} /> Voltar
           </Button>
         </div>
@@ -291,7 +293,7 @@ export const ClientForm: React.FC = () => {
             <Button 
               variant="outline" 
               type="button" 
-              onClick={() => navigate('/clients')}
+              onClick={() => goBackToList('/clients')}
               disabled={loading}
             >
               Cancelar

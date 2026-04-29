@@ -100,8 +100,6 @@ export function buildPrescriptionLinesForEntryReceipt(
     });
   }
 
-  add('Observações', src.notes);
-
   return lines;
 }
 

@@ -15,15 +15,18 @@ import {
   canShowNfeOptionInReceiptModal,
   nfeEligibilitySnapshotFromServiceOrder,
 } from '../../utils/serviceOrderNfeEligibility';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { ReceiptModal } from '../../components/ReceiptModal';
 import { ReceiptData } from '../../components/ThermalReceipt';
 import { receiptPaymentLinesFromOrder } from '../../utils/receiptPaymentsFromOrder';
 import { buildReceiptItemsFromOrder } from '../../utils/receiptItemsFromOrder';
+import { laboratoryNameForReceipt } from '../../utils/laboratoryReceiptName';
 import { usersService } from '../../services/api/users';
 import { invoicesService } from '../../services/api/invoices';
 import { storesService } from '../../services/api/stores';
 import { ClientWhatsAppAvatar } from '../../components/ClientWhatsAppAvatar';
+import { useBackToList } from '../../hooks/useBackToList';
+import { useListUrlState } from '../../hooks/useListUrlState';
 
 const STATUS_FALLBACK_LABEL: Record<ServiceOrderStatus, string> = {
   pending: 'Pendente',
@@ -112,7 +115,8 @@ function orderPaymentMethodLabel(order: ServiceOrder): string {
 
 export const ServiceOrderList: React.FC = () => {
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
+  const { buildReturnTo } = useBackToList();
+  const { getString, getNumber, setUrlState } = useListUrlState();
   const { user } = useAuth();
   const { showSuccess, showError } = useNotification();
   const { hasPermission, hasSuperAdminRole } = usePermission();
@@ -124,22 +128,24 @@ export const ServiceOrderList: React.FC = () => {
   const { plucks: usersPlucks } = usePlucks({ service: usersService, autoFetch: true });
   const { clients, fetchClients } = useClients({ autoFetch: false });
 
-  const [searchTerm, setSearchTerm] = useState('');
+  const [searchTerm, setSearchTerm] = useState(() => getString('search'));
   
   // Estados para o modal de recibo
   const [showReceiptModal, setShowReceiptModal] = useState(false);
   const [orderToPrint, setOrderToPrint] = useState<ServiceOrder | null>(null);
   /** Enquanto busca a OS na API antes de abrir o recibo (dados sempre atualizados). */
   const [printingOrderId, setPrintingOrderId] = useState<number | null>(null);
-  const [filterStore, setFilterStore] = useState('');
-  const [filterUser, setFilterUser] = useState('');
-  const [filterWarranty, setFilterWarranty] = useState('');
-  const [filterDateFrom, setFilterDateFrom] = useState('');
-  const [filterDateTo, setFilterDateTo] = useState('');
-  const [filterDateField, setFilterDateField] = useState<'created_at' | 'payment_date'>('created_at');
+  const [filterStore, setFilterStore] = useState(() => getString('store_id'));
+  const [filterUser, setFilterUser] = useState(() => getString('user_id'));
+  const [filterWarranty, setFilterWarranty] = useState(() => getString('warranty'));
+  const [filterDateFrom, setFilterDateFrom] = useState(() => getString('date_from'));
+  const [filterDateTo, setFilterDateTo] = useState(() => getString('date_to'));
+  const [filterDateField, setFilterDateField] = useState<'created_at' | 'payment_date'>(
+    () => (getString('date_field', 'created_at') === 'payment_date' ? 'payment_date' : 'created_at'),
+  );
   /** paid | on_pickup | '' — casos “—” na coluna Pagamento: use o filtro Garantia */
-  const [filterPaymentSituation, setFilterPaymentSituation] = useState('');
-  const [filterPaymentMethod, setFilterPaymentMethod] = useState('');
+  const [filterPaymentSituation, setFilterPaymentSituation] = useState(() => getString('payment_situation'));
+  const [filterPaymentMethod, setFilterPaymentMethod] = useState(() => getString('payment_method'));
   // Filtros aplicados - só atualizados ao clicar em "Aplicar Filtros"
   const [appliedFilters, setAppliedFilters] = useState<{
     searchTerm: string;
@@ -152,20 +158,21 @@ export const ServiceOrderList: React.FC = () => {
     filterPaymentSituation: string;
     filterPaymentMethod: string;
   }>({
-    searchTerm: '',
-    filterStore: '',
-    filterUser: '',
-    filterWarranty: '',
-    filterDateFrom: '',
-    filterDateTo: '',
-    filterDateField: 'created_at',
-    filterPaymentSituation: '',
-    filterPaymentMethod: '',
+    searchTerm: getString('search'),
+    filterStore: getString('store_id'),
+    filterUser: getString('user_id'),
+    filterWarranty: getString('warranty'),
+    filterDateFrom: getString('date_from'),
+    filterDateTo: getString('date_to'),
+    filterDateField: getString('date_field', 'created_at') === 'payment_date' ? 'payment_date' : 'created_at',
+    filterPaymentSituation: getString('payment_situation'),
+    filterPaymentMethod: getString('payment_method'),
   });
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
-  const [sortBy, setSortBy] = useState<string | null>('created_at');
-  const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
-  const [perPage, setPerPage] = useState<number>(15);
+  const [sortBy, setSortBy] = useState<string | null>(() => getString('sort_by', 'created_at'));
+  const [sortDirection, setSortDirection] = useState<SortDirection>(() => getString('sort_dir', 'desc') as SortDirection);
+  const [perPage, setPerPage] = useState<number>(() => getNumber('per_page', 15));
+  const [currentPage, setCurrentPage] = useState<number>(() => getNumber('page', 1));
   
   // Filtros ativos: contar os que estão aplicados (após clicar em Aplicar)
   const activeFilters = useActiveFilters({
@@ -203,46 +210,6 @@ export const ServiceOrderList: React.FC = () => {
     return params;
   };
 
-  // Prefill via URL (ex.: vindo do Fluxo de Caixa)
-  useEffect(() => {
-    const qStore = searchParams.get('store_id') || '';
-    const qFrom = searchParams.get('date_from') || '';
-    const qTo = searchParams.get('date_to') || '';
-    const qDateField = (searchParams.get('date_field') || '').toLowerCase() === 'payment_date' ? 'payment_date' : 'created_at';
-    const qMethod = searchParams.get('payment_method') || '';
-    if (!qStore && !qFrom && !qTo && !qMethod && qDateField === 'created_at') return;
-
-    const next = {
-      searchTerm: '',
-      filterStore: qStore,
-      filterUser: '',
-      filterWarranty: '',
-      filterDateFrom: qFrom,
-      filterDateTo: qTo,
-      filterDateField: qDateField as 'created_at' | 'payment_date',
-      filterPaymentSituation: '',
-      filterPaymentMethod: qMethod,
-    };
-
-    setSearchTerm(next.searchTerm);
-    setFilterStore(next.filterStore);
-    setFilterUser(next.filterUser);
-    setFilterWarranty(next.filterWarranty);
-    setFilterDateFrom(next.filterDateFrom);
-    setFilterDateTo(next.filterDateTo);
-    setFilterDateField(next.filterDateField);
-    setFilterPaymentSituation(next.filterPaymentSituation);
-    setFilterPaymentMethod(next.filterPaymentMethod);
-    setAppliedFilters(next);
-
-    const params = buildParamsFromFilters(next);
-    params.order_by = sortBy || 'created_at';
-    params.order_dir = sortDirection || 'desc';
-    params.per_page = perPage;
-    fetchServiceOrders(1, params);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchParams]);
-
   // Carregar clientes para recibos
   useEffect(() => {
     fetchClients(1, { per_page: 100 });
@@ -260,51 +227,56 @@ export const ServiceOrderList: React.FC = () => {
         if (availableStores.length > 0 && !appliedFilters.filterStore) {
           params.store_id = availableStores.map(s => s.id);
         }
-        await fetchServiceOrders(1, params);
+        await fetchServiceOrders(currentPage, params);
       } catch (err) {
         console.error('Erro ao carregar ordens de serviço:', err);
       }
     };
     loadOrders();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [perPage, availableStores, selectedStore?.id]);
+  }, [perPage, availableStores, selectedStore?.id, appliedFilters, sortBy, sortDirection, currentPage, fetchServiceOrders]);
+
+  useEffect(() => {
+    setUrlState({
+      search: appliedFilters.searchTerm,
+      store_id: appliedFilters.filterStore,
+      user_id: appliedFilters.filterUser,
+      warranty: appliedFilters.filterWarranty,
+      date_from: appliedFilters.filterDateFrom,
+      date_to: appliedFilters.filterDateTo,
+      date_field: appliedFilters.filterDateField,
+      payment_situation: appliedFilters.filterPaymentSituation,
+      payment_method: appliedFilters.filterPaymentMethod,
+      sort_by: sortBy || 'created_at',
+      sort_dir: sortDirection || 'desc',
+      per_page: perPage,
+      page: currentPage,
+    });
+  }, [appliedFilters, sortBy, sortDirection, perPage, currentPage, setUrlState]);
 
   const handleSort = (key: string, direction: SortDirection) => {
     const newDirection = direction || 'asc';
     setSortBy(key);
     setSortDirection(newDirection);
-    const params = buildParamsFromFilters(appliedFilters);
-    params.order_by = key;
-    params.order_dir = newDirection;
-    params.per_page = perPage;
-    fetchServiceOrders(pagination?.currentPage || 1, params);
   };
 
-  const handleApplyFilters = async () => {
-    try {
-      const next = {
-        searchTerm,
-        filterStore,
-        filterUser,
-        filterWarranty,
-        filterDateFrom,
-        filterDateTo,
-        filterDateField,
-        filterPaymentSituation,
-        filterPaymentMethod,
-      };
-      setAppliedFilters(next);
-      const params = buildParamsFromFilters(next);
-      params.order_by = sortBy || 'created_at';
-      params.order_dir = sortDirection || 'desc';
-      params.per_page = perPage;
-      await fetchServiceOrders(1, params);
-    } catch (err) {
-      console.error('Erro ao aplicar filtros:', err);
-    }
+  const handleApplyFilters = () => {
+    const next = {
+      searchTerm,
+      filterStore,
+      filterUser,
+      filterWarranty,
+      filterDateFrom,
+      filterDateTo,
+      filterDateField,
+      filterPaymentSituation,
+      filterPaymentMethod,
+    };
+    setAppliedFilters(next);
+    setCurrentPage(1);
   };
 
-  const handleClearFilters = async () => {
+  const handleClearFilters = () => {
     setSearchTerm('');
     setFilterStore('');
     setFilterUser('');
@@ -326,28 +298,12 @@ export const ServiceOrderList: React.FC = () => {
       filterPaymentMethod: '',
     };
     setAppliedFilters(empty);
-    try {
-      const params = buildParamsFromFilters(empty);
-      params.order_by = sortBy || 'created_at';
-      params.order_dir = sortDirection || 'desc';
-      params.per_page = perPage;
-      await fetchServiceOrders(1, params);
-    } catch (err) {
-      console.error('Erro ao limpar filtros:', err);
-    }
+    setCurrentPage(1);
   };
 
-  const handlePerPageChange = async (newPerPage: number) => {
+  const handlePerPageChange = (newPerPage: number) => {
     setPerPage(newPerPage);
-    try {
-      const params = buildParamsFromFilters(appliedFilters);
-      params.per_page = newPerPage;
-      params.order_by = sortBy || 'created_at';
-      params.order_dir = sortDirection || 'desc';
-      await fetchServiceOrders(1, params);
-    } catch (err) {
-      console.error('Erro ao alterar itens por página:', err);
-    }
+    setCurrentPage(1);
   };
 
   const handleDeleteClick = (order: ServiceOrder) => {
@@ -430,12 +386,14 @@ export const ServiceOrderList: React.FC = () => {
     const doctorName = String(order.doctor_name ?? '').trim();
     const doctorCrm = String(order.doctor_crm ?? '').trim();
     const prescriptionDate = order.prescription_date || null;
+    const receiptLaboratoryName = laboratoryNameForReceipt(order);
 
     return {
       osNumber: order.os_number,
       date: new Date(order.created_at).toLocaleString('pt-BR'),
       expectedPickupDate: order.expected_pickup_date || null,
       seller: order.user?.name || 'Vendedor',
+      ...(receiptLaboratoryName ? { laboratoryName: receiptLaboratoryName } : {}),
       ...(doctorName && doctorCrm ? { doctorName, doctorCrm, ...(prescriptionDate ? { prescriptionDate } : {}) } : {}),
       store: {
         name: storeFromPlucks?.name || order.store?.name || 'Loja',
@@ -478,6 +436,7 @@ export const ServiceOrderList: React.FC = () => {
         addition: order.addition,
         far_dnp: order.far_dnp,
         near_dnp: order.near_dnp,
+        notes: order.notes,
       },
       items,
       total: totalPrice,
@@ -533,7 +492,7 @@ export const ServiceOrderList: React.FC = () => {
           </div>
         </div>
         {hasPermission('service-orders.create') && (
-          <Button onClick={() => navigate('/service-orders/create')}>
+          <Button onClick={() => navigate('/service-orders/create', { state: { returnTo: buildReturnTo() } })}>
             <Plus size={18} /> Nova OS
           </Button>
         )}
@@ -742,7 +701,7 @@ export const ServiceOrderList: React.FC = () => {
                         <div>
                           <p 
                             className="text-sm font-bold text-slate-900 transition-colors cursor-pointer"
-                            onClick={() => order.client_id && navigate(`/clients/${order.client_id}`)}
+                            onClick={() => order.client_id && navigate(`/clients/${order.client_id}`, { state: { returnTo: buildReturnTo() } })}
                             onMouseEnter={(e) => {
                               e.currentTarget.style.color = 'var(--store-color-dark)';
                             }}
@@ -802,7 +761,7 @@ export const ServiceOrderList: React.FC = () => {
                         {hasPermission('service-orders.read') && (
                           <button 
                             title="Visualizar OS"
-                            onClick={() => navigate(`/service-orders/${order.id}`)}
+                            onClick={() => navigate(`/service-orders/${order.id}`, { state: { returnTo: buildReturnTo() } })}
                             className="p-2 text-slate-400 hover:bg-white rounded-xl shadow-sm border border-transparent hover:border-slate-100 transition-all"
                             onMouseEnter={(e) => {
                               e.currentTarget.style.color = 'var(--store-color-dark)';
@@ -838,7 +797,7 @@ export const ServiceOrderList: React.FC = () => {
                         {hasPermission('service-orders.update') && !(order as any).is_other_store && (
                           <button 
                             title="Editar OS"
-                            onClick={() => navigate(`/service-orders/${order.id}/edit`)}
+                            onClick={() => navigate(`/service-orders/${order.id}/edit`, { state: { returnTo: buildReturnTo() } })}
                             className="p-2 text-slate-400 hover:bg-white rounded-xl shadow-sm border border-transparent hover:border-slate-100 transition-all"
                             onMouseEnter={(e) => {
                               e.currentTarget.style.color = 'var(--store-color-dark)';
@@ -889,11 +848,7 @@ export const ServiceOrderList: React.FC = () => {
             perPage={perPage}
             onPerPageChange={handlePerPageChange}
             onPageChange={(page) => {
-              const params = buildParamsFromFilters(appliedFilters);
-              params.order_by = sortBy || 'created_at';
-              params.order_dir = sortDirection || 'desc';
-              params.per_page = perPage;
-              fetchServiceOrders(page, params);
+              setCurrentPage(page);
             }}
             itemName="ordens de serviço"
           />
