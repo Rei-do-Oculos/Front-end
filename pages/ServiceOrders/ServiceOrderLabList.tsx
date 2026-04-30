@@ -30,6 +30,7 @@ import { invoicesService } from '../../services/api/invoices';
 import { EntryReceiptModal } from '../../components/EntryReceiptModal';
 import { EntryReceiptData } from '../../components/EntryReceipt';
 import { parseMoneyBrInput } from '../../utils/formatters';
+import { formatIsoDatePtBr } from '../../utils/dateDisplay';
 import {
   buildPrescriptionLinesExcludingRxTable,
 } from '../../utils/entryReceiptPrescription';
@@ -1121,9 +1122,9 @@ export const ServiceOrderLabList: React.FC = () => {
                         {formatDate(order.sent_to_lab_at)}
                       </td>
                       <td className="px-6 py-4 text-center text-xs text-slate-500">
-                        {formatDate(
+                        {formatIsoDatePtBr(
                           order.expected_pickup_date ?? (order as { expectedPickupDate?: string | null }).expectedPickupDate ?? null
-                        )}
+                        ) || '-'}
                       </td>
                       <td className="px-6 py-4 text-center">
                         <span className="text-[11px] text-slate-500">{orderPaymentMethodLabel(order)}</span>
