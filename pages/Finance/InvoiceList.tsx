@@ -91,7 +91,7 @@ export const InvoiceList: React.FC = () => {
   const { buildReturnTo } = useBackToList();
   const { getString, getNumber, setUrlState } = useListUrlState();
   const { showSuccess, showError } = useNotification();
-  const { hasSuperAdminRole } = usePermission();
+  const { hasSuperAdminRole, hasPermission } = usePermission();
   const { selectedStore } = useStore();
   /** Só não-superadmin: lista/stats vêm da loja do header (X-Store-ID); precisa refetch ao trocar unidade. */
   const listStoreContextId = hasSuperAdminRole ? null : selectedStore?.id ?? null;
@@ -399,41 +399,43 @@ export const InvoiceList: React.FC = () => {
             <p className="text-gray-500 font-medium mt-1">Fiscal • Emissão • Controle</p>
           </div>
         </div>
-        <div className="relative" ref={exportMenuRef}>
-          <Button
-            variant="outline"
-            className="border-slate-200 text-slate-600 bg-white"
-            onClick={() => setExportMenuOpen((open) => !open)}
-            disabled={exportXmlLoading}
-            title={hasSuperAdminRole ? 'Exporta as NF-e autorizadas conforme os filtros (geral ou por loja). Loja: apenas da própria unidade.' : 'Exporta as NF-e autorizadas da sua loja conforme período, status e tipo.'}
-          >
-            {exportXmlLoading ? <Loader2 size={18} className="animate-spin" /> : <Download size={18} />}
-            {exportXmlLoading ? 'Exportando...' : 'Exportar XML'}
-            <ChevronDown size={16} className={`ml-1 transition-transform ${exportMenuOpen ? 'rotate-180' : ''}`} />
-          </Button>
-          {exportMenuOpen && (
-            <div className="absolute right-0 top-full z-50 mt-1 min-w-[180px] rounded-xl border border-slate-200 bg-white py-1 shadow-lg">
-              <button
-                type="button"
-                className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm font-medium text-slate-700 hover:bg-slate-50"
-                onClick={() => handleExportXmlZip('zip')}
-                disabled={exportXmlLoading}
-              >
-                <Download size={16} className="text-slate-500" />
-                Exportar como ZIP
-              </button>
-              <button
-                type="button"
-                className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm font-medium text-slate-700 hover:bg-slate-50"
-                onClick={() => handleExportXmlZip('rar')}
-                disabled={exportXmlLoading}
-              >
-                <Download size={16} className="text-slate-500" />
-                Exportar como RAR
-              </button>
-            </div>
-          )}
-        </div>
+        {hasPermission('invoices.list') && (
+          <div className="relative" ref={exportMenuRef}>
+            <Button
+              variant="outline"
+              className="border-slate-200 text-slate-600 bg-white"
+              onClick={() => setExportMenuOpen((open) => !open)}
+              disabled={exportXmlLoading}
+              title={hasSuperAdminRole ? 'Exporta as NF-e autorizadas conforme os filtros (geral ou por loja). Loja: apenas da própria unidade.' : 'Exporta as NF-e autorizadas da sua loja conforme período, status e tipo.'}
+            >
+              {exportXmlLoading ? <Loader2 size={18} className="animate-spin" /> : <Download size={18} />}
+              {exportXmlLoading ? 'Exportando...' : 'Exportar XML'}
+              <ChevronDown size={16} className={`ml-1 transition-transform ${exportMenuOpen ? 'rotate-180' : ''}`} />
+            </Button>
+            {exportMenuOpen && (
+              <div className="absolute right-0 top-full z-50 mt-1 min-w-[180px] rounded-xl border border-slate-200 bg-white py-1 shadow-lg">
+                <button
+                  type="button"
+                  className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm font-medium text-slate-700 hover:bg-slate-50"
+                  onClick={() => handleExportXmlZip('zip')}
+                  disabled={exportXmlLoading}
+                >
+                  <Download size={16} className="text-slate-500" />
+                  Exportar como ZIP
+                </button>
+                <button
+                  type="button"
+                  className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm font-medium text-slate-700 hover:bg-slate-50"
+                  onClick={() => handleExportXmlZip('rar')}
+                  disabled={exportXmlLoading}
+                >
+                  <Download size={16} className="text-slate-500" />
+                  Exportar como RAR
+                </button>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Cards de Estatísticas */}
