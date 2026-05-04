@@ -399,7 +399,7 @@ export const InvoiceList: React.FC = () => {
             <p className="text-gray-500 font-medium mt-1">Fiscal • Emissão • Controle</p>
           </div>
         </div>
-        {hasPermission('invoices.list') && (
+        {hasPermission('invoices.export.xml') && (
           <div className="relative" ref={exportMenuRef}>
             <Button
               variant="outline"

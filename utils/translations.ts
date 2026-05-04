@@ -69,6 +69,7 @@ const actionTranslations: Record<string, string> = {
   'generate': 'Emitir',
   'cancel': 'Cancelar',
   'gerar-devolucao': 'Gerar Devolução',
+  'export.xml': 'Exportar XML (ZIP/RAR)',
   'revert': 'Reverter estado',
 };
 
