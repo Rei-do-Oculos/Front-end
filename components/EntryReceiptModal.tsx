@@ -58,13 +58,13 @@ export const EntryReceiptModal: React.FC<EntryReceiptModalProps> = ({
                 padding: 0;
                 font-family: 'Arial Black', Arial, 'Helvetica Neue', sans-serif;
                 font-size: 13px;
-                line-height: 1.4;
+                line-height: 1.32;
                 color: #000;
                 font-weight: 800;
-                letter-spacing: 0.15px;
+                letter-spacing: 0.12px;
               }
               body {
-                padding: 2mm;
+                padding: 1.5mm 2mm;
               }
               @media print {
                 html, body {
@@ -81,7 +81,8 @@ export const EntryReceiptModal: React.FC<EntryReceiptModalProps> = ({
                 }
                 .copy-separator {
                   border-top: 1px dashed #000;
-                  margin: 6mm 0;
+                  margin: 3mm 0;
+                  height: 0;
                 }
               }
               @media screen {
@@ -92,7 +93,8 @@ export const EntryReceiptModal: React.FC<EntryReceiptModalProps> = ({
                 }
                 .copy-separator {
                   border-top: 1px dashed #666;
-                  margin: 6mm 0;
+                  margin: 3mm 0;
+                  height: 0;
                 }
               }
             </style>
@@ -140,7 +142,7 @@ export const EntryReceiptModal: React.FC<EntryReceiptModalProps> = ({
             Deseja imprimir o comprovante de entrada para o cliente?
           </p>
           <p className="text-xs text-slate-400 mb-4">
-            Serão impressas 2 vias: a primeira inclui receita e medidas preenchidas na OS; a segunda, só resumo para assinatura. Use impressora térmica 80mm.
+            Serão impressas 2 vias: a primeira inclui receita, medidas e laboratório; a segunda, só resumo para assinatura (sem laboratório). Use impressora térmica 80mm.
           </p>
           
           {/* Preview = 1ª via (com receita, se houver) */}

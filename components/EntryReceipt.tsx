@@ -105,6 +105,12 @@ export const EntryReceipt = forwardRef<HTMLDivElement, EntryReceiptProps>(
       laboratoryName,
     } = data;
 
+    const compact = !includePrescriptionDetails;
+    const pad = compact ? '6px 7px' : '7px 8px';
+    const sepY = compact ? '4px 0' : '6px 0';
+    const blockGap = compact ? '4px' : '6px';
+    const sectionEnd = compact ? '6px' : '8px';
+
     const hasPrescriptionTable = includePrescriptionDetails && Boolean(prescription);
     const prescriptionLinesWithoutObs = prescriptionLines.filter((l) => l.label !== 'Observações');
     const showPrescriptionLines =
@@ -119,60 +125,61 @@ export const EntryReceipt = forwardRef<HTMLDivElement, EntryReceiptProps>(
           width: '80mm',
           maxWidth: '80mm',
           fontFamily: "'Arial Black', Arial, 'Helvetica Neue', sans-serif",
-          fontSize: '13px',
-          lineHeight: '1.4',
+          fontSize: compact ? '12px' : '13px',
+          lineHeight: compact ? 1.3 : 1.35,
           backgroundColor: 'white',
           color: '#000',
           fontWeight: 800,
-          padding: '8px',
+          padding: pad,
           boxSizing: 'border-box',
-          letterSpacing: '0.15px',
+          letterSpacing: '0.12px',
         }}
       >
         {/* Header - Dados da Empresa */}
-        <div style={{ textAlign: 'center', marginBottom: '8px' }}>
-          <div style={{ fontSize: '15px', fontWeight: 900, marginBottom: '4px' }}>
+        <div style={{ textAlign: 'center', marginBottom: blockGap }}>
+          <div style={{ fontSize: compact ? '14px' : '15px', fontWeight: 900, marginBottom: '2px' }}>
             {'>> '}{storeReceiptHeader(store)}{' <<'}
           </div>
-          <div style={{ fontSize: '11px', fontWeight: 800 }}>
+          <div style={{ fontSize: '11px', fontWeight: 800, lineHeight: 1.25 }}>
             {store.logradouro}, {store.numero}
           </div>
           {store.telefone && (
-            <div style={{ fontSize: '11px', fontWeight: 800 }}>
+            <div style={{ fontSize: '11px', fontWeight: 800, lineHeight: 1.25 }}>
               WhatsApp: {store.telefone}
             </div>
           )}
         </div>
 
         {/* Data e Hora */}
-        <div style={{ textAlign: 'center', marginBottom: '12px', fontSize: '12px', fontWeight: 900 }}>
+        <div style={{ textAlign: 'center', marginBottom: sectionEnd, fontSize: '12px', fontWeight: 900 }}>
           Data: {date}
         </div>
 
         {/* Separador */}
-        <div style={{ borderTop: '1px dashed #000', margin: '8px 0' }} />
+        <div style={{ borderTop: '1px dashed #000', margin: sepY }} />
 
         {/* Número do Pedido */}
-        <div style={{ textAlign: 'center', marginBottom: '12px' }}>
-          <div style={{ fontSize: '14px', fontWeight: 'bold' }}>
+        <div style={{ textAlign: 'center', marginBottom: sectionEnd }}>
+          <div style={{ fontSize: compact ? '13px' : '14px', fontWeight: 'bold' }}>
             Nº do pedido: {formatOsNumber(osNumber)}
           </div>
         </div>
 
         {/* Separador */}
-        <div style={{ borderTop: '1px dashed #000', margin: '8px 0' }} />
+        <div style={{ borderTop: '1px dashed #000', margin: sepY }} />
 
         {/* Dados do Cliente */}
-        <div style={{ marginBottom: '8px', fontWeight: 800 }}>
+        <div style={{ marginBottom: blockGap, fontWeight: 800 }}>
           <div><strong>Cliente:</strong> {client.name}</div>
           {client.telefone && (
             <div><strong>Telefone:</strong> {client.telefone}</div>
           )}
         </div>
 
-        {hasText(laboratoryName) ? (
-          <div style={{ marginBottom: '8px', fontWeight: 800, textAlign: 'center' }}>
-            <div style={{ fontWeight: 900, fontSize: '12px', marginBottom: '2px' }}>Laboratório</div>
+        {/* Laboratório: só na 1ª via (com receita detalhada); 2ª via é resumo para assinatura */}
+        {includePrescriptionDetails && hasText(laboratoryName) ? (
+          <div style={{ marginBottom: blockGap, fontWeight: 800, textAlign: 'center' }}>
+            <div style={{ fontWeight: 900, fontSize: '12px', marginBottom: '1px' }}>Laboratório</div>
             <div style={{ fontWeight: 800, fontSize: '12px' }}>{laboratoryName}</div>
           </div>
         ) : null}
@@ -180,8 +187,8 @@ export const EntryReceipt = forwardRef<HTMLDivElement, EntryReceiptProps>(
         {/* Receita e lentes — somente 1ª via */}
         {(hasPrescriptionTable || showPrescriptionLines || (includePrescriptionDetails && hasText(prescription?.notes))) ? (
           <>
-            <div style={{ borderTop: '1px dashed #000', margin: '8px 0' }} />
-            <div style={{ marginBottom: '8px', fontWeight: 800 }}>
+            <div style={{ borderTop: '1px dashed #000', margin: sepY }} />
+            <div style={{ marginBottom: blockGap, fontWeight: 800 }}>
               {hasPrescriptionTable && prescription ? (
                 <>
                   {hasReceiptPrescriptionGridData(prescription) ? (
@@ -227,8 +234,8 @@ export const EntryReceipt = forwardRef<HTMLDivElement, EntryReceiptProps>(
 
         {/* Itens/Serviços */}
         {items.length > 0 && (
-          <div style={{ marginBottom: '8px', fontWeight: 800 }}>
-            <div style={{ marginBottom: '4px', fontWeight: 700 }}>Produtos:</div>
+          <div style={{ marginBottom: blockGap, fontWeight: 800 }}>
+            <div style={{ marginBottom: '2px', fontWeight: 700 }}>Produtos:</div>
             {items.map((item, index) => (
               <div key={`${item.description}-${index}`} style={{ fontWeight: 700 }}>
                 {item.description}
@@ -239,19 +246,19 @@ export const EntryReceipt = forwardRef<HTMLDivElement, EntryReceiptProps>(
         )}
 
         {/* Separador */}
-        <div style={{ borderTop: '1px dashed #000', margin: '8px 0' }} />
+        <div style={{ borderTop: '1px dashed #000', margin: sepY }} />
 
         {/* Valor */}
-        <div style={{ marginBottom: '8px' }}>
+        <div style={{ marginBottom: blockGap }}>
           <div><strong>Valor em produtos:</strong> R$ {formatCurrency(total)}</div>
-          <div style={{ fontWeight: 'bold', marginTop: '4px' }}>
+          <div style={{ fontWeight: 'bold', marginTop: '2px' }}>
             Total: R$ {formatCurrency(total)}
           </div>
         </div>
 
         {hasText(doctorName) && hasText(doctorCrm) ? (
-          <div style={{ marginBottom: '8px', fontWeight: 800 }}>
-            <div style={{ borderTop: '1px dashed #000', margin: '8px 0' }} />
+          <div style={{ marginBottom: blockGap, fontWeight: 800 }}>
+            <div style={{ borderTop: '1px dashed #000', margin: sepY }} />
             <div style={{ fontWeight: 900, marginBottom: '4px', fontSize: '12px' }}>Médico:</div>
             <div style={{ fontWeight: 800, fontSize: '11px' }}>{doctorName}</div>
             <div style={{ fontWeight: 800, fontSize: '11px' }}>CRM-{doctorCrm}</div>
@@ -265,7 +272,7 @@ export const EntryReceipt = forwardRef<HTMLDivElement, EntryReceiptProps>(
 
         {/* Pagamento parcial/misto */}
         {payments && payments.length > 0 && (
-          <div style={{ marginBottom: '8px' }}>
+          <div style={{ marginBottom: blockGap }}>
             <div style={{ marginBottom: '4px', fontWeight: 900 }}>
               {payments.length > 1 ? 'Pagamento parcial:' : 'Pagamento:'}
             </div>
@@ -283,7 +290,7 @@ export const EntryReceipt = forwardRef<HTMLDivElement, EntryReceiptProps>(
 
         {/* Pagamento único */}
         {!payments?.length && paymentMethod && (
-          <div style={{ marginBottom: '8px' }}>
+          <div style={{ marginBottom: blockGap }}>
             <div>
               <strong>Pagamento:</strong> {PAYMENT_METHOD_LABELS[paymentMethod] || paymentMethod}
               {paymentMethod === 'credit_card' && installments && installments > 1
@@ -295,7 +302,7 @@ export const EntryReceipt = forwardRef<HTMLDivElement, EntryReceiptProps>(
 
         {/* Previsão de Entrega */}
         {expectedPickupDate && (
-          <div style={{ marginBottom: '8px' }}>
+          <div style={{ marginBottom: blockGap }}>
             <div style={{ fontWeight: 'bold' }}>
               Previsão de entrega: {formatIsoDatePtBr(expectedPickupDate)}
             </div>
@@ -303,16 +310,16 @@ export const EntryReceipt = forwardRef<HTMLDivElement, EntryReceiptProps>(
         )}
 
         {/* Separador */}
-        <div style={{ borderTop: '1px dashed #000', margin: '12px 0' }} />
+        <div style={{ borderTop: '1px dashed #000', margin: compact ? '6px 0' : '8px 0' }} />
 
         {/* Assinatura */}
-        <div style={{ marginTop: '24px', marginBottom: '8px' }}>
+        <div style={{ marginTop: compact ? '8px' : '12px', marginBottom: '4px' }}>
           <div style={{ 
             borderBottom: '1px solid #000', 
             width: '100%', 
-            height: '30px' 
+            height: compact ? '22px' : '26px' 
           }} />
-          <div style={{ textAlign: 'center', fontSize: '10px', marginTop: '4px' }}>
+          <div style={{ textAlign: 'center', fontSize: '10px', marginTop: '2px' }}>
             Assinatura do cliente
           </div>
         </div>
