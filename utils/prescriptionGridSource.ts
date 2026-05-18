@@ -75,3 +75,31 @@ export function prescriptionGridFromServiceOrder(order: ServiceOrder): EntryRece
     near_dnp: order.near_dnp,
   });
 }
+
+function orderLensesForReceipt(order: ServiceOrder): Array<{ name?: string | null }> {
+  const raw = order.lenses as { name?: string }[] | Record<string, { name?: string }> | null | undefined;
+  if (!raw) return [];
+  const list = Array.isArray(raw) ? raw : Object.values(raw);
+  return list.map((l) => ({ name: l?.name }));
+}
+
+/** Receita completa para comprovante de entrada (grade + flags + observações). */
+export function entryReceiptPrescriptionFromServiceOrder(
+  order: ServiceOrder
+): EntryReceiptPrescriptionSource {
+  return {
+    ...prescriptionGridFromServiceOrder(order),
+    frame_code: order.frame_code,
+    rim_use: order.rim_use,
+    warranty: order.warranty,
+    single_vision: order.single_vision,
+    bifocal: order.bifocal,
+    multifocal: order.multifocal,
+    anti_reflective: order.anti_reflective,
+    transitions: order.transitions,
+    frame_included: order.frame_included,
+    tinting: order.tinting,
+    notes: order.notes,
+    lenses: orderLensesForReceipt(order),
+  };
+}

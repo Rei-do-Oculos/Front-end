@@ -34,7 +34,7 @@ import { formatIsoDatePtBr, toHtmlDateInputValue } from '../../utils/dateDisplay
 import {
   buildPrescriptionLinesExcludingRxTable,
 } from '../../utils/entryReceiptPrescription';
-import { prescriptionGridFromServiceOrder } from '../../utils/prescriptionGridSource';
+import { entryReceiptPrescriptionFromServiceOrder } from '../../utils/prescriptionGridSource';
 import { laboratoryNameForReceipt, laboratoryNameFromFormSelection } from '../../utils/laboratoryReceiptName';
 import { styles } from '../../config/styles';
 import { useBackToList } from '../../hooks/useBackToList';
@@ -967,7 +967,10 @@ export const ServiceOrderForm: React.FC = () => {
       }));
       const storeData = storesList.find((s) => String(s.id) === String(order.store_id));
       const clientData = clientsList.find((c) => c.id === order.client_id) || order.client;
-      const prescriptionSource = prescriptionGridFromServiceOrder(order as any);
+      const prescriptionSource = {
+        ...entryReceiptPrescriptionFromServiceOrder(order),
+        notes: String(order.notes ?? formData.notes ?? '').trim() || null,
+      };
       const prescriptionLines = buildPrescriptionLinesExcludingRxTable(prescriptionSource);
       const entryLabFromOrder = laboratoryNameForReceipt(order);
 

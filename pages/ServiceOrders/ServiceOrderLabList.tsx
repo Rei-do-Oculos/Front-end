@@ -34,6 +34,7 @@ import { formatIsoDatePtBr } from '../../utils/dateDisplay';
 import {
   buildPrescriptionLinesExcludingRxTable,
 } from '../../utils/entryReceiptPrescription';
+import { entryReceiptPrescriptionFromServiceOrder } from '../../utils/prescriptionGridSource';
 import { ClientWhatsAppAvatar } from '../../components/ClientWhatsAppAvatar';
 
 // Status labels e cores
@@ -741,35 +742,7 @@ export const ServiceOrderLabList: React.FC = () => {
     const usePartialBlock =
       payLines.length > 1 || (payLines.length > 0 && !order.payment_method);
 
-    const entryReceiptSrc = {
-      far_od_spherical: order.far_od_spherical,
-      far_od_cylindrical: order.far_od_cylindrical,
-      far_od_axis: order.far_od_axis,
-      far_oe_spherical: order.far_oe_spherical,
-      far_oe_cylindrical: order.far_oe_cylindrical,
-      far_oe_axis: order.far_oe_axis,
-      near_od_spherical: order.near_od_spherical,
-      near_od_cylindrical: order.near_od_cylindrical,
-      near_od_axis: order.near_od_axis,
-      near_oe_spherical: order.near_oe_spherical,
-      near_oe_cylindrical: order.near_oe_cylindrical,
-      near_oe_axis: order.near_oe_axis,
-      addition: order.addition,
-      far_dnp: order.far_dnp,
-      near_dnp: order.near_dnp,
-      frame_code: order.frame_code,
-      rim_use: order.rim_use,
-      warranty: order.warranty,
-      single_vision: order.single_vision,
-      bifocal: order.bifocal,
-      multifocal: order.multifocal,
-      anti_reflective: order.anti_reflective,
-      transitions: order.transitions,
-      frame_included: order.frame_included,
-      tinting: order.tinting,
-      notes: order.notes,
-      lenses: toItemsArray(order.lenses as any).map((l: { name?: string }) => ({ name: l.name })),
-    };
+    const entryReceiptSrc = entryReceiptPrescriptionFromServiceOrder(order);
     const prescriptionLines = buildPrescriptionLinesExcludingRxTable(entryReceiptSrc);
 
     const entryDoctorName = String(order.doctor_name ?? '').trim();
