@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useParams } from 'react-router-dom';
 import { useBackToList } from '../../hooks/useBackToList';
 import { ArrowLeft, Loader2, Plus, Trash2, AlertTriangle, CheckCircle } from 'lucide-react';
-import { Card, Button, SingleSelect } from '../../components/Common';
+import { Card, Button, SingleSelect, Input } from '../../components/Common';
 import { useServiceOrders } from '../../services/hooks/useServiceOrders';
 import { useNotification } from '../../hooks/useNotification';
 import { ServiceOrder } from '../../services/api/serviceOrders';
@@ -31,6 +31,9 @@ export const ServiceOrderChangePayment: React.FC = () => {
     received_at?: string | null;
   };
   const [partialPayments, setPartialPayments] = useState<PartialPayRow[]>([]);
+  /** Data do recebimento na retirada — padrão hoje, editável. */
+  const todayStr = useMemo(() => new Date().toISOString().slice(0, 10), []);
+  const [pickupPaymentDate, setPickupPaymentDate] = useState(todayStr);
 
   useEffect(() => {
     const loadOrder = async () => {
@@ -51,12 +54,16 @@ export const ServiceOrderChangePayment: React.FC = () => {
                 amount: formatFromNumber(p.amount),
                 installments: p.installments ? String(p.installments) : '1',
                 locked: p.payment_method !== 'on_pickup',
-                received_at: p.received_at ?? null,
+                received_at:
+                  p.payment_method === 'on_pickup'
+                    ? todayStr
+                    : (p.received_at ? String(p.received_at).slice(0, 10) : null),
               }))
             );
           } else {
             setNewPaymentMethod('');
             setNewInstallments('1');
+            setPickupPaymentDate(todayStr);
           }
         } else {
           showError('Ordem de serviço não encontrada');
@@ -111,6 +118,10 @@ export const ServiceOrderChangePayment: React.FC = () => {
         showError('Selecione a forma de pagamento em todas as linhas');
         return;
       }
+      if (partialPayments.some((p) => !p.locked && !String(p.received_at || '').trim())) {
+        showError('Informe a data do pagamento em cada linha da retirada');
+        return;
+      }
       const totalPaid = partialPayments.reduce((sum, p) => sum + parseMoneyBrInput(p.amount), 0);
       const totalPrice = order.price || 0;
       if (Math.abs(totalPaid - totalPrice) > 0.01) {
@@ -120,6 +131,10 @@ export const ServiceOrderChangePayment: React.FC = () => {
     } else {
       if (!newPaymentMethod) {
         showError('Selecione uma forma de pagamento');
+        return;
+      }
+      if (!String(pickupPaymentDate || '').trim()) {
+        showError('Informe a data do pagamento');
         return;
       }
     }
@@ -136,12 +151,16 @@ export const ServiceOrderChangePayment: React.FC = () => {
               payment_method: p.payment_method as any,
               amount: parseMoneyBrInput(p.amount),
               installments: p.payment_method === 'credit_card' && p.installments ? parseInt(p.installments) : null,
+              ...(!p.locked && String(p.received_at || '').trim()
+                ? { received_at: String(p.received_at).trim() }
+                : {}),
             })),
           }
         : {
             price: order.price ?? 0,
             payment_method: newPaymentMethod as any,
             installments: newPaymentMethod === 'credit_card' ? parseInt(newInstallments) : null,
+            payment_date: pickupPaymentDate,
             payments: [],
           };
 
@@ -207,7 +226,7 @@ export const ServiceOrderChangePayment: React.FC = () => {
                 Esta OS ainda tem valor pendente (ex.: &quot;Pagamento na Retirada&quot;). Registre abaixo como o restante foi pago na retirada.
               </p>
               <p className="text-xs text-yellow-800/90 mt-2 leading-relaxed">
-                Pagamentos já feitos no cadastro da OS permanecem fixos: o fluxo de caixa usa a data em que entraram. Só o que falta (retirada) é informado agora, com data de hoje.
+                Pagamentos já feitos no cadastro da OS permanecem fixos: o fluxo de caixa usa a data em que entraram. O que falta (retirada) usa a data de hoje por padrão — ajuste se o recebimento foi em outro dia.
               </p>
             </div>
           </div>
@@ -302,6 +321,7 @@ export const ServiceOrderChangePayment: React.FC = () => {
                         amount: formatFromNumber(totalPrice),
                         installments: '1',
                         locked: false,
+                        received_at: todayStr,
                       }]);
                       setNewPaymentMethod('');
                     } else {
@@ -365,6 +385,15 @@ export const ServiceOrderChangePayment: React.FC = () => {
                     />
                   </div>
                 )}
+                <div className="w-48">
+                  <Input
+                    label="Data do pagamento *"
+                    type="date"
+                    value={pickupPaymentDate}
+                    onChange={(e) => setPickupPaymentDate(e.target.value)}
+                  />
+                  <p className="mt-1 text-xs text-slate-500">Padrão: hoje. Ajuste se o cliente pagou em outro dia.</p>
+                </div>
               </div>
             ) : (
               // Pagamentos parciais
@@ -482,6 +511,20 @@ export const ServiceOrderChangePayment: React.FC = () => {
                           </div>
                         )}
                         {!payment.locked && (
+                          <div className="w-40">
+                            <Input
+                              label="Data pgto *"
+                              type="date"
+                              value={payment.received_at || todayStr}
+                              onChange={(e) => {
+                                const newPayments = [...partialPayments];
+                                newPayments[index] = { ...newPayments[index], received_at: e.target.value };
+                                setPartialPayments(newPayments);
+                              }}
+                            />
+                          </div>
+                        )}
+                        {!payment.locked && (
                           <button
                             type="button"
                             onClick={() => {
@@ -526,6 +569,7 @@ export const ServiceOrderChangePayment: React.FC = () => {
                             amount: formattedRemaining,
                             installments: '1',
                             locked: false,
+                            received_at: todayStr,
                           },
                         ]);
                       }

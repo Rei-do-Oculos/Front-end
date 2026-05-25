@@ -561,11 +561,13 @@ class ServiceOrdersService {
       price?: number;
       payment_method?: string | null;
       installments?: number | null;
+      payment_date?: string | null;
       payments?: Array<{
         id?: number;
         payment_method: string;
         amount: number;
         installments?: number | null;
+        received_at?: string | null;
       }>;
     }
   ): Promise<{ success: boolean; message: string; service_order: ServiceOrder }> {
