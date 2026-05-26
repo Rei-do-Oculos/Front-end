@@ -11,7 +11,8 @@ import { useNotification } from '../../hooks/useNotification';
 import { useActiveFilters } from '../../hooks/useActiveFilters';
 import { useBackToList } from '../../hooks/useBackToList';
 import { useListUrlState } from '../../hooks/useListUrlState';
-import { maskCpfInput, maskPhoneInput } from '../../utils/formatters';
+import { maskCpfInput, formatPhone } from '../../utils/formatters';
+import { digitsOnly } from '../../utils/phoneInternational';
 import { whatsappHrefFromPhone } from '../../utils/whatsappLink';
 
 export const ClientList: React.FC = () => {
@@ -236,18 +237,6 @@ export const ClientList: React.FC = () => {
     return document;
   };
 
-  const formatPhone = (phone: string) => {
-    if (!phone) return null;
-    // Formatar telefone: (00) 00000-0000
-    const cleaned = phone.replace(/\D/g, '');
-    if (cleaned.length === 11) {
-      return cleaned.replace(/(\d{2})(\d{5})(\d{4})/, '($1) $2-$3');
-    } else if (cleaned.length === 10) {
-      return cleaned.replace(/(\d{2})(\d{4})(\d{4})/, '($1) $2-$3');
-    }
-    return phone;
-  };
-
   // Garantir que clients seja sempre um array
   const clientsList = Array.isArray(clients) ? clients : [];
   
@@ -294,9 +283,9 @@ export const ClientList: React.FC = () => {
         />
         <Input 
           label="Telefone" 
-          placeholder="(00) 00000-0000" 
+          placeholder="Buscar por telefone..." 
           value={searchPhone}
-          onChange={(e) => setSearchPhone(maskPhoneInput(e.target.value))}
+          onChange={(e) => setSearchPhone(digitsOnly(e.target.value))}
         />
         <MultiSelect
           label="Lojas"
@@ -440,7 +429,7 @@ export const ClientList: React.FC = () => {
                 </tr>
               ) : (
                 clientsList.map((client) => {
-                  const phoneFormatted = formatPhone(client.phone);
+                  const phoneFormatted = client.phone ? formatPhone(client.phone) : null;
                   const waHref = client.phone ? whatsappHrefFromPhone(client.phone) : null;
 
                   return (

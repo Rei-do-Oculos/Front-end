@@ -9,6 +9,7 @@ import { usePermission } from '../../services/hooks/usePermission';
 import { useNotification } from '../../hooks/useNotification';
 import { normalizeEmail, normalizeToTitleCase } from '../../utils/formatters';
 import { useBackToList } from '../../hooks/useBackToList';
+import { PhoneInput, validateInternationalPhone } from '../../components/PhoneInput';
 
 export const ClientForm: React.FC = () => {
   const { id } = useParams();
@@ -31,6 +32,7 @@ export const ClientForm: React.FC = () => {
     observations: '',
   });
 
+  const [phoneCountryIso, setPhoneCountryIso] = useState('BR');
   const [loadingClient, setLoadingClient] = useState(false);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -72,6 +74,10 @@ export const ClientForm: React.FC = () => {
     }
     if (!formData.phone.trim()) {
       showError('Validação', 'O telefone é obrigatório');
+      return;
+    }
+    if (!validateInternationalPhone(formData.phone, phoneCountryIso)) {
+      showError('Validação', 'Informe um telefone válido para o país selecionado');
       return;
     }
 
@@ -155,26 +161,6 @@ export const ClientForm: React.FC = () => {
     return value;
   };
 
-  const formatPhone = (value: string) => {
-    // Remover tudo que não é dígito
-    const cleaned = value.replace(/\D/g, '');
-    
-    // Aplicar máscara de telefone: (00) 00000-0000 ou (00) 0000-0000
-    if (cleaned.length <= 11) {
-      if (cleaned.length <= 10) {
-        return cleaned
-          .replace(/(\d{2})(\d)/, '($1) $2')
-          .replace(/(\d{4})(\d{1,4})$/, '$1-$2');
-      } else {
-        return cleaned
-          .replace(/(\d{2})(\d)/, '($1) $2')
-          .replace(/(\d{5})(\d{1,4})$/, '$1-$2');
-      }
-    }
-    
-    return value;
-  };
-
   if (loadingClient) {
     return (
       <div className="max-w-6xl mx-auto animate-in fade-in slide-in-from-right-4 duration-500 px-4 lg:px-6">
@@ -239,16 +225,14 @@ export const ClientForm: React.FC = () => {
               }}
               required 
             />
-            <Input 
-              label="Telefone *" 
-              placeholder="(00) 00000-0000" 
+            <PhoneInput
+              label="Telefone *"
               value={formData.phone}
-              onChange={(e) => {
-                const formatted = formatPhone(e.target.value);
-                setFormData({ ...formData, phone: formatted });
+              onChange={(phone, countryIso) => {
+                setFormData({ ...formData, phone });
+                setPhoneCountryIso(countryIso);
               }}
-              required 
-              maxLength={15}
+              required
             />
             <Input 
               label="CPF/CNPJ" 

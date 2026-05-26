@@ -32,6 +32,7 @@ import {
   Wallet,
 } from 'lucide-react';
 import { Card, Button, Input, Badge } from '../../components/Common';
+import { PhoneInput, validateInternationalPhone } from '../../components/PhoneInput';
 import { useNotification } from '../../hooks/useNotification';
 import { useStore } from '../../contexts/StoreContext';
 import { useAuth } from '../../services/hooks/useAuth';
@@ -142,6 +143,7 @@ export const POS: React.FC = () => {
   // Formulário de cliente rápido
   const [quickName, setQuickName] = useState('');
   const [quickPhone, setQuickPhone] = useState('');
+  const [quickPhoneCountryIso, setQuickPhoneCountryIso] = useState('BR');
   const [quickDocument, setQuickDocument] = useState('');
   const [quickEmail, setQuickEmail] = useState('');
   const [creatingClient, setCreatingClient] = useState(false);
@@ -298,6 +300,10 @@ export const POS: React.FC = () => {
   const handleCreateQuickClient = async () => {
     if (!quickName.trim() || !quickDocument.trim() || !quickPhone.trim()) {
       showError('Campos obrigatórios', 'Preencha nome, CPF e telefone.');
+      return;
+    }
+    if (!validateInternationalPhone(quickPhone, quickPhoneCountryIso)) {
+      showError('Validação', 'Informe um telefone válido para o país selecionado.');
       return;
     }
     if (!selectedStore?.id) {
@@ -1196,7 +1202,15 @@ export const POS: React.FC = () => {
             <div className="p-6 space-y-4">
               <Input label="Nome *" placeholder="Nome completo" value={quickName} onChange={e => setQuickName(e.target.value)} />
               <Input label="CPF *" placeholder="000.000.000-00" value={quickDocument} onChange={e => setQuickDocument(e.target.value)} />
-              <Input label="Telefone *" placeholder="(00) 00000-0000" value={quickPhone} onChange={e => setQuickPhone(e.target.value)} />
+              <PhoneInput
+                label="Telefone *"
+                value={quickPhone}
+                onChange={(phone, countryIso) => {
+                  setQuickPhone(phone);
+                  setQuickPhoneCountryIso(countryIso);
+                }}
+                required
+              />
               <Input label="E-mail (opcional)" type="email" placeholder="nome@email.com" value={quickEmail} onChange={e => setQuickEmail(e.target.value)} />
               <Button onClick={handleCreateQuickClient} disabled={creatingClient} className="w-full" style={{ backgroundColor: storeColorCss }}>
                 {creatingClient ? <><Loader2 size={18} className="animate-spin" /> Cadastrando...</> : <><UserPlus size={18} /> Cadastrar e usar</>}

@@ -30,6 +30,7 @@ import { clientPrescriptionsService } from '../../services/api/clientPrescriptio
 import { ClientWhatsAppAvatar } from '../../components/ClientWhatsAppAvatar';
 import { serviceOrdersService } from '../../services/api/serviceOrders';
 import { useBackToList } from '../../hooks/useBackToList';
+import { formatPhone } from '../../utils/formatters';
 
 // Interface estendida para incluir dados do relacionamento
 interface ClientWithRelationships extends Client {
@@ -866,7 +867,7 @@ export const ClientHistory: React.FC = () => {
                 <div className="grid grid-cols-2 gap-4 mt-4">
                   <div className="flex items-center gap-2 text-sm text-slate-600">
                     <Phone size={16} style={{ color: 'var(--store-color)' }} />
-                    {client.phone || 'Não informado'}
+                    {client.phone ? formatPhone(client.phone) : 'Não informado'}
                   </div>
                   <div className="flex items-center gap-2 text-sm text-slate-600">
                     <Mail size={16} style={{ color: 'var(--store-color)' }} />

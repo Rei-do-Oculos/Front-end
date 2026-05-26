@@ -1,3 +1,5 @@
+import { validateInternationalPhone } from './phoneInternational';
+
 /**
  * Utilitários de Segurança
  * 
@@ -65,8 +67,7 @@ export const validateEmail = (email: string): boolean => {
 };
 
 export const validatePhone = (phone: string): boolean => {
-  const cleaned = phone.replace(/\D/g, '');
-  return cleaned.length >= 10 && cleaned.length <= 11;
+  return validateInternationalPhone(phone);
 };
 
 export const validateCpf = (cpf: string): boolean => {
