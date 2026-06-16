@@ -19,6 +19,8 @@ export interface EntryReceiptPrescriptionSource {
   addition?: string | null;
   far_dnp?: string | null;
   near_dnp?: string | null;
+  od_height?: string | null;
+  oe_height?: string | null;
   frame_code?: string | null;
   rim_use?: boolean | number | string | null;
   warranty?: number | string | null;
@@ -72,6 +74,8 @@ export function buildPrescriptionLinesForEntryReceipt(
   add('Adição', src.addition);
   add('DNP longe', src.far_dnp);
   add('DNP perto', src.near_dnp);
+  add('Altura OD', src.od_height);
+  add('Altura OE', src.oe_height);
   add('Código da armação', src.frame_code);
 
   if (rimUseTruthy(src.rim_use)) {
@@ -120,6 +124,8 @@ const RX_GRID_LABELS = new Set([
   'Adição',
   'DNP longe',
   'DNP perto',
+  'Altura OD',
+  'Altura OE',
 ]);
 
 export function buildPrescriptionLinesExcludingRxTable(

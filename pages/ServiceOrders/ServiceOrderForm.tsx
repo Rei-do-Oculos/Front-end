@@ -197,6 +197,32 @@ const filterDNPInput = (value: string): string => {
   return value.replace(/[^\d,/]/g, '').slice(0, 11);
 };
 
+// Função para filtrar altura: apenas números e vírgula/ponto
+const filterHeightInput = (value: string): string => {
+  let result = '';
+  for (let i = 0; i < value.length; i++) {
+    const char = value[i];
+    if (/[\d,.]/.test(char)) {
+      if ((char === ',' || char === '.') && (result.includes(',') || result.includes('.'))) {
+        continue;
+      }
+      result += char;
+    }
+  }
+  return result.slice(0, 6);
+};
+
+const formatHeight = (value: string): string => {
+  if (!value) return '';
+  let cleaned = filterHeightInput(value).replace(',', '.');
+  let num = parseFloat(cleaned);
+  if (isNaN(num)) return '';
+  if (num > 50) num = 50;
+  if (num < 0) num = 0;
+  const formatted = Number.isInteger(num) ? String(num) : num.toFixed(1).replace('.', ',');
+  return formatted;
+};
+
 /** Apenas dígitos; limite alinhado ao backend (max 32). O prefixo "CRM-" é só visual no input. */
 const filterDoctorCrmInput = (value: string): string => {
   return value.replace(/\D/g, '').slice(0, 32);
@@ -324,6 +350,8 @@ export const ServiceOrderForm: React.FC = () => {
     prescription_date: '',
     far_dnp: '',
     near_dnp: '',
+    od_height: '',
+    oe_height: '',
     // Armação
     frame_code: '',
     rim_use: '',
@@ -680,6 +708,8 @@ export const ServiceOrderForm: React.FC = () => {
               prescription_date: toHtmlDateInputValue(order.prescription_date),
               far_dnp: order.far_dnp || '',
               near_dnp: order.near_dnp || '',
+              od_height: order.od_height || '',
+              oe_height: order.oe_height || '',
               // Armação
               frame_code: order.frame_code || '',
               rim_use: order.rim_use ? String(order.rim_use) : '',
@@ -830,6 +860,8 @@ export const ServiceOrderForm: React.FC = () => {
           addition: order.addition,
           far_dnp: order.far_dnp,
           near_dnp: order.near_dnp,
+          od_height: order.od_height,
+          oe_height: order.oe_height,
           notes: order.notes,
         },
         items,
@@ -928,6 +960,8 @@ export const ServiceOrderForm: React.FC = () => {
         addition: formData.addition,
         far_dnp: formData.far_dnp,
         near_dnp: formData.near_dnp,
+        od_height: formData.od_height,
+        oe_height: formData.oe_height,
         notes: formData.notes,
       },
       items,
@@ -1105,6 +1139,8 @@ export const ServiceOrderForm: React.FC = () => {
       addition: formData.addition,
       far_dnp: formData.far_dnp,
       near_dnp: formData.near_dnp,
+      od_height: formData.od_height,
+      oe_height: formData.oe_height,
       frame_code: formData.frame_code,
       rim_use: formData.rim_use,
       warranty: formData.warranty,
@@ -1362,6 +1398,8 @@ export const ServiceOrderForm: React.FC = () => {
       prescription_date: formData.prescription_date || null,
       far_dnp: formData.far_dnp || null,
       near_dnp: formData.near_dnp || null,
+      od_height: formData.od_height || null,
+      oe_height: formData.oe_height || null,
       // Armação
       frame_code: formData.frame_code || null,
       rim_use: formData.rim_use ? parseInt(formData.rim_use) : null,
@@ -1950,23 +1988,39 @@ export const ServiceOrderForm: React.FC = () => {
             </div>
           </div>
 
-          {/* DNP */}
+          {/* DNP e Altura */}
           <div className="mb-8">
-            <h3 className="text-lg font-bold text-slate-900 mb-4">DNP</h3>
+            <h3 className="text-lg font-bold text-slate-900 mb-4">DNP e Altura</h3>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <Input
-                label="Longe"
+                label="DNP Longe"
                 placeholder="00,00/00,00"
                 value={formData.far_dnp}
                 onChange={(e) => handleFieldChange('far_dnp', filterDNPInput(e.target.value))}
                 maxLength={11}
               />
               <Input
-                label="Perto"
+                label="DNP Perto"
                 placeholder="00,00/00,00"
                 value={formData.near_dnp}
                 onChange={(e) => handleFieldChange('near_dnp', filterDNPInput(e.target.value))}
                 maxLength={11}
+              />
+              <Input
+                label="Altura OD"
+                placeholder="Ex: 25"
+                value={formData.od_height}
+                onChange={(e) => handleFieldChange('od_height', filterHeightInput(e.target.value))}
+                onBlur={(e) => handleFieldChange('od_height', formatHeight(e.target.value))}
+                maxLength={6}
+              />
+              <Input
+                label="Altura OE"
+                placeholder="Ex: 25"
+                value={formData.oe_height}
+                onChange={(e) => handleFieldChange('oe_height', filterHeightInput(e.target.value))}
+                onBlur={(e) => handleFieldChange('oe_height', formatHeight(e.target.value))}
+                maxLength={6}
               />
             </div>
           </div>

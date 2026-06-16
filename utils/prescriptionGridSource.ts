@@ -22,6 +22,8 @@ const GRID_KEYS: (keyof EntryReceiptPrescriptionSource)[] = [
   'near_oe_axis',
   'far_dnp',
   'near_dnp',
+  'od_height',
+  'oe_height',
   'addition',
 ];
 
@@ -53,6 +55,8 @@ export function pickPrescriptionGridSource(
     addition: p.addition,
     far_dnp: p.far_dnp,
     near_dnp: p.near_dnp,
+    od_height: p.od_height,
+    oe_height: p.oe_height,
   };
 }
 
@@ -73,6 +77,8 @@ export function prescriptionGridFromServiceOrder(order: ServiceOrder): EntryRece
     addition: order.addition,
     far_dnp: order.far_dnp,
     near_dnp: order.near_dnp,
+    od_height: order.od_height,
+    oe_height: order.oe_height,
   });
 }
 

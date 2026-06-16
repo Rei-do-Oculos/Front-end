@@ -13,7 +13,7 @@ function strCell(v: unknown): string {
   return String(v).trim();
 }
 
-/** Alguma célula da grade (grau ou DNP), sem contar adição. */
+/** Alguma célula da grade (grau, DNP ou altura), sem contar adição. */
 function hasRxTableCells(src: EntryReceiptPrescriptionSource): boolean {
   return [
     src.far_od_spherical,
@@ -30,6 +30,8 @@ function hasRxTableCells(src: EntryReceiptPrescriptionSource): boolean {
     src.near_oe_axis,
     src.far_dnp,
     src.near_dnp,
+    src.od_height,
+    src.oe_height,
   ].some((v) => strCell(v) !== '');
 }
 
@@ -65,6 +67,8 @@ export const ReceiptPrescriptionTable: React.FC<ReceiptPrescriptionTableProps> =
 }) => {
   const [farOdDnp, farOeDnp] = splitDnpPair(src.far_dnp);
   const [nearOdDnp, nearOeDnp] = splitDnpPair(src.near_dnp);
+  const odHeight = strCell(src.od_height);
+  const oeHeight = strCell(src.oe_height);
   const isThermal = variant === 'thermal';
   const fs = isThermal
     ? { title: 10, cell: 7, add: 8 }
@@ -180,10 +184,10 @@ export const ReceiptPrescriptionTable: React.FC<ReceiptPrescriptionTableProps> =
             <th style={th}>Cilíndrico</th>
             <th style={th}>Eixo</th>
             <th style={th}>DNP</th>
+            <th style={th}>Altura</th>
           </tr>
         </thead>
         <tbody>
-          {/* LONGE OD */}
           <tr>
             <GroupCell label="LONGE" rows={2} />
             <td style={tdLabel}>OD</td>
@@ -191,16 +195,16 @@ export const ReceiptPrescriptionTable: React.FC<ReceiptPrescriptionTableProps> =
             <td style={td}>{fmtDiopter(src.far_od_cylindrical)}</td>
             <td style={td}>{fmtAxis(src.far_od_axis)}</td>
             <td style={td}>{farOdDnp}</td>
+            <td style={td}>{odHeight}</td>
           </tr>
-          {/* LONGE OE */}
           <tr>
             <td style={tdLabel}>OE</td>
             <td style={td}>{fmtDiopter(src.far_oe_spherical)}</td>
             <td style={td}>{fmtDiopter(src.far_oe_cylindrical)}</td>
             <td style={td}>{fmtAxis(src.far_oe_axis)}</td>
             <td style={td}>{farOeDnp}</td>
+            <td style={td}>{oeHeight}</td>
           </tr>
-          {/* PERTO OD */}
           <tr>
             <GroupCell label="PERTO" rows={2} />
             <td style={tdLabel}>OD</td>
@@ -208,14 +212,15 @@ export const ReceiptPrescriptionTable: React.FC<ReceiptPrescriptionTableProps> =
             <td style={td}>{fmtDiopter(src.near_od_cylindrical)}</td>
             <td style={td}>{fmtAxis(src.near_od_axis)}</td>
             <td style={td}>{nearOdDnp}</td>
+            <td style={td}>{odHeight}</td>
           </tr>
-          {/* PERTO OE */}
           <tr>
             <td style={tdLabel}>OE</td>
             <td style={td}>{fmtDiopter(src.near_oe_spherical)}</td>
             <td style={td}>{fmtDiopter(src.near_oe_cylindrical)}</td>
             <td style={td}>{fmtAxis(src.near_oe_axis)}</td>
             <td style={td}>{nearOeDnp}</td>
+            <td style={td}>{oeHeight}</td>
           </tr>
         </tbody>
       </table>

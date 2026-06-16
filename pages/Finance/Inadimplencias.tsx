@@ -387,6 +387,8 @@ export const Inadimplencias: React.FC = () => {
         addition: order.addition,
         far_dnp: order.far_dnp,
         near_dnp: order.near_dnp,
+        od_height: order.od_height,
+        oe_height: order.oe_height,
         notes: order.notes,
       },
       items,

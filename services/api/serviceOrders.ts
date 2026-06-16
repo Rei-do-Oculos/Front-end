@@ -35,6 +35,8 @@ export interface ServiceOrder {
   prescription_date?: string | null;
   far_dnp: string | null;
   near_dnp: string | null;
+  od_height: string | null;
+  oe_height: string | null;
   // Armação
   frame_code: string | null;
   rim_use: number | null;
@@ -191,6 +193,8 @@ export interface CreateServiceOrderDto {
   prescription_date?: string | null;
   far_dnp?: string | null;
   near_dnp?: string | null;
+  od_height?: string | null;
+  oe_height?: string | null;
   // Armação
   frame_code?: string | null;
   rim_use?: number | null;

@@ -196,18 +196,26 @@ export const ServiceOrderSheet = forwardRef<HTMLDivElement, ServiceOrderSheetPro
           borderLeft: `4px solid ${storeColor}`,
         }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-            {/* DNP */}
+            {/* DNP e Altura */}
             <div>
-              <div style={{ fontWeight: 600, fontSize: 11, color: '#6b7280', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8 }}>DNP (Distância Naso-Pupilar)</div>
+              <div style={{ fontWeight: 600, fontSize: 11, color: '#6b7280', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8 }}>DNP e Altura</div>
               <table style={{ width: 'auto', borderCollapse: 'collapse' }}>
                 <tbody>
                   <tr>
-                    <td style={{ padding: '4px 20px 4px 0', color: '#6b7280', fontSize: 12 }}>Longe</td>
+                    <td style={{ padding: '4px 20px 4px 0', color: '#6b7280', fontSize: 12 }}>DNP Longe</td>
                     <td style={{ padding: '4px 0', fontWeight: 500 }}>{order.far_dnp || '-'}</td>
                   </tr>
                   <tr>
-                    <td style={{ padding: '4px 20px 4px 0', color: '#6b7280', fontSize: 12 }}>Perto</td>
+                    <td style={{ padding: '4px 20px 4px 0', color: '#6b7280', fontSize: 12 }}>DNP Perto</td>
                     <td style={{ padding: '4px 0', fontWeight: 500 }}>{order.near_dnp || '-'}</td>
+                  </tr>
+                  <tr>
+                    <td style={{ padding: '4px 20px 4px 0', color: '#6b7280', fontSize: 12 }}>Altura OD</td>
+                    <td style={{ padding: '4px 0', fontWeight: 500 }}>{order.od_height || '-'}</td>
+                  </tr>
+                  <tr>
+                    <td style={{ padding: '4px 20px 4px 0', color: '#6b7280', fontSize: 12 }}>Altura OE</td>
+                    <td style={{ padding: '4px 0', fontWeight: 500 }}>{order.oe_height || '-'}</td>
                   </tr>
                 </tbody>
               </table>

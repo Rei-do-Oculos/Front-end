@@ -109,6 +109,16 @@ export const serviceOrderSchema = z.object({
     .optional()
     .nullable()
     .transform(val => val || null),
+  od_height: z
+    .string()
+    .optional()
+    .nullable()
+    .transform(val => val || null),
+  oe_height: z
+    .string()
+    .optional()
+    .nullable()
+    .transform(val => val || null),
 
   // Armação (opcionais)
   frame_code: z
