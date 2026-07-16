@@ -94,12 +94,16 @@ export const NFeSection: React.FC<NFeSectionProps> = ({ serviceOrder, onEmitted 
     try {
       const inv = await invoicesService.generateFromServiceOrder(String(serviceOrder.id), true, undefined, retry);
       const isRejected = inv?.status === 'rejected' || inv?.status === 'denied';
+      const isPendingTransmission = inv?.status === 'pending_transmission';
       const rejectionMsg = isRejected
         ? (inv?.brasilnfe_response as { Error?: string })?.Error || inv?.status_message || 'NF-e rejeitada pela SEFAZ.'
         : null;
       if (isRejected && rejectionMsg) {
         setError(rejectionMsg);
         return;
+      }
+      if (isPendingTransmission) {
+        setError(inv?.status_message || 'Nota gerada em contingência. Aguardando transmissão à SEFAZ. Use "Sincronizar" na tela da nota.');
       }
       onEmitted?.();
     } catch (e: any) {

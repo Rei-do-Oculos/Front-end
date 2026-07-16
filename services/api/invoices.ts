@@ -217,6 +217,17 @@ export const invoicesService = {
     return { blob, filename };
   },
 
+  async syncTransmission(invoiceId: string | number): Promise<Invoice> {
+    const { data } = await apiClient.post<GenerateInvoiceResponse>(
+      `${endpoint}/${invoiceId}/sync-transmission`,
+      {}
+    );
+    if (!data.success || !data.data?.invoice) {
+      throw new Error((data as any).data?.errors?.message || 'Erro ao sincronizar transmissão');
+    }
+    return data.data.invoice;
+  },
+
   /**
    * Gerar NF-e de devolução a partir desta NF-e de venda (autorizada).
    */

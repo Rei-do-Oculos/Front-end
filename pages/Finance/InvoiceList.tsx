@@ -30,10 +30,22 @@ import { useListUrlState } from '../../hooks/useListUrlState';
 
 const statusToLabel: Record<string, string> = {
   authorized: 'Autorizada',
+  pending_transmission: 'Aguardando transmissão',
   pending: 'Pendente',
   rejected: 'Rejeitada',
   denied: 'Denegada',
   cancelled: 'Cancelada',
+};
+
+const mapStatusFilterToApi = (statusFilter: string): string | undefined => {
+  switch (statusFilter) {
+    case 'Autorizada': return 'authorized';
+    case 'Aguardando transmissão': return 'pending_transmission';
+    case 'Cancelada': return 'cancelled';
+    case 'Pendente': return 'pending';
+    case 'Rejeitada': return 'rejected';
+    default: return undefined;
+  }
 };
 
 const paymentLabel: Record<string, string> = {
@@ -139,7 +151,7 @@ export const InvoiceList: React.FC = () => {
 
   const fetchList = useCallback(() => {
     const a = appliedFilters;
-    const statusApi = a.statusFilter === 'Autorizada' ? 'authorized' : a.statusFilter === 'Cancelada' ? 'cancelled' : a.statusFilter === 'Pendente' ? 'pending' : a.statusFilter === 'Rejeitada' ? 'rejected' : undefined;
+    const statusApi = mapStatusFilterToApi(a.statusFilter);
     setLoading(true);
     invoicesService
       .list({
@@ -165,7 +177,7 @@ export const InvoiceList: React.FC = () => {
 
   const fetchStats = useCallback(() => {
     const a = appliedFilters;
-    const statusApi = a.statusFilter === 'Autorizada' ? 'authorized' : a.statusFilter === 'Cancelada' ? 'cancelled' : a.statusFilter === 'Pendente' ? 'pending' : a.statusFilter === 'Rejeitada' ? 'rejected' : undefined;
+    const statusApi = mapStatusFilterToApi(a.statusFilter);
     const params = {
       store_id: hasSuperAdminRole && a.storeFilter ? Number(a.storeFilter) : undefined,
       status: statusApi,
@@ -220,7 +232,9 @@ export const InvoiceList: React.FC = () => {
       case 'Autorizada': return 'success';
       case 'Cancelada': return 'danger';
       case 'Rejeitada': return 'danger';
-      case 'Pendente': return 'warning';
+      case 'Pendente':
+      case 'Aguardando transmissão':
+        return 'warning';
       default: return 'info';
     }
   };
@@ -230,7 +244,9 @@ export const InvoiceList: React.FC = () => {
       case 'Autorizada': return <CheckCircle2 size={14} />;
       case 'Cancelada': return <XCircle size={14} />;
       case 'Rejeitada': return <XCircle size={14} />;
-      case 'Pendente': return <Clock size={14} />;
+      case 'Pendente':
+      case 'Aguardando transmissão':
+        return <Clock size={14} />;
       default: return <Clock size={14} />;
     }
   };
@@ -346,7 +362,7 @@ export const InvoiceList: React.FC = () => {
       dateFromFilter,
       dateToFilter,
     };
-    const statusApi = filters.statusFilter === 'Autorizada' ? 'authorized' : filters.statusFilter === 'Cancelada' ? 'cancelled' : filters.statusFilter === 'Pendente' ? 'pending' : filters.statusFilter === 'Rejeitada' ? 'rejected' : undefined;
+    const statusApi = mapStatusFilterToApi(filters.statusFilter);
     setExportXmlLoading(true);
     try {
       const { blob, filename } = await invoicesService.downloadXmlZip({
@@ -508,6 +524,7 @@ export const InvoiceList: React.FC = () => {
             options={[
               { value: '', label: 'Todos' },
               { value: 'Autorizada', label: 'Autorizada' },
+              { value: 'Aguardando transmissão', label: 'Aguardando transmissão' },
               { value: 'Pendente', label: 'Pendente' },
               { value: 'Cancelada', label: 'Cancelada' },
               { value: 'Rejeitada', label: 'Rejeitada' },

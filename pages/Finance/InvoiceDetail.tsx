@@ -47,6 +47,7 @@ const formatCpf = (doc: string | undefined | null): string => {
 
 const statusLabel: Record<string, string> = {
   authorized: 'Autorizada',
+  pending_transmission: 'Aguardando transmissão',
   pending: 'Pendente',
   rejected: 'Rejeitada',
   denied: 'Denegada',
@@ -73,13 +74,18 @@ function mapInvoiceToDisplay(inv: Invoice) {
   const total = Number(inv.total_value) || 0;
   const qty = inv.payments?.length || 1;
   const invoiceType = getInvoiceType(inv.access_key);
-  const qrCode = invoiceType === 'NFC-e'
+  const isTrulyAuthorized = inv.status === 'authorized' && !!inv.protocol;
+  const qrCode = (invoiceType === 'NFC-e' && (isTrulyAuthorized || inv.status === 'pending_transmission'))
     ? buildQrCodeImageUrl(inv.qr_code_url, 200)
     : (
-        buildQrCodeImageUrl(inv.qr_code_url, 200)
-        ?? (inv.access_key
-          ? buildQrCodeImageUrl(`http://www.fazenda.pr.gov.br/nfe/consulta?chave=${inv.access_key.replace(/\D/g, '')}`, 200)
-          : null)
+        isTrulyAuthorized
+          ? (
+              buildQrCodeImageUrl(inv.qr_code_url, 200)
+              ?? (inv.access_key
+                ? buildQrCodeImageUrl(`http://www.fazenda.pr.gov.br/nfe/consulta?chave=${inv.access_key.replace(/\D/g, '')}`, 200)
+                : null)
+            )
+          : null
       );
   return {
     invoiceNumber: inv.invoice_number,
@@ -118,6 +124,7 @@ function mapInvoiceToDisplay(inv: Invoice) {
     installments: qty > 1 ? qty : undefined,
     installmentValue: qty > 1 ? total / qty : undefined,
     qrCode,
+    isTrulyAuthorized,
   };
 }
 
@@ -136,6 +143,7 @@ export const InvoiceDetail: React.FC = () => {
   const [cancelModalOpen, setCancelModalOpen] = useState(false);
   const [cancelReason, setCancelReason] = useState('');
   const [eventosLoading, setEventosLoading] = useState(false);
+  const [syncLoading, setSyncLoading] = useState(false);
   const [confirmAction, setConfirmAction] = useState<'carta' | 'cancel' | 'devolucao' | null>(null);
 
   useEffect(() => {
@@ -184,6 +192,24 @@ export const InvoiceDetail: React.FC = () => {
       showSuccess('Download', 'XML baixado.');
     } catch (e: any) {
       showError('Erro ao baixar XML', e.message || 'Tente novamente.');
+    }
+  };
+
+  const handleSyncTransmission = async () => {
+    if (!invoice?.id) return;
+    setSyncLoading(true);
+    try {
+      const updated = await invoicesService.syncTransmission(invoice.id);
+      setInvoice(updated);
+      if (updated.status === 'authorized' && updated.protocol) {
+        showSuccess('Sincronização', 'Nota autorizada na SEFAZ.');
+      } else {
+        showSuccess('Sincronização', updated.status_message || 'Ainda aguardando transmissão à SEFAZ.');
+      }
+    } catch (e: any) {
+      showError('Erro ao sincronizar', e.message || 'Tente novamente.');
+    } finally {
+      setSyncLoading(false);
     }
   };
 
@@ -350,6 +376,7 @@ export const InvoiceDetail: React.FC = () => {
       case 'denied':
         return <XCircle size={24} className="text-red-600" />;
       case 'pending':
+      case 'pending_transmission':
         return <Clock size={24} className="text-amber-600" />;
       default:
         return <AlertCircle size={24} className="text-slate-600" />;
@@ -365,6 +392,7 @@ export const InvoiceDetail: React.FC = () => {
       case 'denied':
         return 'border-l-red-500 bg-red-50/50';
       case 'pending':
+      case 'pending_transmission':
         return 'border-l-amber-500 bg-amber-50/50';
       default:
         return 'border-l-slate-500 bg-slate-50/50';
@@ -387,7 +415,18 @@ export const InvoiceDetail: React.FC = () => {
           </div>
         </div>
         <div className="flex gap-3">
-          {d.statusRaw === 'authorized' && (
+          {d.statusRaw === 'pending_transmission' && (
+            <Button
+              variant="outline"
+              className="border-amber-200 text-amber-700 bg-amber-50"
+              onClick={handleSyncTransmission}
+              disabled={syncLoading}
+            >
+              {syncLoading ? <Loader2 size={18} className="animate-spin" /> : <Clock size={18} />}
+              Sincronizar com SEFAZ
+            </Button>
+          )}
+          {(d.isTrulyAuthorized || d.statusRaw === 'pending_transmission') && (
             <>
               <Button variant="outline" className="border-slate-200 text-slate-600 bg-white" onClick={handleDownloadXml}>
                 <Download size={18} /> XML
@@ -395,7 +434,7 @@ export const InvoiceDetail: React.FC = () => {
               <Button variant="outline" className="border-slate-200 text-slate-600 bg-white" onClick={handlePrintRecibo} title="Reimprimir cupom">
                 <Printer size={18} /> Imprimir Cupom
               </Button>
-              {d.invoiceType === 'NF-e' && (
+              {d.invoiceType === 'NF-e' && d.isTrulyAuthorized && (
                 <Button variant="outline" className="border-slate-200 text-slate-600 bg-white" onClick={handleDownloadPdf}>
                   <Download size={18} /> Baixar DANFE
                 </Button>
@@ -419,15 +458,20 @@ export const InvoiceDetail: React.FC = () => {
                   Motivo da rejeição (SEFAZ): {d.statusMessage}
                 </p>
               )}
+              {d.statusRaw === 'pending_transmission' && (
+                <p className="text-xs text-amber-700 mt-2 font-medium">
+                  {d.statusMessage || 'A nota foi gerada em contingência. Aguardando a BrasilNFe transmitir à SEFAZ. O QR Code só consulta depois da autorização.'}
+                </p>
+              )}
             </div>
           </div>
-          <Badge variant={d.statusRaw === 'authorized' ? 'success' : d.statusRaw === 'pending' ? 'warning' : 'danger'}>
+          <Badge variant={d.statusRaw === 'authorized' ? 'success' : (d.statusRaw === 'pending' || d.statusRaw === 'pending_transmission') ? 'warning' : 'danger'}>
             {d.status}
           </Badge>
         </div>
       </Card>
 
-      {d.statusRaw === 'authorized' && userHasAccessToStore(invoice.store_id ?? invoice.store?.id, user) && (
+      {d.isTrulyAuthorized && userHasAccessToStore(invoice.store_id ?? invoice.store?.id, user) && (
         <Card title="Ações" className="border-slate-200 print:hidden">
           <p className="text-xs text-slate-500 mb-4">
             Corrigir informações (Carta de Correção), cancelar a {d.invoiceType} na SEFAZ ou gerar nota de devolução. Justificativa de cancelamento: mínimo 15 caracteres.
@@ -685,7 +729,13 @@ export const InvoiceDetail: React.FC = () => {
             <Card title="QR Code">
               <div className="flex flex-col items-center justify-center p-6">
                 <img src={d.qrCode} alt={`QR Code ${d.invoiceType}`} className="w-48 h-48 border-2 border-slate-200 rounded-xl" />
-                <p className="text-[10px] font-bold text-slate-400 mt-4 text-center">Escaneie para consultar a {d.invoiceType} na SEFAZ</p>
+                {d.statusRaw === 'pending_transmission' ? (
+                  <p className="text-[10px] font-bold text-amber-600 mt-4 text-center">
+                    Contingência: o QR pode não consultar na SEFAZ até a transmissão ser concluída.
+                  </p>
+                ) : (
+                  <p className="text-[10px] font-bold text-slate-400 mt-4 text-center">Escaneie para consultar a {d.invoiceType} na SEFAZ</p>
+                )}
               </div>
             </Card>
           )}
