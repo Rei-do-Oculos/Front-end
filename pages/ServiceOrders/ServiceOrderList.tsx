@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Edit, Plus, Trash2, Loader2, FileText, Building2, CheckCircle, XCircle, Eye, Printer } from 'lucide-react';
 import { Card, Button, Input, SingleSelect, FilterSection, Modal, ActiveFiltersBadge, SortableHeader, SortDirection, Pagination, AccessDeniedCard, Badge } from '../../components/Common';
+import { ServiceOrderDeleteModal } from '../../components/ServiceOrderDeleteModal';
 import { useServiceOrders } from '../../services/hooks/useServiceOrders';
 import { usePlucks } from '../../services/hooks/usePlucks';
 import { useClients } from '../../services/hooks/useClients';
@@ -34,6 +35,7 @@ const STATUS_FALLBACK_LABEL: Record<ServiceOrderStatus, string> = {
   ready_for_pickup: 'Aguardando Retirada',
   completed: 'Finalizada',
   overdue: 'Inadimplente',
+  not_picked_up: 'Não retirada',
 };
 
 function statusBadgeVariant(apiColor?: string): 'primary' | 'danger' | 'success' | 'warning' | 'info' {
@@ -324,10 +326,10 @@ export const ServiceOrderList: React.FC = () => {
 
     setDeleting(true);
     try {
-      await deleteServiceOrder(String(orderToDelete.id));
+      const result = await deleteServiceOrder(String(orderToDelete.id));
       setDeleteModalOpen(false);
       setOrderToDelete(null);
-      showSuccess('Ordem de serviço excluída com sucesso!');
+      showSuccess(result.message || 'Ordem de serviço excluída com sucesso!');
       await fetchServiceOrders(pagination.currentPage, buildFetchParams());
     } catch (err: any) {
       console.error('Erro ao excluir ordem de serviço:', err);
@@ -857,53 +859,16 @@ export const ServiceOrderList: React.FC = () => {
         )}
       </Card>
 
-      {/* Modal de Confirmação de Exclusão */}
-      <Modal
+      <ServiceOrderDeleteModal
         isOpen={deleteModalOpen}
+        order={orderToDelete}
+        deleting={deleting}
         onClose={() => {
-          if (!deleting) {
-            setDeleteModalOpen(false);
-            setOrderToDelete(null);
-          }
+          setDeleteModalOpen(false);
+          setOrderToDelete(null);
         }}
-        title="Confirmar Exclusão"
-      >
-        <div className="space-y-4">
-          <p className="text-sm text-slate-700">
-            Tem certeza que deseja excluir a OS <strong>#{orderToDelete?.os_number}</strong>?
-          </p>
-          <p className="text-xs text-slate-500">
-            Esta ação não pode ser desfeita.
-          </p>
-          <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-100">
-            <Button
-              variant="outline"
-              onClick={() => {
-                setDeleteModalOpen(false);
-                setOrderToDelete(null);
-              }}
-              disabled={deleting}
-            >
-              Cancelar
-            </Button>
-            <Button
-              variant="danger"
-              onClick={handleConfirmDelete}
-              disabled={deleting}
-            >
-              {deleting ? (
-                <>
-                  <Loader2 size={16} className="animate-spin" /> Excluindo...
-                </>
-              ) : (
-                <>
-                  <Trash2 size={16} /> Excluir
-                </>
-              )}
-            </Button>
-          </div>
-        </div>
-      </Modal>
+        onConfirm={handleConfirmDelete}
+      />
 
       {/* Modal de Recibo */}
       {showReceiptModal && orderToPrint && (

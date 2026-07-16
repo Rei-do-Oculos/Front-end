@@ -18,13 +18,14 @@ import {
   AlertTriangle,
   Loader2,
   Building2,
-  Trash2
+  Trash2,
+  PackageX
 } from 'lucide-react';
 import { Card, Button, Badge, Pagination, SortableHeader, SortDirection, Modal, SingleSelect } from '../../components/Common';
 import { useClients } from '../../services/hooks/useClients';
 import { usePermission } from '../../services/hooks/usePermission';
 import { useNotification } from '../../hooks/useNotification';
-import { Client } from '../../services/api/clients';
+import { Client, ClientUncollectedRecord } from '../../services/api/clients';
 import { ServiceOrder } from '../../services/api/serviceOrders';
 import { clientPrescriptionsService } from '../../services/api/clientPrescriptions';
 import { ClientWhatsAppAvatar } from '../../components/ClientWhatsAppAvatar';
@@ -39,7 +40,7 @@ interface ClientWithRelationships extends Client {
   };
 }
 
-type TabType = 'compras' | 'receitas' | 'observacoes';
+type TabType = 'compras' | 'receitas' | 'nao_retiradas' | 'observacoes';
 
 interface Statistics {
   total_spent: number;
@@ -49,6 +50,9 @@ interface Statistics {
   is_overdue: boolean;
   overdue_count: number;
   overdue_total: number;
+  has_uncollected?: boolean;
+  uncollected_count?: number;
+  uncollected_total?: number;
 }
 
 const PurchasesTab = ({ 
@@ -77,6 +81,7 @@ const PurchasesTab = ({
       case 'sent_to_lab': return { label: 'No Laboratório', variant: 'info' as const };
       case 'ready_for_pickup': return { label: 'Aguardando Retirada', variant: 'primary' as const };
       case 'overdue': return { label: 'Inadimplente', variant: 'danger' as const };
+      case 'not_picked_up': return { label: 'Não retirada', variant: 'warning' as const };
       default: return { label: status, variant: 'info' as const };
     }
   };
@@ -612,6 +617,116 @@ const PrescriptionsTab = ({ clientId, hasCreate, hasUpdate, hasDelete }: {
   );
 };
 
+const UncollectedTab = ({
+  records,
+  navigate,
+}: {
+  records: ClientUncollectedRecord[];
+  navigate: (path: string) => void;
+}) => {
+  const formatCurrency = (value: number) =>
+    new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value || 0);
+
+  const formatOsNumber = (osNumber: number) => String(osNumber).padStart(4, '0');
+
+  const formatDate = (value: string | null) => {
+    if (!value) return '—';
+    return new Date(value).toLocaleDateString('pt-BR');
+  };
+
+  if (records.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center py-16 text-center">
+        <PackageX size={48} className="text-slate-300 mb-4" />
+        <h3 className="text-lg font-bold text-slate-900">Nenhuma pendência de não retirada</h3>
+        <p className="text-sm text-slate-500 mt-1 max-w-md">
+          Pendências registradas quando a OS é marcada como não retirada (permanece no histórico com o valor original).
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full text-left">
+        <thead>
+          <tr className="border-b border-slate-100">
+            <th className="pb-3 text-[10px] font-bold text-slate-400 uppercase tracking-widest">OS</th>
+            <th className="pb-3 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Loja</th>
+            <th className="pb-3 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Motivo</th>
+            <th className="pb-3 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Venda</th>
+            <th className="pb-3 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Total OS</th>
+            <th className="pb-3 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Pendente</th>
+            <th className="pb-3 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          {records.map((record) => (
+            <tr key={record.id} className="border-b border-slate-50 hover:bg-amber-50/30">
+              <td className="py-4">
+                {record.service_order_id ? (
+                  <button
+                    type="button"
+                    onClick={() => navigate(`/service-orders/${record.service_order_id}`)}
+                    className="font-bold text-left hover:underline"
+                    style={{ color: 'var(--store-color)' }}
+                    title="Abrir OS"
+                  >
+                    #{formatOsNumber(record.os_number)}
+                  </button>
+                ) : (
+                  <div className="font-bold text-slate-900">#{formatOsNumber(record.os_number)}</div>
+                )}
+                <div className="text-[10px] font-bold text-amber-700 uppercase tracking-wide mt-0.5">Não retirada</div>
+              </td>
+              <td className="py-4 text-sm text-slate-600">
+                {record.relationships?.store?.name || '—'}
+              </td>
+              <td className="py-4 text-sm text-slate-600">
+                {record.relationships?.reason_label || record.reason}
+              </td>
+              <td className="py-4 text-sm text-slate-600">{formatDate(record.sale_date)}</td>
+              <td className="py-4 text-sm font-medium text-slate-700">{formatCurrency(Number(record.total_price) || 0)}</td>
+              <td className="py-4 text-sm font-bold text-red-700">{formatCurrency(Number(record.amount_due) || 0)}</td>
+              <td className="py-4">
+                <Badge variant={record.status === 'open' ? 'danger' : 'success'}>
+                  {record.relationships?.status_label || record.status}
+                </Badge>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      {records.some((r) => r.notes) && (
+        <div className="mt-6 space-y-3">
+          {records.filter((r) => r.notes).map((record) => (
+            <div key={`notes-${record.id}`} className="rounded-xl border border-amber-100 bg-amber-50/50 p-4">
+              <p className="text-[10px] font-bold text-amber-700 uppercase tracking-widest mb-1">
+                {record.service_order_id ? (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => navigate(`/service-orders/${record.service_order_id}`)}
+                      className="hover:underline"
+                      style={{ color: 'inherit' }}
+                    >
+                      OS #{formatOsNumber(record.os_number)}
+                    </button>
+                    {' '}— observações
+                  </>
+                ) : (
+                  <>OS #{formatOsNumber(record.os_number)} — observações</>
+                )}
+              </p>
+              <p className="text-sm text-slate-700 whitespace-pre-wrap">{record.notes}</p>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
 const NotesTab = () => {
   return (
     <div className="flex flex-col items-center justify-center py-16 gap-4">
@@ -631,12 +746,14 @@ export const ClientHistory: React.FC = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const { hasPermission } = usePermission();
+  const canViewUncollected = hasPermission('clients.uncollected-records.list');
   const { getHistory } = useClients({ autoFetch: false });
   const { goBackToList } = useBackToList();
 
   const [client, setClient] = useState<ClientWithRelationships | null>(null);
   const [orders, setOrders] = useState<ServiceOrder[]>([]);
   const [statistics, setStatistics] = useState<Statistics | null>(null);
+  const [uncollectedRecords, setUncollectedRecords] = useState<ClientUncollectedRecord[]>([]);
   const [pagination, setPagination] = useState<{ currentPage: number; totalPages: number; totalItems: number } | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadingOrders, setLoadingOrders] = useState(false);
@@ -677,6 +794,15 @@ export const ClientHistory: React.FC = () => {
       
       setClient(clientData);
       setStatistics(result.statistics);
+
+      let uncollectedArray: ClientUncollectedRecord[] = [];
+      const rawUncollected = result.uncollected_records;
+      if (Array.isArray(rawUncollected)) {
+        uncollectedArray = rawUncollected;
+      } else if (rawUncollected && typeof rawUncollected === 'object') {
+        uncollectedArray = Object.values(rawUncollected) as ClientUncollectedRecord[];
+      }
+      setUncollectedRecords(uncollectedArray);
 
       // Processar service_orders
       const serviceOrdersData = result.service_orders;
@@ -781,9 +907,24 @@ export const ClientHistory: React.FC = () => {
     ? client.stores[0]
     : null;
 
+  useEffect(() => {
+    if (!canViewUncollected && activeTab === 'nao_retiradas') {
+      setActiveTab('compras');
+    }
+  }, [canViewUncollected, activeTab]);
+
   const tabs = [
     { id: 'compras' as TabType, label: 'Histórico de Compras', icon: ShoppingBag },
     { id: 'receitas' as TabType, label: 'Receitas e Armações', icon: Stethoscope },
+    ...(canViewUncollected
+      ? [{
+          id: 'nao_retiradas' as TabType,
+          label: statistics?.uncollected_count
+            ? `Não retiradas (${statistics.uncollected_count})`
+            : 'Não retiradas',
+          icon: PackageX,
+        }]
+      : []),
     // { id: 'observacoes' as TabType, label: 'Observações', icon: ClipboardList }, // comentado por enquanto
   ];
 
@@ -834,6 +975,12 @@ export const ClientHistory: React.FC = () => {
                   Inadimplente
                 </Badge>
               )}
+              {canViewUncollected && statistics?.has_uncollected && (
+                <Badge variant="warning">
+                  <PackageX size={12} className="mr-1" />
+                  Não retirou
+                </Badge>
+              )}
             </div>
             <p className="text-gray-500 font-medium mt-1">Histórico completo do cliente</p>
           </div>
@@ -853,7 +1000,7 @@ export const ClientHistory: React.FC = () => {
       </div>
 
       {/* Card de Informações do Cliente */}
-      <Card className="border-l-4" style={{ borderLeftColor: statistics?.is_overdue ? '#ef4444' : 'var(--store-color)' }}>
+      <Card className="border-l-4" style={{ borderLeftColor: statistics?.is_overdue ? '#ef4444' : canViewUncollected && statistics?.has_uncollected ? '#f59e0b' : 'var(--store-color)' }}>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <div className="md:col-span-2">
             <div className="flex items-start gap-4">
@@ -913,6 +1060,17 @@ export const ClientHistory: React.FC = () => {
               <p className="text-[10px] font-bold text-emerald-600 uppercase tracking-widest mb-1">Total Gasto</p>
               <p className="text-2xl font-black text-emerald-700">{formatCurrency(statistics?.total_spent || 0)}</p>
             </div>
+            {canViewUncollected && (
+              <div className="p-4 bg-amber-50 rounded-xl border border-amber-100">
+                <p className="text-[10px] font-bold text-amber-700 uppercase tracking-widest mb-1">Saldo não retirada</p>
+                <p className="text-2xl font-black text-amber-800">{formatCurrency(statistics?.uncollected_total || 0)}</p>
+                {(statistics?.uncollected_count ?? 0) > 0 && (
+                  <p className="text-[10px] text-amber-600 mt-1 font-medium">
+                    {statistics?.uncollected_count} pendência(s) aberta(s)
+                  </p>
+                )}
+              </div>
+            )}
           </div>
         </div>
 
@@ -932,31 +1090,66 @@ export const ClientHistory: React.FC = () => {
             </div>
           </div>
         )}
+
+        {/* Alerta de não retiradas */}
+        {canViewUncollected && statistics?.has_uncollected && (
+          <div className="mt-6 p-4 bg-amber-50 border border-amber-200 rounded-xl">
+            <div className="flex items-center gap-3">
+              <PackageX size={24} className="text-amber-600" />
+              <div>
+                <p className="text-sm font-bold text-amber-900">
+                  Cliente com {statistics.uncollected_count} pendência(s) de não retirada
+                </p>
+                <p className="text-xs text-amber-800">
+                  Valor pendente registrado: {formatCurrency(statistics.uncollected_total || 0)}
+                  {client.block_pickup_payment ? ' · Bloqueado para pagamento na retirada' : ''}
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
       </Card>
 
       {/* Estatísticas */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
         {[
-          { title: 'Total Gasto', value: formatCurrency(statistics?.total_spent || 0), icon: DollarSign },
-          { title: 'Total de Compras', value: String(statistics?.total_orders || 0), icon: ShoppingBag },
-          { title: 'Ticket Médio', value: formatCurrency(statistics?.average_ticket || 0), icon: TrendingUp },
-          { title: 'Última Compra', value: statistics?.last_purchase ? formatDate(statistics.last_purchase) : 'Nenhuma', icon: Calendar },
+          { title: 'Total Gasto', value: formatCurrency(statistics?.total_spent || 0), icon: DollarSign, accent: 'store' as const },
+          { title: 'Total de Compras', value: String(statistics?.total_orders || 0), icon: ShoppingBag, accent: 'store' as const },
+          ...(canViewUncollected
+            ? [{
+                title: 'Saldo não retirada',
+                value: formatCurrency(statistics?.uncollected_total || 0),
+                icon: PackageX,
+                accent: 'amber' as const,
+                subtitle: (statistics?.uncollected_count ?? 0) > 0
+                  ? `${statistics?.uncollected_count} pendência(s)`
+                  : undefined,
+              }]
+            : []),
+          { title: 'Ticket Médio', value: formatCurrency(statistics?.average_ticket || 0), icon: TrendingUp, accent: 'store' as const },
+          { title: 'Última Compra', value: statistics?.last_purchase ? formatDate(statistics.last_purchase) : 'Nenhuma', icon: Calendar, accent: 'store' as const },
         ].map((stat, index) => {
           const Icon = stat.icon;
+          const isAmber = stat.accent === 'amber';
           return (
             <div 
               key={index}
-              className="bg-white p-5 lg:p-8 rounded-2xl border border-gray-100 shadow-sm flex flex-col justify-between hover:shadow-xl hover:shadow-gray-200/50 hover:-translate-y-1 transition-all duration-300 group overflow-hidden relative"
+              className={`bg-white p-5 lg:p-8 rounded-2xl border shadow-sm flex flex-col justify-between hover:shadow-xl hover:-translate-y-1 transition-all duration-300 group overflow-hidden relative ${
+                isAmber ? 'border-amber-100 hover:shadow-amber-100/50' : 'border-gray-100 hover:shadow-gray-200/50'
+              }`}
             >
               <div 
                 className="absolute top-0 right-0 w-32 h-32 rounded-full -mr-16 -mt-16 group-hover:scale-150 transition-transform duration-700"
-                style={{ backgroundColor: 'var(--store-color-opacity-10)' }}
+                style={{ backgroundColor: isAmber ? 'rgba(245, 158, 11, 0.1)' : 'var(--store-color-opacity-10)' }}
               />
               
               <div className="flex items-center justify-between mb-4 lg:mb-8">
                 <div 
                   className="p-3 lg:p-4 rounded-xl"
-                  style={{ 
+                  style={isAmber ? {
+                    backgroundColor: '#fffbeb',
+                    color: '#d97706',
+                  } : { 
                     backgroundColor: 'var(--store-color-light)',
                     color: 'var(--store-color)',
                   }}
@@ -967,7 +1160,12 @@ export const ClientHistory: React.FC = () => {
               
               <div>
                 <p className="text-[9px] lg:text-[10px] font-semibold text-slate-400 uppercase tracking-[0.2em] mb-1">{stat.title}</p>
-                <p className="text-xl lg:text-2xl font-bold text-slate-900 tracking-tight">{stat.value}</p>
+                <p className={`text-xl lg:text-2xl font-bold tracking-tight ${isAmber && (statistics?.uncollected_total ?? 0) > 0 ? 'text-amber-800' : 'text-slate-900'}`}>
+                  {stat.value}
+                </p>
+                {'subtitle' in stat && stat.subtitle ? (
+                  <p className="text-[10px] text-amber-600 font-medium mt-1">{stat.subtitle}</p>
+                ) : null}
               </div>
             </div>
           );
@@ -1037,6 +1235,17 @@ export const ClientHistory: React.FC = () => {
                 hasUpdate={hasPermission('client-prescriptions.update')}
                 hasDelete={hasPermission('client-prescriptions.delete')}
               />
+            </div>
+          )}
+          {canViewUncollected && activeTab === 'nao_retiradas' && (
+            <div>
+              <div className="mb-6">
+                <h3 className="text-xl font-black text-slate-900">Não retiradas</h3>
+                <p className="text-sm text-slate-500 mt-1">
+                  Pendências registradas ao marcar OS como não retirada (valores preservados no histórico)
+                </p>
+              </div>
+              <UncollectedTab records={uncollectedRecords} navigate={navigate} />
             </div>
           )}
           {/* Observações - comentado por enquanto

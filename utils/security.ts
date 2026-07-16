@@ -18,11 +18,25 @@ export const sanitizeInput = (input: string): string => {
 };
 
 export const sanitizeObject = <T extends Record<string, any>>(obj: T): T => {
+  if (Array.isArray(obj)) {
+    return obj.map((item) => {
+      if (typeof item === 'string') {
+        return sanitizeInput(item) as any;
+      }
+      if (typeof item === 'object' && item !== null) {
+        return sanitizeObject(item as Record<string, any>);
+      }
+      return item;
+    }) as T;
+  }
+
   const sanitized = { ...obj };
   
   for (const key in sanitized) {
     if (typeof sanitized[key] === 'string') {
       sanitized[key] = sanitizeInput(sanitized[key]) as any;
+    } else if (Array.isArray(sanitized[key])) {
+      sanitized[key] = sanitizeObject(sanitized[key]) as any;
     } else if (typeof sanitized[key] === 'object' && sanitized[key] !== null) {
       sanitized[key] = sanitizeObject(sanitized[key]) as any;
     }

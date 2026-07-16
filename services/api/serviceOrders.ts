@@ -2,7 +2,7 @@ import { apiClient } from './client';
 import { PaginatedResponse } from './base.service';
 
 // Status types
-export type ServiceOrderStatus = 'pending' | 'sent_to_lab' | 'ready_for_pickup' | 'completed' | 'overdue';
+export type ServiceOrderStatus = 'pending' | 'sent_to_lab' | 'ready_for_pickup' | 'completed' | 'overdue' | 'not_picked_up';
 
 export interface ServiceOrder {
   id: number;
@@ -359,12 +359,52 @@ class ServiceOrdersService {
     return data.data.service_order;
   }
 
-  async delete(id: string): Promise<void> {
-    const { data } = await apiClient.delete<{ success: boolean; action: string; data: any }>(`${this.endpoint}/${id}`);
-    
+  async delete(id: string): Promise<{ message: string }> {
+    const { data } = await apiClient.delete<{
+      success: boolean;
+      action: string;
+      data: {
+        message?: string;
+      };
+    }>(`${this.endpoint}/${id}`);
+
     if (!data.success) {
       throw new Error('Erro ao excluir ordem de serviço');
     }
+
+    return {
+      message: data.data?.message || 'Ordem de serviço excluída com sucesso.',
+    };
+  }
+
+  /**
+   * Registrar OS como não retirada (status not_picked_up + alerta no cliente).
+   */
+  async archiveNotPickedUp(
+    id: string,
+    options?: {
+      uncollected_notes?: string;
+      block_pickup_payment?: boolean;
+    }
+  ): Promise<{ success: boolean; message: string; service_order: ServiceOrder }> {
+    const { data } = await apiClient.post<{
+      success: boolean;
+      action: string;
+      data: {
+        message: string;
+        service_order: ServiceOrder;
+      };
+    }>(`${this.endpoint}/${id}/archive-not-picked-up`, options ?? {});
+
+    if (!data.success) {
+      throw new Error(data.data?.message || 'Erro ao registrar não retirada');
+    }
+
+    return {
+      success: data.success,
+      message: data.data?.message || '',
+      service_order: data.data?.service_order as ServiceOrder,
+    };
   }
 
   async plucks(params?: { client_id?: number }): Promise<any[]> {

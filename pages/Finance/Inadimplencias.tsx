@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Loader2, AlertTriangle, FileDown, Phone, Building2, Eye, CheckCircle, X, Check } from 'lucide-react';
+import { Loader2, AlertTriangle, FileDown, Phone, Building2, Eye, CheckCircle, PackageX } from 'lucide-react';
 import { Card, Button, Input, SingleSelect, FilterSection, Modal, ActiveFiltersBadge, SortableHeader, SortDirection, Pagination, AccessDeniedCard, Badge } from '../../components/Common';
+import { ServiceOrderArchiveNotPickedUpModal } from '../../components/ServiceOrderArchiveNotPickedUpModal';
+import type { ArchiveNotPickedUpOptions } from '../../components/ServiceOrderArchiveNotPickedUpModal';
 import { useServiceOrders } from '../../services/hooks/useServiceOrders';
 import { usePlucks } from '../../services/hooks/usePlucks';
 import { storesService } from '../../services/api/stores';
@@ -46,8 +48,8 @@ export const Inadimplencias: React.FC = () => {
     actionLoading, 
     error, 
     fetchOverdueOrders,
+    archiveNotPickedUp,
     markCompleted,
-    setOverdueInactive,
   } = useServiceOrders({ autoFetch: false });
   
   // Usar usePlucks para trazer todas as lojas que o usuário tem acesso
@@ -71,9 +73,9 @@ export const Inadimplencias: React.FC = () => {
   const [perPage, setPerPage] = useState<number>(15);
   const [exportingPdf, setExportingPdf] = useState(false);
   const [filterOverdueStatus, setFilterOverdueStatus] = useState<'active' | 'inactive' | 'all'>('all');
-  const [togglingInactiveId, setTogglingInactiveId] = useState<number | null>(null);
-  const [inactiveModalOpen, setInactiveModalOpen] = useState(false);
-  const [orderForInactive, setOrderForInactive] = useState<ServiceOrder | null>(null);
+  const [archiveModalOpen, setArchiveModalOpen] = useState(false);
+  const [orderForArchive, setOrderForArchive] = useState<ServiceOrder | null>(null);
+  const [archivingId, setArchivingId] = useState<number | null>(null);
 
   // Modal de confirmação de retirada
   const [actionModalOpen, setActionModalOpen] = useState(false);
@@ -265,35 +267,32 @@ export const Inadimplencias: React.FC = () => {
     setActionModalOpen(true);
   };
 
-  const handleOpenInactiveModal = (order: ServiceOrder) => {
-    setOrderForInactive(order);
-    setInactiveModalOpen(true);
+  const handleOpenArchiveModal = (order: ServiceOrder) => {
+    setOrderForArchive(order);
+    setArchiveModalOpen(true);
   };
 
-  const handleConfirmInactiveToggle = async () => {
-    if (!orderForInactive) return;
-    const order = orderForInactive;
-    const next = !order.overdue_inactive;
-    setTogglingInactiveId(order.id);
+  const handleConfirmArchive = async (options: ArchiveNotPickedUpOptions) => {
+    if (!orderForArchive) return;
+    setArchivingId(orderForArchive.id);
     try {
-      const result = await setOverdueInactive(String(order.id), next);
-      if (result?.success) {
+      const result = await archiveNotPickedUp(String(orderForArchive.id), options);
+      if (result?.success !== false) {
         showSuccess(result.message);
-        setInactiveModalOpen(false);
-        setOrderForInactive(null);
+        setArchiveModalOpen(false);
+        setOrderForArchive(null);
         const params = buildFilterParams(appliedFilters);
         params.order_by = sortBy || 'arrived_at';
         params.order_dir = sortDirection || 'asc';
         params.per_page = perPage;
         await loadOrders(pagination?.currentPage || 1, params);
       } else {
-        showError(result?.message || 'Não foi possível atualizar');
+        showError(result?.message || 'Não foi possível registrar');
       }
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'Erro ao atualizar';
-      showError(message);
+      showError(err instanceof Error ? err.message : 'Erro ao registrar não retirada');
     } finally {
-      setTogglingInactiveId(null);
+      setArchivingId(null);
     }
   };
 
@@ -694,27 +693,15 @@ export const Inadimplencias: React.FC = () => {
                               <Eye size={16} />
                             </button>
                           )}
-                          {hasPermission('service-orders-overdue.update') && (
+                          {hasPermission('service-orders.archive-not-picked-up') && (
                             <button
                               type="button"
-                              title={
-                                order.overdue_inactive
-                                  ? 'Liberar cliente para pagamento na retirada (e reativar nos indicadores)'
-                                  : 'Bloquear cliente para pagamento na retirada (e inativar nos indicadores)'
-                              }
-                              onClick={() => handleOpenInactiveModal(order)}
-                              disabled={actionLoading}
-                              className={`p-2 rounded-xl shadow-sm border transition-all disabled:opacity-50 ${
-                                order.overdue_inactive
-                                  ? 'bg-emerald-600 text-white border-emerald-700 hover:bg-emerald-700'
-                                  : 'bg-red-600 text-white border-red-700 hover:bg-red-700'
-                              }`}
+                              title="Registrar não retirada (alerta no cliente, sai de inadimplências)"
+                              onClick={() => handleOpenArchiveModal(order)}
+                              disabled={actionLoading || archivingId === order.id}
+                              className="p-2 rounded-xl shadow-sm border transition-all disabled:opacity-50 bg-amber-500 text-white border-amber-600 hover:bg-amber-600"
                             >
-                              {order.overdue_inactive ? (
-                                <Check size={16} strokeWidth={2.5} />
-                              ) : (
-                                <X size={16} strokeWidth={2.5} />
-                              )}
+                              <PackageX size={16} strokeWidth={2.5} />
                             </button>
                           )}
                           {order.client && (
@@ -827,104 +814,18 @@ export const Inadimplencias: React.FC = () => {
         </div>
       </Modal>
 
-      {/* Confirmação inativar / reativar nos indicadores */}
-      <Modal
-        isOpen={inactiveModalOpen}
+      <ServiceOrderArchiveNotPickedUpModal
+        isOpen={archiveModalOpen}
+        order={orderForArchive}
+        processing={archivingId !== null}
         onClose={() => {
-          if (togglingInactiveId === null) {
-            setInactiveModalOpen(false);
-            setOrderForInactive(null);
+          if (archivingId === null) {
+            setArchiveModalOpen(false);
+            setOrderForArchive(null);
           }
         }}
-        title={
-          orderForInactive?.overdue_inactive
-            ? 'Liberar pagamento na retirada?'
-            : 'Bloquear pagamento na retirada?'
-        }
-      >
-        {orderForInactive && (
-          <div className="space-y-4">
-            <p className="text-sm text-slate-600">
-              OS <span className="font-bold text-slate-900">#{formatOsNumber(orderForInactive.os_number)}</span>
-              {orderForInactive.client?.name ? (
-                <>
-                  {' '}
-                  — <span className="font-medium text-slate-800">{orderForInactive.client.name}</span>
-                </>
-              ) : null}
-            </p>
-
-            {orderForInactive.overdue_inactive ? (
-              <div className="rounded-xl border border-emerald-200 bg-emerald-50/80 p-4 text-sm text-slate-700 space-y-2">
-                <p className="font-semibold text-emerald-900">Ao confirmar:</p>
-                <ul className="list-disc pl-5 space-y-1.5 text-slate-700">
-                  <li>Esta OS <strong>volta a entrar</strong> nos totais de inadimplência do sistema.</li>
-                  <li>Se não houver outra inadimplência inativa para o mesmo cliente, ele <strong>volta a poder</strong> usar <strong>pagamento na retirada</strong> em novas OS.</li>
-                  <li>O status da OS continua <strong>Inadimplente</strong>; apenas o flag “fora dos totais” é desligado.</li>
-                </ul>
-              </div>
-            ) : (
-              <div className="rounded-xl border border-red-200 bg-red-50/80 p-4 text-sm text-slate-700 space-y-2">
-                <p className="font-semibold text-red-900">Ao confirmar:</p>
-                <ul className="list-disc pl-5 space-y-1.5 text-slate-700">
-                  <li>O <strong>cliente</strong> fica <strong>bloqueado para pagamento na retirada</strong>: em novas OS só poderá pagar à vista (cartão, dinheiro, PIX, permuta).</li>
-                  <li>Na forma de pagamento da OS aparecerá a mensagem <strong>“Usuário bloqueado para pagamento na retirada”</strong>.</li>
-                  <li>A OS <strong>continua inadimplente</strong> no cadastro e <strong>sai dos totais</strong> (fluxo de caixa, dashboard, gráficos).</li>
-                </ul>
-              </div>
-            )}
-
-            <div className="flex items-center justify-end gap-3 pt-2 border-t border-slate-100">
-              <Button
-                variant="outline"
-                onClick={() => {
-                  if (togglingInactiveId === null) {
-                    setInactiveModalOpen(false);
-                    setOrderForInactive(null);
-                  }
-                }}
-                disabled={togglingInactiveId !== null}
-              >
-                Cancelar
-              </Button>
-              {orderForInactive.overdue_inactive ? (
-                <Button
-                  variant="success"
-                  onClick={handleConfirmInactiveToggle}
-                  disabled={togglingInactiveId !== null}
-                >
-                  {togglingInactiveId !== null ? (
-                    <>
-                      <Loader2 size={16} className="animate-spin" /> Processando...
-                    </>
-                  ) : (
-                    <>
-                      <Check size={16} /> Sim, liberar
-                    </>
-                  )}
-                </Button>
-              ) : (
-                <Button
-                  variant="success"
-                  className="!bg-red-600 hover:!bg-red-700 shadow-lg shadow-red-200/40"
-                  onClick={handleConfirmInactiveToggle}
-                  disabled={togglingInactiveId !== null}
-                >
-                  {togglingInactiveId !== null ? (
-                    <>
-                      <Loader2 size={16} className="animate-spin" /> Processando...
-                    </>
-                  ) : (
-                    <>
-                      <X size={16} /> Sim, bloquear
-                    </>
-                  )}
-                </Button>
-              )}
-            </div>
-          </div>
-        )}
-      </Modal>
+        onConfirm={handleConfirmArchive}
+      />
 
       {/* Modal de Recibo (após retirada) */}
       {showReceiptModal && completedOrder && (

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { Save, ArrowLeft, FileText, Loader2, Search, Edit, Plus, Trash2, Eye, EyeOff } from 'lucide-react';
 import { Card, Button, Input, NumberInput, SingleSelect, MultiSelect, Modal } from '../../components/Common';
+import { ServiceOrderDeleteModal } from '../../components/ServiceOrderDeleteModal';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { useServiceOrders } from '../../services/hooks/useServiceOrders';
 import { useClients } from '../../services/hooks/useClients';
@@ -1625,8 +1626,8 @@ export const ServiceOrderForm: React.FC = () => {
     if (!id || !loadedOrder) return;
     setDeletingOrder(true);
     try {
-      await deleteServiceOrder(String(loadedOrder.id));
-      showSuccess('Ordem de serviço excluída com sucesso!');
+      const result = await deleteServiceOrder(String(loadedOrder.id));
+      showSuccess(result.message || 'Ordem de serviço excluída com sucesso!');
       setDeleteModalOpen(false);
       goBackToList('/service-orders');
     } catch (err: any) {
@@ -2861,51 +2862,13 @@ export const ServiceOrderForm: React.FC = () => {
         />
       )}
 
-      <Modal
+      <ServiceOrderDeleteModal
         isOpen={deleteModalOpen}
-        onClose={() => {
-          if (!deletingOrder) setDeleteModalOpen(false);
-        }}
-        title="Confirmar exclusão"
-      >
-        <div className="space-y-4">
-          <p className="text-sm text-slate-700">
-            Tem certeza que deseja excluir a OS{' '}
-            <strong>
-              #{loadedOrder ? String(loadedOrder.os_number).padStart(4, '0') : ''}
-            </strong>
-            ?
-          </p>
-          <p className="text-xs text-slate-500">Esta ação não pode ser desfeita.</p>
-          <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-100">
-            <Button
-              variant="outline"
-              type="button"
-              onClick={() => setDeleteModalOpen(false)}
-              disabled={deletingOrder}
-            >
-              Cancelar
-            </Button>
-            <Button
-              type="button"
-              variant="secondary"
-              className="!bg-red-600 hover:!bg-red-700 !text-white border-0"
-              onClick={() => void handleConfirmDeleteOrder()}
-              disabled={deletingOrder}
-            >
-              {deletingOrder ? (
-                <>
-                  <Loader2 size={16} className="animate-spin" /> Excluindo...
-                </>
-              ) : (
-                <>
-                  <Trash2 size={16} /> Excluir
-                </>
-              )}
-            </Button>
-          </div>
-        </div>
-      </Modal>
+        order={loadedOrder}
+        deleting={deletingOrder}
+        onClose={() => setDeleteModalOpen(false)}
+        onConfirm={handleConfirmDeleteOrder}
+      />
     </div>
   );
 };

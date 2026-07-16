@@ -71,6 +71,8 @@ const actionTranslations: Record<string, string> = {
   'gerar-devolucao': 'Gerar Devolução',
   'export.xml': 'Exportar XML (ZIP/RAR)',
   'revert': 'Reverter estado',
+  'uncollected-records.list': 'Ver não retiradas',
+  'archive-not-picked-up': 'Registrar não retirada',
 };
 
 /**

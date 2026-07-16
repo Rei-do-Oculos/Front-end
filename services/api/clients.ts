@@ -7,6 +7,31 @@ export interface Store {
   unity?: string;
 }
 
+export interface ClientUncollectedRecord {
+  id: number;
+  client_id: number;
+  store_id: number;
+  service_order_id: number | null;
+  os_number: number;
+  total_price: number;
+  amount_due: number;
+  amount_paid: number;
+  os_status: string;
+  reason: string;
+  status: 'open' | 'resolved';
+  notes: string | null;
+  block_pickup_payment: boolean;
+  arrived_at: string | null;
+  sale_date: string | null;
+  created_at: string;
+  relationships?: {
+    store?: { id: number; name: string; unity?: string };
+    reason_label?: string;
+    status_label?: string;
+    archived_by_user?: { id: number; name: string };
+  };
+}
+
 export interface Client {
   id: number;
   name: string;
@@ -217,6 +242,7 @@ class ClientsService {
   }): Promise<{
     client: Client;
     service_orders: any;
+    uncollected_records?: ClientUncollectedRecord[];
     statistics: {
       total_spent: number;
       total_orders: number;
@@ -225,6 +251,9 @@ class ClientsService {
       is_overdue: boolean;
       overdue_count: number;
       overdue_total: number;
+      has_uncollected?: boolean;
+      uncollected_count?: number;
+      uncollected_total?: number;
     };
   }> {
     const response = await apiClient.get<{
@@ -240,7 +269,11 @@ class ClientsService {
           is_overdue: boolean;
           overdue_count: number;
           overdue_total: number;
+          has_uncollected?: boolean;
+          uncollected_count?: number;
+          uncollected_total?: number;
         };
+        uncollected_records?: ClientUncollectedRecord[];
       };
     }>(`${this.endpoint}/${clientId}/history`, { params });
 

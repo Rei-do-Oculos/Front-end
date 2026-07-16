@@ -119,6 +119,33 @@ export const useServiceOrders = (options: UseServiceOrdersOptions = {}) => {
   }, []);
 
 
+  const deleteServiceOrder = useCallback(async (id: string) => {
+    setActionLoading(true);
+    try {
+      return await serviceOrdersService.delete(id);
+    } finally {
+      setActionLoading(false);
+    }
+  }, []);
+
+  const archiveNotPickedUp = useCallback(
+    async (
+      id: string,
+      options?: {
+        uncollected_notes?: string;
+        block_pickup_payment?: boolean;
+      }
+    ) => {
+      setActionLoading(true);
+      try {
+        return await serviceOrdersService.archiveNotPickedUp(id, options);
+      } finally {
+        setActionLoading(false);
+      }
+    },
+    []
+  );
+
   return {
     serviceOrders: api.data,
     loading: api.loading,
@@ -130,7 +157,8 @@ export const useServiceOrders = (options: UseServiceOrdersOptions = {}) => {
     getServiceOrder: api.getById,
     createServiceOrder: api.create,
     updateServiceOrder: api.update,
-    deleteServiceOrder: api.delete,
+    deleteServiceOrder,
+    archiveNotPickedUp,
     reset: api.reset,
     // Lab actions
     fetchLabOrders,
