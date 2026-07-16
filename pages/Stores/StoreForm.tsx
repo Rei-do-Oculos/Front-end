@@ -61,6 +61,7 @@ export const StoreForm: React.FC = () => {
     },
     nfe_series: '',
     nfe_next_number: '',
+    nfce_next_number: '',
   });
 
   useEffect(() => {
@@ -101,6 +102,7 @@ export const StoreForm: React.FC = () => {
               },
               nfe_series: store.nfe_series ?? '',
               nfe_next_number: store.nfe_next_number ?? '',
+              nfce_next_number: store.nfce_next_number ?? '',
             });
             
             const logoValue = store.logo ? String(store.logo) : '';
@@ -227,6 +229,10 @@ export const StoreForm: React.FC = () => {
       if (formData.nfe_next_number !== undefined) {
         const num = formData.nfe_next_number;
         payload.nfe_next_number = (num !== '' && num !== null && Number(num) >= 1) ? Number(num) : '';
+      }
+      if (formData.nfce_next_number !== undefined) {
+        const num = formData.nfce_next_number;
+        payload.nfce_next_number = (num !== '' && num !== null && Number(num) >= 1) ? Number(num) : '';
       }
 
       if (isEditMode && id) {
@@ -568,8 +574,8 @@ export const StoreForm: React.FC = () => {
                   </div>
                 )}
                 <div className="md:col-span-2 pt-2 border-t border-slate-200">
-                  <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-[0.15em] block mb-3">Numeração NF-e</span>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-[0.15em] block mb-3">Numeração fiscal</span>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                     <Input
                       label="Série"
                       placeholder="001 (padrão)"
@@ -577,16 +583,24 @@ export const StoreForm: React.FC = () => {
                       onChange={(e) => setFormData({ ...formData, nfe_series: e.target.value.replace(/\D/g, '').slice(0, 3) })}
                     />
                     <Input
-                      label="Próximo número (opcional)"
-                      placeholder="Ex: 100 — para migração ou ajuste inicial"
+                      label="Próximo número NF-e (mod 55)"
+                      placeholder="Ex: 100 — migração ou ajuste"
                       type="number"
                       min={1}
                       value={formData.nfe_next_number ?? ''}
                       onChange={(e) => setFormData({ ...formData, nfe_next_number: e.target.value })}
                     />
+                    <Input
+                      label="Próximo número NFC-e (mod 65)"
+                      placeholder="Ex: 230 — cupom fiscal"
+                      type="number"
+                      min={1}
+                      value={formData.nfce_next_number ?? ''}
+                      onChange={(e) => setFormData({ ...formData, nfce_next_number: e.target.value })}
+                    />
                   </div>
                   <p className="mt-2 text-xs text-slate-500">
-                    Série: 1 a 999. Próximo número: usado quando não há notas ou para migração de outro sistema.
+                    NF-e e NFC-e usam sequências independentes na mesma série. Deixe em branco para calcular pelo histórico.
                   </p>
                 </div>
              </div>

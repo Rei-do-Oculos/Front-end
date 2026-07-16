@@ -80,9 +80,8 @@ export function invoiceToNFCeData(invoice: Invoice): NFCeData | null {
     document: client.document ?? null,
   } : undefined;
 
-  // QR Code: conteúdo = qr_code_url da API (string para codificar) ou URL de consulta PR. Imagem via api.qrserver.com.
-  const qrContent = invoice.qr_code_url
-    || (invoice.access_key ? `https://www.fazenda.pr.gov.br/nfce/consulta?chave=${invoice.access_key}` : null);
+  // QR Code: usa qr_code_url da API (URL /nfce/qrcode?p=...). Sem fallback inventado.
+  const qrContent = invoice.qr_code_url || null;
   const qrCodeUrl = qrContent
     ? (qrContent.startsWith('http') && (qrContent.includes('create-qr-code') || qrContent.includes('.png')))
       ? qrContent
