@@ -28,6 +28,9 @@ export interface ClientUncollectedRecord {
     store?: { id: number; name: string; unity?: string };
     reason_label?: string;
     status_label?: string;
+    os_status_label?: string;
+    current_os_status?: string;
+    current_os_status_label?: string;
     archived_by_user?: { id: number; name: string };
   };
 }
@@ -243,6 +246,7 @@ class ClientsService {
     client: Client;
     service_orders: any;
     uncollected_records?: ClientUncollectedRecord[];
+    resolved_uncollected_records?: ClientUncollectedRecord[];
     statistics: {
       total_spent: number;
       total_orders: number;
@@ -274,6 +278,7 @@ class ClientsService {
           uncollected_total?: number;
         };
         uncollected_records?: ClientUncollectedRecord[];
+        resolved_uncollected_records?: ClientUncollectedRecord[];
       };
     }>(`${this.endpoint}/${clientId}/history`, { params });
 

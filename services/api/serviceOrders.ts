@@ -251,6 +251,8 @@ export interface ServiceOrdersQueryParams {
   include_inactive_overdue?: boolean;
   /** Lista de inadimplências: all = padrão (ativas+inativas); active | inactive = filtrar */
   overdue_metrics_status?: 'active' | 'inactive' | 'all';
+  /** Inadimplências: overdue (padrão) | not_picked_up */
+  overdue_list_view?: 'overdue' | 'not_picked_up';
   /** Lista pedidos: pago (no ato ou parcial) | retirada (on_pickup) */
   payment_situation?: 'paid' | 'on_pickup';
 }

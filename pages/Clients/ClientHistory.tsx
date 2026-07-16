@@ -620,19 +620,31 @@ const PrescriptionsTab = ({ clientId, hasCreate, hasUpdate, hasDelete }: {
   );
 };
 
+const UNCOLLECTED_OS_STATUS_LABELS: Record<string, string> = {
+  pending: 'Pendente',
+  sent_to_lab: 'Enviado ao lab',
+  ready_for_pickup: 'Aguardando retirada',
+  overdue: 'Inadimplência',
+  not_picked_up: 'Não retirada',
+  completed: 'Finalizada',
+};
+
 const UncollectedTab = ({
   records,
   navigate,
   canRevert,
   onRevertRequest,
   revertingRecordId,
+  mode = 'open',
 }: {
   records: ClientUncollectedRecord[];
   navigate: (path: string) => void;
-  canRevert: boolean;
-  onRevertRequest: (record: ClientUncollectedRecord) => void;
-  revertingRecordId: number | null;
+  canRevert?: boolean;
+  onRevertRequest?: (record: ClientUncollectedRecord) => void;
+  revertingRecordId?: number | null;
+  mode?: 'open' | 'resolved';
 }) => {
+  const isResolvedView = mode === 'resolved';
   const formatCurrency = (value: number) =>
     new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value || 0);
 
@@ -644,19 +656,27 @@ const UncollectedTab = ({
   };
 
   if (records.length === 0) {
+    if (isResolvedView) return null;
     return (
       <div className="flex flex-col items-center justify-center py-16 text-center">
         <PackageX size={48} className="text-slate-300 mb-4" />
-        <h3 className="text-lg font-bold text-slate-900">Nenhuma pendência de não retirada</h3>
+        <h3 className="text-lg font-bold text-slate-900">Nenhuma pendência em aberto</h3>
         <p className="text-sm text-slate-500 mt-1 max-w-md">
-          Pendências registradas quando a OS é marcada como não retirada (permanece no histórico com o valor original).
+          Quando uma OS for marcada como não retirada, ela aparece aqui com o valor pendente.
         </p>
       </div>
     );
   }
 
   return (
-    <div className="overflow-x-auto">
+    <div className={isResolvedView ? 'mt-8 pt-8 border-t border-slate-100' : ''}>
+      {isResolvedView && (
+        <div className="mb-4">
+          <h4 className="text-sm font-black text-slate-700 uppercase tracking-wide">Histórico (resolvidas)</h4>
+          <p className="text-xs text-slate-500 mt-1">Registros revertidos ou encerrados — não entram no saldo.</p>
+        </div>
+      )}
+      <div className="overflow-x-auto">
       <table className="w-full text-left">
         <thead>
           <tr className="border-b border-slate-100">
@@ -665,16 +685,19 @@ const UncollectedTab = ({
             <th className="pb-3 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Motivo</th>
             <th className="pb-3 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Venda</th>
             <th className="pb-3 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Total OS</th>
-            <th className="pb-3 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Pendente</th>
-            <th className="pb-3 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Status</th>
-            {canRevert && (
+            <th className="pb-3 text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+              {isResolvedView ? 'Valor registrado' : 'Valor em aberto'}
+            </th>
+            <th className="pb-3 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Status da OS</th>
+            <th className="pb-3 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Pendência</th>
+            {!isResolvedView && canRevert && (
               <th className="pb-3 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-center">Ações</th>
             )}
           </tr>
         </thead>
         <tbody>
           {records.map((record) => (
-            <tr key={record.id} className="border-b border-slate-50 hover:bg-amber-50/30">
+            <tr key={record.id} className={`border-b border-slate-50 ${isResolvedView ? 'opacity-70' : 'hover:bg-amber-50/30'}`}>
               <td className="py-4">
                 {record.service_order_id ? (
                   <button
@@ -689,7 +712,9 @@ const UncollectedTab = ({
                 ) : (
                   <div className="font-bold text-slate-900">#{formatOsNumber(record.os_number)}</div>
                 )}
-                <div className="text-[10px] font-bold text-amber-700 uppercase tracking-wide mt-0.5">Não retirada</div>
+                <div className="text-[10px] font-bold text-amber-700 uppercase tracking-wide mt-0.5">
+                  {record.service_order_id ? 'Vinculada à OS' : 'OS excluída'}
+                </div>
               </td>
               <td className="py-4 text-sm text-slate-600">
                 {record.relationships?.store?.name || '—'}
@@ -699,16 +724,41 @@ const UncollectedTab = ({
               </td>
               <td className="py-4 text-sm text-slate-600">{formatDate(record.sale_date)}</td>
               <td className="py-4 text-sm font-medium text-slate-700">{formatCurrency(Number(record.total_price) || 0)}</td>
-              <td className="py-4 text-sm font-bold text-red-700">{formatCurrency(Number(record.amount_due) || 0)}</td>
+              <td className="py-4 text-sm font-bold text-red-700">
+                {isResolvedView ? (
+                  <span className="text-slate-400 font-medium">—</span>
+                ) : (
+                  formatCurrency(Number(record.amount_due) || 0)
+                )}
+              </td>
+              <td className="py-4">
+                <Badge variant={
+                  record.relationships?.current_os_status === 'not_picked_up' ? 'warning'
+                    : record.relationships?.current_os_status === 'overdue' ? 'danger'
+                    : 'secondary'
+                }>
+                  {record.relationships?.current_os_status_label
+                    || UNCOLLECTED_OS_STATUS_LABELS[record.os_status]
+                    || '—'}
+                </Badge>
+                {!isResolvedView && (
+                  <p className="text-[10px] text-slate-500 mt-1">
+                    Era: {record.relationships?.os_status_label
+                      || UNCOLLECTED_OS_STATUS_LABELS[record.os_status]
+                      || record.os_status
+                      || '—'}
+                  </p>
+                )}
+              </td>
               <td className="py-4">
                 <Badge variant={record.status === 'open' ? 'danger' : 'success'}>
-                  {record.relationships?.status_label || record.status}
+                  {record.relationships?.status_label || (record.status === 'open' ? 'Em aberto' : 'Resolvida')}
                 </Badge>
               </td>
-              {canRevert && (
+              {!isResolvedView && canRevert && (
                 <td className="py-4">
                   <div className="flex justify-center">
-                    {record.status === 'open' && record.service_order_id ? (
+                    {record.status === 'open' && record.service_order_id && onRevertRequest ? (
                       <button
                         type="button"
                         title="Reverter não retirada (OS volta ao status anterior)"
@@ -732,7 +782,8 @@ const UncollectedTab = ({
           ))}
         </tbody>
       </table>
-      {records.some((r) => r.notes) && (
+      </div>
+      {!isResolvedView && records.some((r) => r.notes) && (
         <div className="mt-6 space-y-3">
           {records.filter((r) => r.notes).map((record) => (
             <div key={`notes-${record.id}`} className="rounded-xl border border-amber-100 bg-amber-50/50 p-4">
@@ -792,6 +843,7 @@ export const ClientHistory: React.FC = () => {
   const [orders, setOrders] = useState<ServiceOrder[]>([]);
   const [statistics, setStatistics] = useState<Statistics | null>(null);
   const [uncollectedRecords, setUncollectedRecords] = useState<ClientUncollectedRecord[]>([]);
+  const [resolvedUncollectedRecords, setResolvedUncollectedRecords] = useState<ClientUncollectedRecord[]>([]);
   const [pagination, setPagination] = useState<{ currentPage: number; totalPages: number; totalItems: number } | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadingOrders, setLoadingOrders] = useState(false);
@@ -844,6 +896,15 @@ export const ClientHistory: React.FC = () => {
         uncollectedArray = Object.values(rawUncollected) as ClientUncollectedRecord[];
       }
       setUncollectedRecords(uncollectedArray);
+
+      let resolvedArray: ClientUncollectedRecord[] = [];
+      const rawResolved = result.resolved_uncollected_records;
+      if (Array.isArray(rawResolved)) {
+        resolvedArray = rawResolved;
+      } else if (rawResolved && typeof rawResolved === 'object') {
+        resolvedArray = Object.values(rawResolved) as ClientUncollectedRecord[];
+      }
+      setResolvedUncollectedRecords(resolvedArray);
 
       // Processar service_orders
       const serviceOrdersData = result.service_orders;
@@ -1304,7 +1365,7 @@ export const ClientHistory: React.FC = () => {
               <div className="mb-6">
                 <h3 className="text-xl font-black text-slate-900">Não retiradas</h3>
                 <p className="text-sm text-slate-500 mt-1">
-                  Pendências registradas ao marcar OS como não retirada (valores preservados no histórico)
+                  Pendências em aberto ao marcar OS como não retirada. O saldo acima considera somente itens em aberto.
                 </p>
               </div>
               <UncollectedTab
@@ -1313,6 +1374,12 @@ export const ClientHistory: React.FC = () => {
                 canRevert={canRevertUncollected}
                 onRevertRequest={handleRevertRequest}
                 revertingRecordId={revertingRecordId}
+                mode="open"
+              />
+              <UncollectedTab
+                records={resolvedUncollectedRecords}
+                navigate={navigate}
+                mode="resolved"
               />
             </div>
           )}

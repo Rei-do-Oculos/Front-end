@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { Save, ArrowLeft, FileText, Loader2, Search, Edit, Plus, Trash2, Eye, EyeOff, RotateCcw } from 'lucide-react';
-import { Card, Button, Input, NumberInput, SingleSelect, MultiSelect, Modal } from '../../components/Common';
+import { Card, Button, Input, NumberInput, SingleSelect, MultiSelect, Modal, Badge } from '../../components/Common';
 import { ServiceOrderDeleteModal } from '../../components/ServiceOrderDeleteModal';
 import { ServiceOrderRevertNotPickedUpModal } from '../../components/ServiceOrderRevertNotPickedUpModal';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
@@ -1683,9 +1683,37 @@ export const ServiceOrderForm: React.FC = () => {
             <ArrowLeft size={20} />
           </button>
           <div>
-            <h1 className="text-3xl font-black text-slate-950 tracking-tight">
-              {isViewMode ? 'Detalhes da OS' : isEditMode ? 'Editar OS' : 'Nova Ordem de Serviço'}
-            </h1>
+            <div className="flex flex-wrap items-center gap-3">
+              <h1 className="text-3xl font-black text-slate-950 tracking-tight">
+                {isViewMode ? 'Detalhes da OS' : isEditMode ? 'Editar OS' : 'Nova Ordem de Serviço'}
+                {loadedOrder?.os_number != null && (
+                  <span className="text-slate-400 font-bold ml-2">#{String(loadedOrder.os_number).padStart(4, '0')}</span>
+                )}
+              </h1>
+              {loadedOrder?.status_label && (
+                <Badge variant={
+                  loadedOrder.status === 'not_picked_up' ? 'warning'
+                    : loadedOrder.status === 'overdue' ? 'danger'
+                    : loadedOrder.status === 'completed' ? 'success'
+                    : 'info'
+                }>
+                  {loadedOrder.status_label}
+                </Badge>
+              )}
+            </div>
+            {loadedOrder?.status === 'not_picked_up' && (loadedOrder as any)?.not_picked_up_previous_status && (
+              <p className="text-sm text-amber-700 font-medium mt-1">
+                Registrada como não retirada · status anterior: {
+                  ({
+                    overdue: 'Inadimplência',
+                    ready_for_pickup: 'Aguardando retirada',
+                    sent_to_lab: 'Enviado ao lab',
+                    pending: 'Pendente',
+                  } as Record<string, string>)[(loadedOrder as any).not_picked_up_previous_status]
+                  || (loadedOrder as any).not_picked_up_previous_status
+                }
+              </p>
+            )}
             <p className="text-gray-500 font-medium mt-1">
               {isViewMode ? 'Visualize os dados da OS' : isEditMode ? 'Atualize os dados da OS' : 'Cadastre uma nova ordem de serviço'}
             </p>

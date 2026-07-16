@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Loader2, AlertTriangle, FileDown, Phone, Building2, Eye, CheckCircle, PackageX } from 'lucide-react';
+import { Loader2, AlertTriangle, FileDown, Phone, Building2, Eye, CheckCircle, PackageX, RotateCcw } from 'lucide-react';
 import { Card, Button, Input, SingleSelect, FilterSection, Modal, ActiveFiltersBadge, SortableHeader, SortDirection, Pagination, AccessDeniedCard, Badge } from '../../components/Common';
 import { ServiceOrderArchiveNotPickedUpModal } from '../../components/ServiceOrderArchiveNotPickedUpModal';
 import type { ArchiveNotPickedUpOptions } from '../../components/ServiceOrderArchiveNotPickedUpModal';
+import { ServiceOrderRevertNotPickedUpModal } from '../../components/ServiceOrderRevertNotPickedUpModal';
 import { useServiceOrders } from '../../services/hooks/useServiceOrders';
 import { usePlucks } from '../../services/hooks/usePlucks';
 import { storesService } from '../../services/api/stores';
@@ -49,6 +50,7 @@ export const Inadimplencias: React.FC = () => {
     error, 
     fetchOverdueOrders,
     archiveNotPickedUp,
+    revertNotPickedUp,
     markCompleted,
   } = useServiceOrders({ autoFetch: false });
   
@@ -73,9 +75,13 @@ export const Inadimplencias: React.FC = () => {
   const [perPage, setPerPage] = useState<number>(15);
   const [exportingPdf, setExportingPdf] = useState(false);
   const [filterOverdueStatus, setFilterOverdueStatus] = useState<'active' | 'inactive' | 'all'>('all');
+  const [filterListView, setFilterListView] = useState<'overdue' | 'not_picked_up'>('overdue');
   const [archiveModalOpen, setArchiveModalOpen] = useState(false);
   const [orderForArchive, setOrderForArchive] = useState<ServiceOrder | null>(null);
   const [archivingId, setArchivingId] = useState<number | null>(null);
+  const [revertModalOpen, setRevertModalOpen] = useState(false);
+  const [orderForRevert, setOrderForRevert] = useState<ServiceOrder | null>(null);
+  const [revertingId, setRevertingId] = useState<number | null>(null);
 
   // Modal de confirmação de retirada
   const [actionModalOpen, setActionModalOpen] = useState(false);
@@ -92,14 +98,18 @@ export const Inadimplencias: React.FC = () => {
     filterDateFrom: string;
     filterDateTo: string;
     overdueStatus: 'active' | 'inactive' | 'all';
-  }>({ searchTerm: '', filterStore: '', filterDateFrom: '', filterDateTo: '', overdueStatus: 'all' });
+    listView: 'overdue' | 'not_picked_up';
+  }>({ searchTerm: '', filterStore: '', filterDateFrom: '', filterDateTo: '', overdueStatus: 'all', listView: 'overdue' });
+
+  const isNotPickedUpView = appliedFilters.listView === 'not_picked_up';
 
   const activeFilters = useActiveFilters({
     searchTerm: appliedFilters.searchTerm,
     filterStore: appliedFilters.filterStore,
     filterDateFrom: appliedFilters.filterDateFrom,
     filterDateTo: appliedFilters.filterDateTo,
-    overdueStatusNonDefault: appliedFilters.overdueStatus !== 'all',
+    overdueStatusNonDefault: appliedFilters.overdueStatus !== 'all' && !isNotPickedUpView,
+    listViewNonDefault: appliedFilters.listView !== 'overdue',
   });
 
   // Garantir que storesPlucks seja sempre um array
@@ -120,8 +130,11 @@ export const Inadimplencias: React.FC = () => {
       if (availableStores.length > 0 && !params.store_id) {
         finalParams.store_id = availableStores.map(s => s.id);
       }
-      if (finalParams.overdue_metrics_status == null) {
+      if (finalParams.overdue_metrics_status == null && appliedFilters.listView === 'overdue') {
         finalParams.overdue_metrics_status = appliedFilters.overdueStatus;
+      }
+      if (finalParams.overdue_list_view == null) {
+        finalParams.overdue_list_view = appliedFilters.listView;
       }
 
       const result = await fetchOverdueOrders({ page, ...finalParams });
@@ -142,7 +155,10 @@ export const Inadimplencias: React.FC = () => {
     if (f.filterStore) params.store_id = f.filterStore;
     if (f.filterDateFrom) params.date_from = f.filterDateFrom;
     if (f.filterDateTo) params.date_to = f.filterDateTo;
-    params.overdue_metrics_status = f.overdueStatus ?? 'all';
+    params.overdue_list_view = f.listView ?? 'overdue';
+    if (f.listView === 'overdue') {
+      params.overdue_metrics_status = f.overdueStatus ?? 'all';
+    }
     return params;
   };
 
@@ -167,7 +183,14 @@ export const Inadimplencias: React.FC = () => {
   };
 
   const handleApplyFilters = async () => {
-    const next = { searchTerm, filterStore, filterDateFrom, filterDateTo, overdueStatus: filterOverdueStatus };
+    const next = {
+      searchTerm,
+      filterStore,
+      filterDateFrom,
+      filterDateTo,
+      overdueStatus: filterOverdueStatus,
+      listView: filterListView,
+    };
     setAppliedFilters(next);
     const params = buildFilterParams(next);
     params.order_by = sortBy || 'arrived_at';
@@ -182,12 +205,21 @@ export const Inadimplencias: React.FC = () => {
     setFilterDateFrom('');
     setFilterDateTo('');
     setFilterOverdueStatus('all');
-    setAppliedFilters({ searchTerm: '', filterStore: '', filterDateFrom: '', filterDateTo: '', overdueStatus: 'all' });
+    setFilterListView('overdue');
+    setAppliedFilters({
+      searchTerm: '',
+      filterStore: '',
+      filterDateFrom: '',
+      filterDateTo: '',
+      overdueStatus: 'all',
+      listView: 'overdue',
+    });
     await loadOrders(1, {
       order_by: sortBy || 'arrived_at',
       order_dir: sortDirection || 'asc',
       per_page: perPage,
       overdue_metrics_status: 'all',
+      overdue_list_view: 'overdue',
     });
   };
 
@@ -270,6 +302,31 @@ export const Inadimplencias: React.FC = () => {
   const handleOpenArchiveModal = (order: ServiceOrder) => {
     setOrderForArchive(order);
     setArchiveModalOpen(true);
+  };
+
+  const handleOpenRevertModal = (order: ServiceOrder) => {
+    setOrderForRevert(order);
+    setRevertModalOpen(true);
+  };
+
+  const handleConfirmRevert = async () => {
+    if (!orderForRevert) return;
+    setRevertingId(orderForRevert.id);
+    try {
+      const result = await revertNotPickedUp(String(orderForRevert.id));
+      showSuccess(result.message || 'Não retirada revertida com sucesso.');
+      setRevertModalOpen(false);
+      setOrderForRevert(null);
+      const params = buildFilterParams(appliedFilters);
+      params.order_by = sortBy || 'arrived_at';
+      params.order_dir = sortDirection || 'asc';
+      params.per_page = perPage;
+      await loadOrders(pagination?.currentPage || 1, params);
+    } catch (err: unknown) {
+      showError(err instanceof Error ? err.message : 'Erro ao reverter não retirada');
+    } finally {
+      setRevertingId(null);
+    }
   };
 
   const handleConfirmArchive = async (options: ArchiveNotPickedUpOptions) => {
@@ -470,7 +527,7 @@ export const Inadimplencias: React.FC = () => {
             <h1 className="text-3xl font-black text-slate-950 tracking-tight">Inadimplências</h1>
           </div>
         </div>
-        {hasPermission('service-orders-overdue.export') && (
+        {hasPermission('service-orders-overdue.export') && !isNotPickedUpView && (
           <Button variant="outline" onClick={handleExportPdf} disabled={exportingPdf}>
             {exportingPdf ? <Loader2 size={18} className="animate-spin" /> : <FileDown size={18} />}{' '}
             Exportar PDF
@@ -505,16 +562,28 @@ export const Inadimplencias: React.FC = () => {
           onChange={(e) => setFilterDateTo(e.target.value)}
         />
         <SingleSelect
-          label="Status (nos totais)"
-          value={filterOverdueStatus}
-          onChange={(val) => setFilterOverdueStatus((val as 'active' | 'inactive' | 'all') || 'all')}
+          label="Situação"
+          value={filterListView}
+          onChange={(val) => setFilterListView((val as 'overdue' | 'not_picked_up') || 'overdue')}
           options={[
-            { value: 'all', label: 'Todas (ativas e inativas)' },
-            { value: 'active', label: 'Só ativas (nos totais do sistema)' },
-            { value: 'inactive', label: 'Só inativas (fora dos totais)' },
+            { value: 'overdue', label: 'Inadimplências (aguardando retirada)' },
+            { value: 'not_picked_up', label: 'Não retiradas (registradas)' },
           ]}
-          placeholder="Todas"
+          placeholder="Inadimplências"
         />
+        {!filterListView || filterListView === 'overdue' ? (
+          <SingleSelect
+            label="Status (nos totais)"
+            value={filterOverdueStatus}
+            onChange={(val) => setFilterOverdueStatus((val as 'active' | 'inactive' | 'all') || 'all')}
+            options={[
+              { value: 'all', label: 'Todas (ativas e inativas)' },
+              { value: 'active', label: 'Só ativas (nos totais do sistema)' },
+              { value: 'inactive', label: 'Só inativas (fora dos totais)' },
+            ]}
+            placeholder="Todas"
+          />
+        ) : null}
       </FilterSection>
 
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -534,7 +603,11 @@ export const Inadimplencias: React.FC = () => {
               className="flex items-center gap-2 px-3 py-1.5 rounded-lg font-bold text-sm"
               style={{ backgroundColor: 'var(--store-color-light)', color: 'var(--store-color-dark)' }}
             >
-              <span>Total em inadimplência: {formatCurrency(totalOverdueValue)}</span>
+              <span>
+                {isNotPickedUpView
+                  ? `Total não retiradas: ${formatCurrency(totalOverdueValue)}`
+                  : `Total em inadimplência: ${formatCurrency(totalOverdueValue)}`}
+              </span>
             </div>
           )}
         </div>
@@ -582,7 +655,12 @@ export const Inadimplencias: React.FC = () => {
                 />
                 <th className="px-6 py-4 text-center text-[10px] font-black uppercase text-slate-400 tracking-widest">Dias em Atraso</th>
                 <th className="px-6 py-4 text-right text-[10px] font-black uppercase text-slate-400 tracking-widest">Valor</th>
-                <th className="px-6 py-4 text-center text-[10px] font-black uppercase text-slate-400 tracking-widest">Nos totais</th>
+                {!isNotPickedUpView && (
+                  <th className="px-6 py-4 text-center text-[10px] font-black uppercase text-slate-400 tracking-widest">Nos totais</th>
+                )}
+                {isNotPickedUpView && (
+                  <th className="px-6 py-4 text-center text-[10px] font-black uppercase text-slate-400 tracking-widest">Status</th>
+                )}
                 <th className="px-6 py-4 text-center text-[10px] font-black uppercase text-slate-400 tracking-widest">Ações</th>
               </tr>
             </thead>
@@ -592,7 +670,9 @@ export const Inadimplencias: React.FC = () => {
                   <td colSpan={8} className="px-6 py-12 text-center">
                     <div className="flex items-center justify-center gap-3">
                       <Loader2 size={20} className="animate-spin text-red-600" />
-                      <span className="text-sm text-slate-500">Carregando inadimplências...</span>
+                      <span className="text-sm text-slate-500">
+                        {isNotPickedUpView ? 'Carregando não retiradas...' : 'Carregando inadimplências...'}
+                      </span>
                     </div>
                   </td>
                 </tr>
@@ -610,8 +690,16 @@ export const Inadimplencias: React.FC = () => {
                   <td colSpan={8} className="px-6 py-12 text-center">
                     <div className="flex flex-col items-center gap-2">
                       <CheckCircle size={40} className="text-emerald-500" />
-                      <span className="text-sm text-slate-500">Nenhuma inadimplência encontrada</span>
-                      <span className="text-xs text-slate-400">Todas as ordens estão em dia!</span>
+                      <span className="text-sm text-slate-500">
+                        {isNotPickedUpView
+                          ? 'Nenhuma OS registrada como não retirada'
+                          : 'Nenhuma inadimplência encontrada'}
+                      </span>
+                      <span className="text-xs text-slate-400">
+                        {isNotPickedUpView
+                          ? 'Use o filtro Situação ou marque uma inadimplência como não retirada'
+                          : 'Todas as ordens estão em dia!'}
+                      </span>
                     </div>
                   </td>
                 </tr>
@@ -622,10 +710,10 @@ export const Inadimplencias: React.FC = () => {
                   return (
                     <tr
                       key={order.id}
-                      className={`group transition-colors hover:bg-red-50/30 ${order.overdue_inactive ? 'bg-slate-50/90' : ''}`}
+                      className={`group transition-colors ${isNotPickedUpView ? 'hover:bg-amber-50/30' : 'hover:bg-red-50/30'} ${!isNotPickedUpView && order.overdue_inactive ? 'bg-slate-50/90' : ''}`}
                     >
                       <td className="px-6 py-4">
-                        <span className="text-sm font-bold text-red-600">
+                        <span className={`text-sm font-bold ${isNotPickedUpView ? 'text-amber-700' : 'text-red-600'}`}>
                           {formatOsNumber(order.os_number)}
                         </span>
                       </td>
@@ -667,7 +755,7 @@ export const Inadimplencias: React.FC = () => {
                         </Badge>
                       </td>
                       <td className="px-6 py-4 text-right">
-                        <span className="text-sm font-bold text-red-600">
+                        <span className={`text-sm font-bold ${isNotPickedUpView ? 'text-amber-700' : 'text-red-600'}`}>
                           {formatCurrency(
                             order.outstanding_pickup_amount ??
                               order.price ??
@@ -675,13 +763,22 @@ export const Inadimplencias: React.FC = () => {
                           )}
                         </span>
                       </td>
-                      <td className="px-6 py-4">
-                        <div className="flex justify-center">
-                          <Badge variant={order.overdue_inactive ? 'danger' : 'success'}>
-                            {order.overdue_inactive ? 'Inativa' : 'Ativa'}
-                          </Badge>
-                        </div>
-                      </td>
+                      {!isNotPickedUpView && (
+                        <td className="px-6 py-4">
+                          <div className="flex justify-center">
+                            <Badge variant={order.overdue_inactive ? 'danger' : 'success'}>
+                              {order.overdue_inactive ? 'Inativa' : 'Ativa'}
+                            </Badge>
+                          </div>
+                        </td>
+                      )}
+                      {isNotPickedUpView && (
+                        <td className="px-6 py-4">
+                          <div className="flex justify-center">
+                            <Badge variant="warning">{order.status_label || 'Não retirada'}</Badge>
+                          </div>
+                        </td>
+                      )}
                       <td className="px-6 py-4">
                         <div className="flex items-center justify-center gap-2">
                           {hasPermission('service-orders-overdue.list') && (
@@ -693,7 +790,22 @@ export const Inadimplencias: React.FC = () => {
                               <Eye size={16} />
                             </button>
                           )}
-                          {hasPermission('service-orders.archive-not-picked-up') && (
+                          {isNotPickedUpView && hasPermission('service-orders.archive-not-picked-up') && (
+                            <button
+                              type="button"
+                              title="Reverter não retirada (volta para inadimplência)"
+                              onClick={() => handleOpenRevertModal(order)}
+                              disabled={actionLoading || revertingId === order.id}
+                              className="p-2 rounded-xl shadow-sm border transition-all disabled:opacity-50 bg-sky-500 text-white border-sky-600 hover:bg-sky-600"
+                            >
+                              {revertingId === order.id ? (
+                                <Loader2 size={16} className="animate-spin" />
+                              ) : (
+                                <RotateCcw size={16} strokeWidth={2.5} />
+                              )}
+                            </button>
+                          )}
+                          {!isNotPickedUpView && hasPermission('service-orders.archive-not-picked-up') && (
                             <button
                               type="button"
                               title="Registrar não retirada (alerta no cliente, sai de inadimplências)"
@@ -715,7 +827,7 @@ export const Inadimplencias: React.FC = () => {
                               <Phone size={16} />
                             </a>
                           )}
-                          {hasPermission('service-orders-overdue.update') && (
+                          {!isNotPickedUpView && hasPermission('service-orders-overdue.update') && (
                             <Button
                               size="sm"
                               variant="success"
@@ -748,7 +860,7 @@ export const Inadimplencias: React.FC = () => {
               params.per_page = perPage;
               loadOrders(page, params);
             }}
-            itemName="inadimplências"
+            itemName={isNotPickedUpView ? 'não retiradas' : 'inadimplências'}
           />
         )}
       </Card>
@@ -825,6 +937,20 @@ export const Inadimplencias: React.FC = () => {
           }
         }}
         onConfirm={handleConfirmArchive}
+      />
+
+      <ServiceOrderRevertNotPickedUpModal
+        isOpen={revertModalOpen}
+        order={orderForRevert}
+        previousStatus={(orderForRevert as any)?.not_picked_up_previous_status}
+        processing={revertingId !== null}
+        onClose={() => {
+          if (revertingId === null) {
+            setRevertModalOpen(false);
+            setOrderForRevert(null);
+          }
+        }}
+        onConfirm={handleConfirmRevert}
       />
 
       {/* Modal de Recibo (após retirada) */}
