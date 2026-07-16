@@ -407,6 +407,32 @@ class ServiceOrdersService {
     };
   }
 
+  /**
+   * Reverter registro de não retirada (restaura status anterior da OS).
+   */
+  async revertNotPickedUp(
+    id: string
+  ): Promise<{ success: boolean; message: string; service_order: ServiceOrder }> {
+    const { data } = await apiClient.post<{
+      success: boolean;
+      action: string;
+      data: {
+        message: string;
+        service_order: ServiceOrder;
+      };
+    }>(`${this.endpoint}/${id}/revert-not-picked-up`, {});
+
+    if (!data.success) {
+      throw new Error(data.data?.message || 'Erro ao reverter não retirada');
+    }
+
+    return {
+      success: data.success,
+      message: data.data?.message || '',
+      service_order: data.data?.service_order as ServiceOrder,
+    };
+  }
+
   async plucks(params?: { client_id?: number }): Promise<any[]> {
     try {
       const { data } = await apiClient.get<{ success: boolean; data: { plucks: any[] } }>(`${this.endpoint}/plucks`, {

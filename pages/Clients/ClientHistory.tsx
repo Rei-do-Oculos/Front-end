@@ -19,10 +19,13 @@ import {
   Loader2,
   Building2,
   Trash2,
-  PackageX
+  PackageX,
+  RotateCcw,
 } from 'lucide-react';
 import { Card, Button, Badge, Pagination, SortableHeader, SortDirection, Modal, SingleSelect } from '../../components/Common';
+import { ServiceOrderRevertNotPickedUpModal } from '../../components/ServiceOrderRevertNotPickedUpModal';
 import { useClients } from '../../services/hooks/useClients';
+import { useServiceOrders } from '../../services/hooks/useServiceOrders';
 import { usePermission } from '../../services/hooks/usePermission';
 import { useNotification } from '../../hooks/useNotification';
 import { Client, ClientUncollectedRecord } from '../../services/api/clients';
@@ -620,9 +623,15 @@ const PrescriptionsTab = ({ clientId, hasCreate, hasUpdate, hasDelete }: {
 const UncollectedTab = ({
   records,
   navigate,
+  canRevert,
+  onRevertRequest,
+  revertingRecordId,
 }: {
   records: ClientUncollectedRecord[];
   navigate: (path: string) => void;
+  canRevert: boolean;
+  onRevertRequest: (record: ClientUncollectedRecord) => void;
+  revertingRecordId: number | null;
 }) => {
   const formatCurrency = (value: number) =>
     new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value || 0);
@@ -658,6 +667,9 @@ const UncollectedTab = ({
             <th className="pb-3 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Total OS</th>
             <th className="pb-3 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Pendente</th>
             <th className="pb-3 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Status</th>
+            {canRevert && (
+              <th className="pb-3 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-center">Ações</th>
+            )}
           </tr>
         </thead>
         <tbody>
@@ -693,6 +705,29 @@ const UncollectedTab = ({
                   {record.relationships?.status_label || record.status}
                 </Badge>
               </td>
+              {canRevert && (
+                <td className="py-4">
+                  <div className="flex justify-center">
+                    {record.status === 'open' && record.service_order_id ? (
+                      <button
+                        type="button"
+                        title="Reverter não retirada (OS volta ao status anterior)"
+                        onClick={() => onRevertRequest(record)}
+                        disabled={revertingRecordId === record.id}
+                        className="p-2 rounded-xl shadow-sm border transition-all disabled:opacity-50 bg-sky-500 text-white border-sky-600 hover:bg-sky-600"
+                      >
+                        {revertingRecordId === record.id ? (
+                          <Loader2 size={16} className="animate-spin" />
+                        ) : (
+                          <RotateCcw size={16} strokeWidth={2.5} />
+                        )}
+                      </button>
+                    ) : (
+                      <span className="text-xs text-slate-400">—</span>
+                    )}
+                  </div>
+                </td>
+              )}
             </tr>
           ))}
         </tbody>
@@ -747,7 +782,10 @@ export const ClientHistory: React.FC = () => {
   const navigate = useNavigate();
   const { hasPermission } = usePermission();
   const canViewUncollected = hasPermission('clients.uncollected-records.list');
+  const canRevertUncollected = hasPermission('service-orders.archive-not-picked-up');
   const { getHistory } = useClients({ autoFetch: false });
+  const { revertNotPickedUp } = useServiceOrders({ autoFetch: false });
+  const { showSuccess, showError } = useNotification();
   const { goBackToList } = useBackToList();
 
   const [client, setClient] = useState<ClientWithRelationships | null>(null);
@@ -762,6 +800,9 @@ export const ClientHistory: React.FC = () => {
   const [activeTab, setActiveTab] = useState<TabType>('compras');
   const [sortBy, setSortBy] = useState<string | null>('created_at');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
+  const [revertModalOpen, setRevertModalOpen] = useState(false);
+  const [recordToRevert, setRecordToRevert] = useState<ClientUncollectedRecord | null>(null);
+  const [revertingRecordId, setRevertingRecordId] = useState<number | null>(null);
 
   const loadHistory = useCallback(async (page = 1, params: any = {}) => {
     if (!id) return;
@@ -848,6 +889,27 @@ export const ClientHistory: React.FC = () => {
 
   const handlePageChange = (page: number) => {
     loadHistory(page);
+  };
+
+  const handleRevertRequest = (record: ClientUncollectedRecord) => {
+    setRecordToRevert(record);
+    setRevertModalOpen(true);
+  };
+
+  const handleConfirmRevertUncollected = async () => {
+    if (!recordToRevert?.service_order_id) return;
+    setRevertingRecordId(recordToRevert.id);
+    try {
+      const result = await revertNotPickedUp(String(recordToRevert.service_order_id));
+      showSuccess(result.message || 'Não retirada revertida com sucesso.');
+      setRevertModalOpen(false);
+      setRecordToRevert(null);
+      await loadHistory();
+    } catch (err: any) {
+      showError(err.message || 'Erro ao reverter não retirada');
+    } finally {
+      setRevertingRecordId(null);
+    }
   };
 
   const formatCurrency = (value: number) => {
@@ -1245,7 +1307,13 @@ export const ClientHistory: React.FC = () => {
                   Pendências registradas ao marcar OS como não retirada (valores preservados no histórico)
                 </p>
               </div>
-              <UncollectedTab records={uncollectedRecords} navigate={navigate} />
+              <UncollectedTab
+                records={uncollectedRecords}
+                navigate={navigate}
+                canRevert={canRevertUncollected}
+                onRevertRequest={handleRevertRequest}
+                revertingRecordId={revertingRecordId}
+              />
             </div>
           )}
           {/* Observações - comentado por enquanto
@@ -1261,6 +1329,24 @@ export const ClientHistory: React.FC = () => {
           */}
         </div>
       </Card>
+
+      <ServiceOrderRevertNotPickedUpModal
+        isOpen={revertModalOpen}
+        order={recordToRevert?.service_order_id ? {
+          id: recordToRevert.service_order_id,
+          os_number: recordToRevert.os_number,
+          client: client ? { id: client.id, name: client.name } : undefined,
+        } as ServiceOrder : null}
+        previousStatus={recordToRevert?.os_status}
+        processing={revertingRecordId !== null}
+        onClose={() => {
+          if (revertingRecordId === null) {
+            setRevertModalOpen(false);
+            setRecordToRevert(null);
+          }
+        }}
+        onConfirm={handleConfirmRevertUncollected}
+      />
     </div>
   );
 };

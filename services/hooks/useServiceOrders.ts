@@ -146,6 +146,15 @@ export const useServiceOrders = (options: UseServiceOrdersOptions = {}) => {
     []
   );
 
+  const revertNotPickedUp = useCallback(async (id: string) => {
+    setActionLoading(true);
+    try {
+      return await serviceOrdersService.revertNotPickedUp(id);
+    } finally {
+      setActionLoading(false);
+    }
+  }, []);
+
   return {
     serviceOrders: api.data,
     loading: api.loading,
@@ -159,6 +168,7 @@ export const useServiceOrders = (options: UseServiceOrdersOptions = {}) => {
     updateServiceOrder: api.update,
     deleteServiceOrder,
     archiveNotPickedUp,
+    revertNotPickedUp,
     reset: api.reset,
     // Lab actions
     fetchLabOrders,

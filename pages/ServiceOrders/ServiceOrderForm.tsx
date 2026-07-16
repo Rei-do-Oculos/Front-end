@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
-import { Save, ArrowLeft, FileText, Loader2, Search, Edit, Plus, Trash2, Eye, EyeOff } from 'lucide-react';
+import { Save, ArrowLeft, FileText, Loader2, Search, Edit, Plus, Trash2, Eye, EyeOff, RotateCcw } from 'lucide-react';
 import { Card, Button, Input, NumberInput, SingleSelect, MultiSelect, Modal } from '../../components/Common';
 import { ServiceOrderDeleteModal } from '../../components/ServiceOrderDeleteModal';
+import { ServiceOrderRevertNotPickedUpModal } from '../../components/ServiceOrderRevertNotPickedUpModal';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { useServiceOrders } from '../../services/hooks/useServiceOrders';
 import { useClients } from '../../services/hooks/useClients';
@@ -262,7 +263,7 @@ export const ServiceOrderForm: React.FC = () => {
   // Pegar client_id da URL se vier da página de clientes
   const preselectedClientId = searchParams.get('client_id') || '';
   
-  const { getServiceOrder, createServiceOrder, updateServiceOrder, deleteServiceOrder } = useServiceOrders({ autoFetch: false });
+  const { getServiceOrder, createServiceOrder, updateServiceOrder, deleteServiceOrder, revertNotPickedUp, actionLoading: serviceOrderActionLoading } = useServiceOrders({ autoFetch: false });
   const { clients, fetchClients, getClient } = useClients({ autoFetch: false });
   const { laboratories, fetchLaboratories, loading: loadingLaboratories } = useLaboratories({ autoFetch: false });
   const { laboratoryLenses, fetchLaboratoryLenses, loading: loadingLabLenses } = useLaboratoryLenses({ autoFetch: false });
@@ -289,6 +290,8 @@ export const ServiceOrderForm: React.FC = () => {
   const [showEntryReceiptModal, setShowEntryReceiptModal] = useState(false);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [deletingOrder, setDeletingOrder] = useState(false);
+  const [revertModalOpen, setRevertModalOpen] = useState(false);
+  const [revertingOrder, setRevertingOrder] = useState(false);
   /** Padrão: valores dos produtos do laboratório ocultos (***). Eye para alternar. */
   const [showLabProductValues, setShowLabProductValues] = useState(false);
   const [pendingPayload, setPendingPayload] = useState<any>(null);
@@ -1622,6 +1625,29 @@ export const ServiceOrderForm: React.FC = () => {
     !(loadedOrder as any).is_other_store &&
     (loadedOrder.status !== 'completed' || hasSuperAdminRole);
 
+  const canRevertNotPickedUp =
+    isViewMode &&
+    !!loadedOrder &&
+    loadedOrder.status === 'not_picked_up' &&
+    !(loadedOrder as any).is_other_store &&
+    hasPermission('service-orders.archive-not-picked-up');
+
+  const handleConfirmRevertNotPickedUp = async () => {
+    if (!id || !loadedOrder) return;
+    setRevertingOrder(true);
+    try {
+      const result = await revertNotPickedUp(String(id));
+      showSuccess(result.message || 'Não retirada revertida com sucesso.');
+      setRevertModalOpen(false);
+      const refreshed = await getServiceOrder(String(id));
+      setLoadedOrder(refreshed);
+    } catch (err: any) {
+      showError(err.message || 'Erro ao reverter não retirada');
+    } finally {
+      setRevertingOrder(false);
+    }
+  };
+
   const handleConfirmDeleteOrder = async () => {
     if (!id || !loadedOrder) return;
     setDeletingOrder(true);
@@ -1698,6 +1724,17 @@ export const ServiceOrderForm: React.FC = () => {
               onClick={() => navigate(`/service-orders/${id}/edit`)}
             >
               <Edit size={18} /> Editar
+            </Button>
+          )}
+          {canRevertNotPickedUp && (
+            <Button
+              type="button"
+              variant="outline"
+              className="!border-sky-200 !text-sky-700 hover:!bg-sky-50"
+              onClick={() => setRevertModalOpen(true)}
+              disabled={revertingOrder || serviceOrderActionLoading}
+            >
+              <RotateCcw size={18} /> Reverter não retirada
             </Button>
           )}
           {(isViewMode || isEditMode) && canDeleteThisOrder && (
@@ -2868,6 +2905,15 @@ export const ServiceOrderForm: React.FC = () => {
         deleting={deletingOrder}
         onClose={() => setDeleteModalOpen(false)}
         onConfirm={handleConfirmDeleteOrder}
+      />
+
+      <ServiceOrderRevertNotPickedUpModal
+        isOpen={revertModalOpen}
+        order={loadedOrder}
+        previousStatus={(loadedOrder as any)?.not_picked_up_previous_status}
+        processing={revertingOrder || serviceOrderActionLoading}
+        onClose={() => setRevertModalOpen(false)}
+        onConfirm={handleConfirmRevertNotPickedUp}
       />
     </div>
   );
