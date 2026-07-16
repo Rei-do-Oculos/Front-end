@@ -41,6 +41,16 @@ function toArray<T>(val: T[] | Record<string, T> | null | undefined): T[] {
   return [];
 }
 
+/** Gera URL de imagem do QR a partir do conteúdo oficial (qr_code_url /nfce/qrcode?p=...). */
+export function buildQrCodeImageUrl(qrContent: string | null | undefined, size = 120): string | null {
+  const content = qrContent?.trim();
+  if (!content) return null;
+  if (content.startsWith('http') && (content.includes('create-qr-code') || content.includes('.png'))) {
+    return content;
+  }
+  return `https://api.qrserver.com/v1/create-qr-code/?size=${size}x${size}&data=${encodeURIComponent(content)}`;
+}
+
 export function invoiceToNFCeData(invoice: Invoice): NFCeData | null {
   const store = invoice.store;
   if (!store || !store.cnpj) return null;
@@ -80,13 +90,8 @@ export function invoiceToNFCeData(invoice: Invoice): NFCeData | null {
     document: client.document ?? null,
   } : undefined;
 
-  // QR Code: usa qr_code_url da API (URL /nfce/qrcode?p=...). Sem fallback inventado.
-  const qrContent = invoice.qr_code_url || null;
-  const qrCodeUrl = qrContent
-    ? (qrContent.startsWith('http') && (qrContent.includes('create-qr-code') || qrContent.includes('.png')))
-      ? qrContent
-      : `https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=${encodeURIComponent(qrContent)}`
-    : undefined;
+  // QR Code: usa qr_code_url oficial (URL /nfce/qrcode?p=...). Sem fallback inventado.
+  const qrCodeUrl = buildQrCodeImageUrl(invoice.qr_code_url, 120) ?? undefined;
 
   return {
     store: storeData,
@@ -147,10 +152,10 @@ export function buildReciboHtml(data: NFCeData, tipo: ReciboTipo = 'NFC-e'): str
   const accessKeyDigits = (accessKey || '').replace(/\D/g, '');
   const reciboSubtitle = storeReceiptSubtitleLine(store);
 
-  // Para NF-e/NFC-e, garante QR Code no recibo mesmo quando a API não retornar qrCodeUrl.
+  // NFC-e: só QR oficial. NF-e: fallback de consulta por chave (portal NFe).
   const resolvedQrCodeUrl = (() => {
     if (qrCodeUrl && qrCodeUrl.trim()) return qrCodeUrl;
-    if (!accessKeyDigits) return undefined;
+    if (tipo === 'NFC-e' || !accessKeyDigits) return undefined;
     const consultaComChave = `${consultaUrl}?chave=${accessKeyDigits}`;
     return `https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=${encodeURIComponent(consultaComChave)}`;
   })();

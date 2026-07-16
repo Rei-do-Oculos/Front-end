@@ -27,7 +27,7 @@ import { useAuth } from '../../services/hooks/useAuth';
 import { usePermission } from '../../services/hooks/usePermission';
 import { userHasAccessToStore } from '../../utils/storeAccess';
 import { invoicesService, type Invoice } from '../../services/api/invoices';
-import { invoiceToNFCeData, buildReciboHtml } from '../../utils/nfceCupom';
+import { invoiceToNFCeData, buildReciboHtml, buildQrCodeImageUrl } from '../../utils/nfceCupom';
 import { ClientWhatsAppAvatar } from '../../components/ClientWhatsAppAvatar';
 import { useBackToList } from '../../hooks/useBackToList';
 
@@ -72,6 +72,15 @@ function mapInvoiceToDisplay(inv: Invoice) {
   const firstPayment = inv.payments?.[0];
   const total = Number(inv.total_value) || 0;
   const qty = inv.payments?.length || 1;
+  const invoiceType = getInvoiceType(inv.access_key);
+  const qrCode = invoiceType === 'NFC-e'
+    ? buildQrCodeImageUrl(inv.qr_code_url, 200)
+    : (
+        buildQrCodeImageUrl(inv.qr_code_url, 200)
+        ?? (inv.access_key
+          ? buildQrCodeImageUrl(`http://www.fazenda.pr.gov.br/nfe/consulta?chave=${inv.access_key.replace(/\D/g, '')}`, 200)
+          : null)
+      );
   return {
     invoiceNumber: inv.invoice_number,
     series: inv.series,
@@ -97,7 +106,7 @@ function mapInvoiceToDisplay(inv: Invoice) {
     storeEmail: store?.email || null,
     accessKey: inv.access_key || null,
     protocol: inv.protocol || null,
-    invoiceType: getInvoiceType(inv.access_key),
+    invoiceType,
     items: (Array.isArray(inv.items) ? inv.items : (inv.items ? Object.values(inv.items) : [])).map((i: any) => ({
       description: i?.description ?? '—',
       ncm: i?.ncm || '—',
@@ -108,9 +117,7 @@ function mapInvoiceToDisplay(inv: Invoice) {
     paymentMethod: firstPayment ? paymentLabel[firstPayment.payment_method] || firstPayment.payment_method : '—',
     installments: qty > 1 ? qty : undefined,
     installmentValue: qty > 1 ? total / qty : undefined,
-    qrCode: inv.access_key
-      ? `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(inv.access_key)}`
-      : null,
+    qrCode,
   };
 }
 
