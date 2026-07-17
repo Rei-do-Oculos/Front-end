@@ -100,6 +100,8 @@ export interface InvoiceListParams {
   store_id?: number | string;
   date_from?: string;
   date_to?: string;
+  /** Um ou mais números separados por vírgula (ex.: 134,135,185) */
+  invoice_number?: string;
   order_by?: string;
   order_dir?: 'asc' | 'desc';
   /** Formato do arquivo de exportação: zip ou rar */

@@ -123,6 +123,7 @@ export const InvoiceList: React.FC = () => {
   const [storeFilter, setStoreFilter] = useState(() => getString('store_id'));
   const [dateFromFilter, setDateFromFilter] = useState(() => getString('date_from'));
   const [dateToFilter, setDateToFilter] = useState(() => getString('date_to'));
+  const [invoiceNumbersFilter, setInvoiceNumbersFilter] = useState(() => getString('invoice_number'));
   // Filtros aplicados (só atualizados ao clicar em "Aplicar Filtros")
   const [appliedFilters, setAppliedFilters] = useState({
     searchTerm: getString('search'),
@@ -131,6 +132,7 @@ export const InvoiceList: React.FC = () => {
     storeFilter: getString('store_id'),
     dateFromFilter: getString('date_from'),
     dateToFilter: getString('date_to'),
+    invoiceNumbersFilter: getString('invoice_number'),
   });
   const [sortBy, setSortBy] = useState<string | null>(() => getString('sort_by', 'created_at'));
   const [sortDirection, setSortDirection] = useState<SortDirection>(() => getString('sort_dir', 'desc') as SortDirection);
@@ -147,6 +149,7 @@ export const InvoiceList: React.FC = () => {
     storeFilter: hasSuperAdminRole ? appliedFilters.storeFilter : '',
     dateFromFilter: appliedFilters.dateFromFilter,
     dateToFilter: appliedFilters.dateToFilter,
+    invoiceNumbersFilter: appliedFilters.invoiceNumbersFilter,
   });
 
   const fetchList = useCallback(() => {
@@ -163,6 +166,7 @@ export const InvoiceList: React.FC = () => {
         store_id: hasSuperAdminRole ? (a.storeFilter || undefined) : undefined,
         date_from: a.dateFromFilter || undefined,
         date_to: a.dateToFilter || undefined,
+        invoice_number: a.invoiceNumbersFilter?.trim() || undefined,
         order_by: sortBy || 'created_at',
         order_dir: sortDirection,
       })
@@ -220,6 +224,7 @@ export const InvoiceList: React.FC = () => {
       store_id: appliedFilters.storeFilter,
       date_from: appliedFilters.dateFromFilter,
       date_to: appliedFilters.dateToFilter,
+      invoice_number: appliedFilters.invoiceNumbersFilter,
       sort_by: sortBy || 'created_at',
       sort_dir: sortDirection,
       page: currentPage,
@@ -266,6 +271,7 @@ export const InvoiceList: React.FC = () => {
       storeFilter,
       dateFromFilter,
       dateToFilter,
+      invoiceNumbersFilter,
     });
     setCurrentPage(1);
   };
@@ -277,6 +283,7 @@ export const InvoiceList: React.FC = () => {
     setStoreFilter('');
     setDateFromFilter('');
     setDateToFilter('');
+    setInvoiceNumbersFilter('');
     setAppliedFilters({
       searchTerm: '',
       statusFilter: '',
@@ -284,6 +291,7 @@ export const InvoiceList: React.FC = () => {
       storeFilter: '',
       dateFromFilter: '',
       dateToFilter: '',
+      invoiceNumbersFilter: '',
     });
     setCurrentPage(1);
   };
@@ -361,6 +369,7 @@ export const InvoiceList: React.FC = () => {
       storeFilter,
       dateFromFilter,
       dateToFilter,
+      invoiceNumbersFilter,
     };
     const statusApi = mapStatusFilterToApi(filters.statusFilter);
     setExportXmlLoading(true);
@@ -372,6 +381,7 @@ export const InvoiceList: React.FC = () => {
         store_id: hasSuperAdminRole ? (filters.storeFilter || undefined) : undefined,
         date_from: filters.dateFromFilter || undefined,
         date_to: filters.dateToFilter || undefined,
+        invoice_number: filters.invoiceNumbersFilter?.trim() || undefined,
         order_by: sortBy || 'created_at',
         order_dir: sortDirection,
         format,
@@ -510,10 +520,19 @@ export const InvoiceList: React.FC = () => {
 
       {/* Filtros */}
       <FilterSection onClear={handleClearFilters} onApply={handleApplyFilters}>
-        <div className="col-span-full grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="col-span-full lg:col-span-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div>
+            <Input 
+              label="Números da nota"
+              placeholder="134, 135, 185"
+              value={invoiceNumbersFilter}
+              onChange={(e) => setInvoiceNumbersFilter(e.target.value)}
+            />
+            <p className="mt-1 text-xs text-slate-500">Separe por vírgula, ponto e vírgula ou espaço.</p>
+          </div>
           <Input 
             label="Buscar" 
-            placeholder="Nº NF-e, OS, Cliente ou Chave de Acesso..."
+            placeholder="OS, Cliente ou Chave de Acesso..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
@@ -557,6 +576,8 @@ export const InvoiceList: React.FC = () => {
               placeholder="Todas"
             />
           )}
+        </div>
+        <div className="col-span-full lg:col-span-4 grid grid-cols-1 md:grid-cols-2 gap-6">
           <Input 
             label="Data Início" 
             type="date"
