@@ -8,7 +8,7 @@ import { useServiceOrders } from '../../services/hooks/useServiceOrders';
 import { useClients } from '../../services/hooks/useClients';
 import type { Client } from '../../services/api/clients';
 import { useLaboratories } from '../../services/hooks/useLaboratories';
-import { useLaboratoryLenses } from '../../services/hooks/useLaboratoryLenses';
+import { laboratoryLensesService, type LaboratoryLens } from '../../services/api/laboratoryLenses';
 import { useFrames } from '../../services/hooks/useFrames';
 import type { Frame } from '../../services/api/frames';
 import { useLenses } from '../../services/hooks/useLenses';
@@ -266,7 +266,8 @@ export const ServiceOrderForm: React.FC = () => {
   const { getServiceOrder, createServiceOrder, updateServiceOrder, deleteServiceOrder, revertNotPickedUp, actionLoading: serviceOrderActionLoading } = useServiceOrders({ autoFetch: false });
   const { clients, fetchClients, getClient } = useClients({ autoFetch: false });
   const { laboratories, fetchLaboratories, loading: loadingLaboratories } = useLaboratories({ autoFetch: false });
-  const { laboratoryLenses, fetchLaboratoryLenses, loading: loadingLabLenses } = useLaboratoryLenses({ autoFetch: false });
+  const [osLaboratoryLenses, setOsLaboratoryLenses] = useState<LaboratoryLens[]>([]);
+  const [loadingOsLabLenses, setLoadingOsLabLenses] = useState(false);
   const { frames, fetchFrames } = useFrames({ autoFetch: false });
   const { lenses, fetchLenses, loading: loadingLenses } = useLenses({ autoFetch: false });
   const { stores, fetchStores } = useStores({ autoFetch: false });
@@ -304,7 +305,7 @@ export const ServiceOrderForm: React.FC = () => {
 
   // Dados auxiliares (labs/lentes): bloqueia a tela só no carregamento inicial.
   // Não incluir loadingFrames: a busca de armações refaz fetch a cada termo e esconderia o formulário inteiro.
-  const auxiliaryDataLoading = loadingLaboratories || loadingLabLenses || loadingLenses;
+  const auxiliaryDataLoading = loadingLaboratories || loadingLenses;
 
   // Rolar até o banner de erro quando houver validação
   useEffect(() => {
@@ -499,15 +500,71 @@ export const ServiceOrderForm: React.FC = () => {
     }
   }, [defaultStoreId, user, isCreateMode]);
 
-  // Carregar dados auxiliares (armações: efeito separado com loja + busca na API)
+  // Carregar dados auxiliares (produtos de lab: efeito separado ao selecionar laboratório)
   useEffect(() => {
     fetchClients(1, { per_page: 100 });
     fetchLaboratories(1, { per_page: 100 });
-    fetchLaboratoryLenses(1, { per_page: 100 });
     fetchLenses(1, { per_page: 100 });
     fetchStores(1, { per_page: 100 });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Buscar produtos do laboratório filtrados por lab selecionado (evita limite global de 100 itens)
+  useEffect(() => {
+    const labIds = formData.laboratory_ids.filter(Boolean);
+    if (labIds.length === 0) {
+      setOsLaboratoryLenses([]);
+      setLoadingOsLabLenses(false);
+      return;
+    }
+
+    let cancelled = false;
+    setLoadingOsLabLenses(true);
+
+    (async () => {
+      try {
+        const results = await Promise.all(
+          labIds.map(async (labId) => {
+            const all: LaboratoryLens[] = [];
+            let page = 1;
+            let totalPages = 1;
+            do {
+              const resp = await laboratoryLensesService.getAll({
+                page,
+                per_page: 100,
+                laboratory_id: Number(labId),
+                order_by: 'name',
+                order_dir: 'asc',
+              });
+              all.push(...resp.data);
+              totalPages = resp.meta.totalPages;
+              page += 1;
+            } while (page <= totalPages);
+            return all;
+          })
+        );
+
+        if (cancelled) return;
+
+        const merged = new Map<number, LaboratoryLens>();
+        results.flat().forEach((lens) => merged.set(lens.id, lens));
+        setOsLaboratoryLenses(
+          Array.from(merged.values()).sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'))
+        );
+      } catch (err) {
+        if (!cancelled) {
+          console.error('Erro ao carregar produtos do laboratório:', err);
+          setOsLaboratoryLenses([]);
+        }
+      } finally {
+        if (!cancelled) setLoadingOsLabLenses(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [formData.laboratory_ids]);
 
   useEffect(() => {
     (Array.isArray(frames) ? frames : []).forEach((f) => framesByIdRef.current.set(f.id, f));
@@ -1545,7 +1602,29 @@ export const ServiceOrderForm: React.FC = () => {
     return opts;
   }, [clientsList, formData.client_id, loadedOrder?.client, preselectedClientData]);
   const laboratoriesList = Array.isArray(laboratories) ? laboratories : [];
-  const laboratoryLensesList = Array.isArray(laboratoryLenses) ? laboratoryLenses : [];
+  /** Produtos carregados por laboratório selecionado + snapshot da OS (edição/visualização). */
+  const laboratoryLensesList = useMemo(() => {
+    const fromApi = osLaboratoryLenses;
+    const fromSnapshot = orderLaboratoryLensesSnapshot ?? [];
+    const ids = new Set(fromApi.map((l) => l.id));
+    const extras: LaboratoryLens[] = fromSnapshot
+      .filter((l) => !ids.has(l.id))
+      .map((l) => ({
+        id: l.id,
+        name: l.name,
+        laboratory_id: l.laboratory_id ?? 0,
+        description: null,
+        delivery_days: null,
+        cost_price: l.cost_price,
+        sale_price: l.sale_price,
+        active: true,
+        created_at: '',
+        updated_at: '',
+        deleted_at: null,
+        laboratory: l.laboratory ?? undefined,
+      }));
+    return [...fromApi, ...extras];
+  }, [osLaboratoryLenses, orderLaboratoryLensesSnapshot]);
 
   /** Opções do multiselect de laboratórios: inclui labs selecionados mesmo se não estiverem na lista (ex.: catálogo antigo). */
   const laboratorySelectOptions = useMemo(() => {
@@ -1608,10 +1687,12 @@ export const ServiceOrderForm: React.FC = () => {
   }, [frames, loadedOrder?.frames, formData.frames]);
   const lensesList = Array.isArray(lenses) ? lenses : [];
 
-  // Filtrar laboratoryLenses pelo laboratório selecionado
-  const filteredLaboratoryLenses = formData.laboratory_ids.length > 0
-    ? laboratoryLensesList.filter(l => formData.laboratory_ids.includes(String(l.laboratory_id)))
-    : laboratoryLensesList;
+  const filteredLaboratoryLenses =
+    formData.laboratory_ids.length > 0
+      ? laboratoryLensesList.filter((l) =>
+          formData.laboratory_ids.includes(String(l.laboratory_id))
+        )
+      : [];
 
   // Aro de uso é obrigatório quando: sem armação + tem laboratório + tem produto de laboratório
   const rimUseRequired = !formData.frames?.length && formData.laboratory_ids.length > 0 && formData.laboratory_lenses?.length > 0;
@@ -2288,6 +2369,14 @@ export const ServiceOrderForm: React.FC = () => {
                 <MultiSelect
                   label=""
                   value={formData.laboratory_lenses}
+                  disabled={isViewMode || formData.laboratory_ids.length === 0 || loadingOsLabLenses}
+                  placeholder={
+                    formData.laboratory_ids.length === 0
+                      ? 'Selecione um laboratório primeiro...'
+                      : loadingOsLabLenses
+                        ? 'Carregando produtos...'
+                        : 'Selecione os produtos...'
+                  }
                   onChange={(vals) => {
                     setFormData((prev) => {
                       const nextQ: Record<string, string> = { ...prev.laboratory_lens_quantities };
@@ -2358,9 +2447,7 @@ export const ServiceOrderForm: React.FC = () => {
                       };
                     });
                   })()}
-                  placeholder="Selecione produtos..."
-                  disabled={isViewMode || formData.laboratory_ids.length === 0}
-                  disabledMessage={isViewMode ? undefined : "Selecione ao menos um laboratório"}
+                  disabledMessage={isViewMode ? undefined : 'Selecione ao menos um laboratório'}
                   searchable
                 />
                 {formData.laboratory_lenses.length > 0 && (
