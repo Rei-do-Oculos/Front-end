@@ -31,6 +31,7 @@ export interface EntryReceiptPrescriptionSource {
   transitions?: boolean;
   frame_included?: boolean;
   tinting?: boolean;
+  photochromic?: boolean;
   notes?: string | null;
   /** Lentes de estoque (nome) */
   lenses?: Array<{ name?: string | null }>;
@@ -96,6 +97,7 @@ export function buildPrescriptionLinesForEntryReceipt(
   if (src.transitions) lines.push({ label: 'Transitions', value: 'Sim' });
   if (src.frame_included) lines.push({ label: 'Armação inclusa', value: 'Sim' });
   if (src.tinting) lines.push({ label: 'Coloração', value: 'Sim' });
+  if (src.photochromic) lines.push({ label: 'Fotocromático', value: 'Sim' });
 
   if (Array.isArray(src.lenses)) {
     src.lenses.forEach((l, i) => {

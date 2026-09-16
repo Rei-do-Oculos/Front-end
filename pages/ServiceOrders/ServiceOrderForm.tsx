@@ -369,6 +369,7 @@ export const ServiceOrderForm: React.FC = () => {
     transitions: false,
     frame_included: false,
     tinting: false,
+    photochromic: false,
     // Valores
     price: '',
     payment_method: '',
@@ -783,6 +784,7 @@ export const ServiceOrderForm: React.FC = () => {
               transitions: order.transitions || false,
               frame_included: order.frame_included || false,
               tinting: order.tinting || false,
+              photochromic: order.photochromic || false,
               // Valores
               price: formatFromNumber(order.price),
               payment_method: order.payment_method || '',
@@ -1212,6 +1214,7 @@ export const ServiceOrderForm: React.FC = () => {
       transitions: formData.transitions,
       frame_included: formData.frame_included,
       tinting: formData.tinting,
+      photochromic: formData.photochromic,
       notes: formData.notes,
       lenses: stockLensMeta,
     };
@@ -1473,6 +1476,7 @@ export const ServiceOrderForm: React.FC = () => {
       transitions: formData.transitions,
       frame_included: formData.frame_included,
       tinting: formData.tinting,
+      photochromic: formData.photochromic,
       // Valores
       price: formData.price ? parseFloat(parseCurrency(formData.price)) : 0,
       payment_method: formData.use_partial_payments ? null : (formData.payment_method || null),
@@ -2184,6 +2188,7 @@ export const ServiceOrderForm: React.FC = () => {
                 { key: 'bifocal', label: 'Bifocais' },
                 { key: 'transitions', label: 'Transitions' },
                 { key: 'tinting', label: 'Coloração' },
+                { key: 'photochromic', label: 'Fotocromático' },
               ].map(({ key, label }) => (
                 <label key={key} className="inline-flex items-center gap-2 cursor-pointer select-none">
                   <div className="relative">

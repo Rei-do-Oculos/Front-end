@@ -241,7 +241,7 @@ export const ServiceOrderSheet = forwardRef<HTMLDivElement, ServiceOrderSheetPro
                     ],
                     [
                       { label: 'Coloração', checked: order.tinting },
-                      null,
+                      { label: 'Fotocromático', checked: order.photochromic },
                     ],
                   ].map((row, i) => (
                     <tr key={i}>

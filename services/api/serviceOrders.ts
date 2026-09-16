@@ -49,6 +49,7 @@ export interface ServiceOrder {
   transitions: boolean;
   frame_included: boolean;
   tinting: boolean;
+  photochromic: boolean;
   // Valores
   price: number;
   /** Soma do custo dos produtos de laboratório na OS (preço de custo × quantidade por linha). */
@@ -207,6 +208,7 @@ export interface CreateServiceOrderDto {
   transitions?: boolean;
   frame_included?: boolean;
   tinting?: boolean;
+  photochromic?: boolean;
   // Valores
   price?: number;
   payment_method?: 'credit_card' | 'debit_card' | 'cash' | 'pix' | 'on_pickup' | null;

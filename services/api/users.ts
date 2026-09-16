@@ -54,6 +54,7 @@ export interface CreateUserDto {
 
 export interface UpdateUserDto extends Partial<Omit<CreateUserDto, 'password_confirmation'>> {
   password?: string;
+  active?: boolean;
 }
 
 export interface UsersQueryParams {

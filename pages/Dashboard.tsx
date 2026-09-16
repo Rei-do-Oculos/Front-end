@@ -142,7 +142,9 @@ export const Dashboard: React.FC = () => {
     <div className="space-y-8 lg:space-y-10 animate-in fade-in duration-700">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6">
         <div>
-          <h1 className="text-2xl lg:text-3xl font-bold text-slate-950 tracking-tight">Seja bem-vindo{user?.name ? `, ${user.name}` : ''}</h1>
+          <h1 className="text-2xl lg:text-3xl font-bold text-slate-950 tracking-tight">
+            Seja bem-vindo{user?.name ? `, ${user.name}` : ''}
+          </h1>
           <p className="text-xs lg:text-sm text-slate-500 font-medium mt-1">Resumo Painel Administrativo</p>
         </div>
         {hasPermission('service-orders.create') && (

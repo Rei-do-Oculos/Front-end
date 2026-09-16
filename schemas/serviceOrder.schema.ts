@@ -145,6 +145,7 @@ export const serviceOrderSchema = z.object({
   transitions: z.boolean().default(false),
   frame_included: z.boolean().default(false),
   tinting: z.boolean().default(false),
+  photochromic: z.boolean().default(false),
 
   // Observações (opcional)
   notes: z

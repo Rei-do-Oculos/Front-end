@@ -128,7 +128,7 @@ export const UserForm: React.FC = () => {
             roles: userRoles.map(r => r.id),
             permissions: allUserPermissions,
             stores: userStores.map((s: any) => s.id),
-            active: user.active !== undefined ? user.active : true, // Usar campo active, default true
+            active: user.active !== undefined ? user.active : true,
           });
         } catch (err: any) {
           console.error('Erro ao carregar usuário:', err);
@@ -207,7 +207,6 @@ export const UserForm: React.FC = () => {
         payload.password_confirmation = formData.password_confirmation;
       }
 
-      // Se estiver editando, adicionar campo active para ativar/desativar
       if (isEditMode) {
         payload.active = formData.active;
       }

@@ -105,6 +105,7 @@ export function entryReceiptPrescriptionFromServiceOrder(
     transitions: order.transitions,
     frame_included: order.frame_included,
     tinting: order.tinting,
+    photochromic: order.photochromic,
     notes: order.notes,
     lenses: orderLensesForReceipt(order),
   };
